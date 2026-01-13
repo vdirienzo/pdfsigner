@@ -1,0 +1,158 @@
+"""
+test_position_finder.py - Tests para PositionFinder
+
+Autor: Homero Thompson del Lago del Terror
+"""
+
+import pytest
+
+from pdfsigner.core.pdf_analyzer.content_analyzer import BoundingBox, PageInfo
+from pdfsigner.core.pdf_analyzer.position_finder import (
+    PositionFinder,
+    PositionPreference,
+)
+
+
+class MockAnalyzer:
+    """Mock de ContentAnalyzer para tests."""
+
+    def __init__(self, page_info: PageInfo):
+        self._page_info = page_info
+
+    def analyze_page(self, page_number: int) -> PageInfo:
+        return self._page_info
+
+
+class TestBoundingBox:
+    """Tests para BoundingBox."""
+
+    def test_width_height(self):
+        """Test cálculo de ancho y alto."""
+        bbox = BoundingBox(x0=10, y0=20, x1=110, y1=70)
+
+        assert bbox.width == 100
+        assert bbox.height == 50
+
+    def test_intersects_true(self):
+        """Test intersección positiva."""
+        bbox1 = BoundingBox(x0=0, y0=0, x1=100, y1=100)
+        bbox2 = BoundingBox(x0=50, y0=50, x1=150, y1=150)
+
+        assert bbox1.intersects(bbox2)
+        assert bbox2.intersects(bbox1)
+
+    def test_intersects_false(self):
+        """Test sin intersección."""
+        bbox1 = BoundingBox(x0=0, y0=0, x1=100, y1=100)
+        bbox2 = BoundingBox(x0=200, y0=200, x1=300, y1=300)
+
+        assert not bbox1.intersects(bbox2)
+        assert not bbox2.intersects(bbox1)
+
+    def test_to_tuple(self):
+        """Test conversión a tupla."""
+        bbox = BoundingBox(x0=10, y0=20, x1=30, y1=40)
+
+        assert bbox.to_tuple() == (10, 20, 30, 40)
+
+
+class TestPositionFinder:
+    """Tests para PositionFinder."""
+
+    @pytest.fixture
+    def empty_page(self) -> PageInfo:
+        """Página sin contenido."""
+        return PageInfo(
+            page_number=0,
+            width=612,  # Letter size
+            height=792,
+            text_blocks=[],
+            image_blocks=[],
+            drawing_blocks=[],
+        )
+
+    @pytest.fixture
+    def page_with_content(self) -> PageInfo:
+        """Página con contenido en el centro, dejando espacio en esquinas."""
+        return PageInfo(
+            page_number=0,
+            width=612,
+            height=792,
+            text_blocks=[
+                BoundingBox(x0=100, y0=100, x1=500, y1=600),  # Contenido central
+            ],
+            image_blocks=[],
+            drawing_blocks=[],
+        )
+
+    def test_find_position_empty_page(self, empty_page):
+        """Test encontrar posición en página vacía."""
+        analyzer = MockAnalyzer(empty_page)
+        finder = PositionFinder(analyzer)
+
+        position = finder.find_position(
+            page_number=0,
+            sig_width=100,
+            sig_height=50,
+            preference=PositionPreference.AUTO,
+        )
+
+        assert position.is_optimal
+        assert position.width == 100
+        assert position.height == 50
+
+    def test_find_position_with_preference(self, empty_page):
+        """Test posición con preferencia específica."""
+        analyzer = MockAnalyzer(empty_page)
+        finder = PositionFinder(analyzer)
+
+        position = finder.find_position(
+            page_number=0,
+            sig_width=100,
+            sig_height=50,
+            preference=PositionPreference.BOTTOM_RIGHT,
+        )
+
+        # Debería estar en la esquina inferior derecha
+        assert position.x > empty_page.width / 2
+        assert position.y > empty_page.height / 2
+        assert position.is_optimal
+
+    def test_find_position_page_with_content(self, page_with_content):
+        """Test encontrar posición evitando contenido."""
+        analyzer = MockAnalyzer(page_with_content)
+        finder = PositionFinder(analyzer)
+
+        position = finder.find_position(
+            page_number=0,
+            sig_width=100,
+            sig_height=50,
+            preference=PositionPreference.AUTO,
+        )
+
+        # La posición no debe intersectar con el contenido
+        content_bbox = page_with_content.text_blocks[0]
+        sig_bbox = position.bbox
+
+        # Verificar que no hay intersección
+        assert not sig_bbox.intersects(content_bbox)
+
+    def test_mm_to_points(self, empty_page):
+        """Test conversión de mm a puntos."""
+        analyzer = MockAnalyzer(empty_page)
+        finder = PositionFinder(analyzer)
+
+        # 25.4mm = 1 inch = 72 points
+        points = finder.mm_to_points(25.4)
+        assert abs(points - 72) < 0.01
+
+    def test_get_signature_size_points(self, empty_page):
+        """Test obtener tamaño de firma en puntos."""
+        analyzer = MockAnalyzer(empty_page)
+        finder = PositionFinder(analyzer)
+
+        width_pts, height_pts = finder.get_signature_size_points(50, 20)
+
+        # 50mm ≈ 141.7 pts, 20mm ≈ 56.7 pts
+        assert 141 < width_pts < 143
+        assert 56 < height_pts < 58

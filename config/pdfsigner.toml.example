@@ -1,0 +1,110 @@
+# PDFSigner - Configuración
+#
+# Autor: Homero Thompson del Lago del Terror
+#
+# Copiar a ~/.config/pdfsigner/config.toml y ajustar valores.
+
+# ═══════════════════════════════════════════════════════════════
+# NSS Database
+# ═══════════════════════════════════════════════════════════════
+# Ruta a la base de datos NSS donde está configurado el token USB
+nss_db_path = "/home/user/.nss"
+
+# ═══════════════════════════════════════════════════════════════
+# Timestamp Authority (TSA) - REQUERIDO para PAdES-LTV
+# ═══════════════════════════════════════════════════════════════
+#
+# El TSA (Timestamp Authority) provee prueba criptográfica de la
+# fecha/hora de la firma. Sin TSA, la firma es PAdES-B (básica).
+#
+# ┌─────────────────────────────────────────────────────────────┐
+# │  OPCIÓN 1: TSA Públicos Gratuitos (recomendado)             │
+# └─────────────────────────────────────────────────────────────┘
+# Válidos legalmente, sin costo, sin autenticación.
+#
+# FreeTSA (recomendado):
+tsa_url = "https://freetsa.org/tsr"
+#
+# Alternativas gratuitas:
+#   tsa_url = "http://timestamp.digicert.com"
+#   tsa_url = "http://timestamp.sectigo.com"
+#   tsa_url = "http://timestamp.globalsign.com/tsa/r6advanced1"
+#   tsa_url = "http://tsa.starfieldtech.com"
+#
+# ┌─────────────────────────────────────────────────────────────┐
+# │  OPCIÓN 2: TSA Corporativo/Local                            │
+# └─────────────────────────────────────────────────────────────┘
+# Si tu organización tiene un servidor TSA propio.
+#
+# Ejemplo TSA corporativo:
+#   tsa_url = "https://tsa.miempresa.com/timestamp"
+#   tsa_username = "usuario"
+#   tsa_password = "contraseña"
+#
+# Ejemplo TSA local (para desarrollo/testing):
+#   tsa_url = "http://localhost:8080/timestamp"
+#
+# ┌─────────────────────────────────────────────────────────────┐
+# │  OPCIÓN 3: TSA del proveedor del certificado                │
+# └─────────────────────────────────────────────────────────────┘
+# Muchas CAs (Autoridades Certificadoras) ofrecen TSA incluido
+# con la compra del certificado. Consultar documentación de tu CA.
+#
+# Ejemplos por país/proveedor:
+#   Argentina (AFIP): "https://tsaserver.afip.gob.ar/tsa/tss"
+#   España (FNMT): "https://www.fnmt.es/tsa/tss"
+#
+# ┌─────────────────────────────────────────────────────────────┐
+# │  OPCIÓN 4: Sin TSA (PAdES-B básico)                         │
+# └─────────────────────────────────────────────────────────────┘
+# Dejar vacío para firma sin timestamp. La firma es válida pero
+# no tiene prueba de cuándo se realizó.
+#
+#   tsa_url = ""
+#
+# ───────────────────────────────────────────────────────────────
+
+# Credenciales TSA (solo si tu TSA requiere autenticación)
+# tsa_username = ""
+# tsa_password = ""
+
+# ═══════════════════════════════════════════════════════════════
+# Firma Visible (opcional)
+# ═══════════════════════════════════════════════════════════════
+# Si la firma es visible por defecto
+default_visible = false
+
+# Dimensiones del sello de firma (en milímetros)
+signature_width_mm = 50
+signature_height_mm = 20
+
+# Imagen personalizada para firma visible (PNG o JPG)
+# signature_image_path = "/ruta/a/mi_firma.png"
+
+# Página por defecto para firma visible: "last", "first", o número
+default_page = "last"
+
+# ═══════════════════════════════════════════════════════════════
+# Output
+# ═══════════════════════════════════════════════════════════════
+# Sufijo para archivos firmados
+# Ejemplo: documento.pdf → documento_firmado.pdf
+output_suffix = "_firmado"
+
+# ═══════════════════════════════════════════════════════════════
+# PIN Cache
+# ═══════════════════════════════════════════════════════════════
+# Cachear PIN durante firma en lote (más cómodo pero menos seguro)
+pin_cache_enabled = true
+
+# Tiempo de expiración del cache en segundos (5 minutos por defecto)
+pin_cache_timeout_seconds = 300
+
+# ═══════════════════════════════════════════════════════════════
+# Logging
+# ═══════════════════════════════════════════════════════════════
+# Nivel de log: DEBUG, INFO, WARNING, ERROR
+log_level = "INFO"
+
+# Directorio de logs
+# log_dir = "~/.local/share/pdfsigner/logs"

@@ -1,0 +1,73 @@
+[project]
+name = "pdfsigner"
+version = "0.1.0"
+description = "Plugin de Nautilus para firma digital de PDFs con token USB SafeNet 5110"
+readme = "README.md"
+requires-python = ">=3.12"
+authors = [
+    { name = "Homero Thompson del Lago del Terror" }
+]
+dependencies = [
+    "pyhanko[pkcs11]>=0.21.0",
+    "python-pkcs11>=0.7.0",
+    "pymupdf>=1.24.0",
+    "pydantic-settings>=2.0.0",
+    "loguru>=0.7.0",
+    "cryptography>=42.0.0",
+    "certifi>=2024.0.0",
+]
+# Nota: PyGObject se usa del sistema (python3-gi) ya que viene con python3-nautilus
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-cov>=4.0.0",
+    "ruff>=0.3.0",
+    "mypy>=1.8.0",
+]
+
+[project.scripts]
+pdfsigner = "pdfsigner.main:main"
+pdfsigner-gui = "pdfsigner.gui.app:run_gui"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pdfsigner"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W", "UP"]
+# E402: Ignorar en archivos GTK (gi.require_version debe ir antes de imports)
+ignore = ["E402"]
+
+[tool.ruff.lint.per-file-ignores]
+# Archivos que usan PyGObject necesitan imports después de gi.require_version
+"src/pdfsigner/gui/*.py" = ["E402"]
+"src/pdfsigner/ui/**/*.py" = ["E402"]
+"src/pdfsigner/nautilus_extension/*.py" = ["E402"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src"]
+
+[tool.mypy]
+python_version = "3.12"
+warn_return_any = false  # Demasiados falsos positivos con PyGObject
+warn_unused_ignores = true
+# Ignorar errores en módulos externos sin stubs
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = [
+    "pyhanko.*",
+    "pkcs11.*",
+    "fitz.*",
+    "gi.*",
+]
+ignore_errors = true
