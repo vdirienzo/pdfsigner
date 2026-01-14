@@ -108,7 +108,7 @@ class PDFSignerApp(Adw.Application):
             developer_name="Homero Thompson del Lago del Terror",
             version="0.1.0",
             comments="Digital signature of PDFs with SafeNet 5110 USB token",
-            website="https://github.com/user/pdfsigner",
+            website="https://github.com/vdirienzo/pdfsigner",
             license_type=Gtk.License.MIT_X11,
             developers=["Homero Thompson del Lago del Terror"],
         )
