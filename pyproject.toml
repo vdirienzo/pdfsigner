@@ -17,6 +17,8 @@ dependencies = [
     "certifi>=2024.0.0",
     "urllib3>=2.6.3",
     "babel>=2.17.0",
+    "qrcode[pil]>=7.4.0",
+    "pillow>=10.0.0",
 ]
 # Note: PyGObject is used from system (python3-gi) for GTK4 bindings
 

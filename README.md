@@ -16,6 +16,7 @@ PDFSigner is a tool for digitally signing PDF documents using PKCS#11 cryptograp
 - **Complete CLI** - For scripts and automation
 - **Dry-Run Mode** - Simulate signing without token for testing
 - **Visible/invisible signature** - With smart positioning
+- **QR verification code** - Optional QR code in visible signatures for verification
 - **Batch signing** - Multiple PDFs with a single PIN
 - **Validation** - Verify existing signatures
 - **Multi-signature** - Add additional signatures to already signed PDFs
@@ -527,6 +528,14 @@ uv run pdfsigner sign ./documents/
 uv run pdfsigner sign ./documents/ -r
 
 # ═══════════════════════════════════════════════════════════
+# QR VERIFICATION CODE
+# ═══════════════════════════════════════════════════════════
+
+# Sign with QR verification code (enables --visible automatically)
+# QR contains: document hash, signer name, timestamp
+uv run pdfsigner sign document.pdf --qr-code
+
+# ═══════════════════════════════════════════════════════════
 # VALIDATE SIGNATURES
 # ═══════════════════════════════════════════════════════════
 
@@ -916,6 +925,22 @@ MIT License - See [LICENSE](LICENSE)
 ---
 
 ## 📝 Changelog
+
+### [0.8.0] - 2026-01-14
+
+#### Added
+- **QR verification code** - Optional QR code in visible signatures containing:
+  - Document hash (SHA-256, truncated for display)
+  - Signer name (from certificate CN)
+  - Signature timestamp (ISO 8601)
+- **CLI flag** - `--qr-code` for enabling QR in visible signatures
+- **GUI support** - Checkbox in signature options dialog
+- **Dry-run QR support** - Real QR generation with demo data (150 DPI)
+- **New modules**:
+  - `core/stamp/qr_generator.py` - QR code generation
+  - `core/stamp/stamp_composer.py` - Image composition (text + QR)
+- **New tests** - Unit tests for QR generation and stamp composition
+- **Dependencies** - `qrcode[pil]` and `pillow` for QR generation
 
 ### [0.7.0] - 2026-01-14
 

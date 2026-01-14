@@ -88,6 +88,13 @@ def _sign_dry_run(args: argparse.Namespace, pdf_files: list[Path]) -> int:
     page = _parse_page(args.page)
     batch_manager = MockBatchManager()
 
+    # If QR is requested but not visible, enable visible automatically
+    qr_enabled = getattr(args, "qr_code", False)
+    visible = args.visible or qr_enabled
+
+    if qr_enabled and not args.visible:
+        print("[DRY-RUN] QR code requires visible signature, enabling --visible")
+
     def progress_callback(progress):
         pct = progress.current / progress.total * 100
         current = progress.current_file or "Completed"
@@ -98,8 +105,9 @@ def _sign_dry_run(args: argparse.Namespace, pdf_files: list[Path]) -> int:
     result = batch_manager.sign_batch(
         files=pdf_files,
         pin=pin,
-        visible=args.visible,
+        visible=visible,
         page=page,
+        qr_enabled=qr_enabled,
         progress_callback=progress_callback,
     )
     print()
@@ -164,7 +172,19 @@ def _sign_real(args: argparse.Namespace, pdf_files: list[Path]) -> int:
         lta_handler = None
 
     page = _parse_page(args.page)
-    appearance = SignatureAppearance(visible=args.visible, page=page)
+
+    # If QR is requested but not visible, enable visible automatically
+    qr_enabled = getattr(args, "qr_code", False)
+    visible = args.visible or qr_enabled  # QR requires visible signature
+
+    if qr_enabled and not args.visible:
+        logger.info("QR code requires visible signature, enabling --visible")
+
+    appearance = SignatureAppearance(
+        visible=visible,
+        page=page,
+        qr_enabled=qr_enabled,
+    )
 
     batch_manager = BatchManager(nss_handler, lta_handler)
 

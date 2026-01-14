@@ -94,6 +94,16 @@ class Settings(BaseSettings):
         description="Default page for visible signature",
     )
 
+    # --- QR Verification Code ---
+    qr_enabled: bool = Field(
+        default=False,
+        description="Include QR verification code in visible signature",
+    )
+    qr_position: Literal["left", "right"] = Field(
+        default="left",
+        description="QR code position in stamp (left or right)",
+    )
+
     # --- Output ---
     output_suffix: str = Field(
         default="_signed",

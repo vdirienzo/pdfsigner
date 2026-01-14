@@ -76,6 +76,7 @@ class MockBatchManager:
         appearance=None,
         cert_id: bytes | None = None,
         progress_callback=None,
+        qr_enabled: bool = False,
     ) -> MockBatchResult:
         """
         Simulates batch file signing.
@@ -92,6 +93,7 @@ class MockBatchManager:
             appearance: Appearance configuration (overrides visible/page/position)
             cert_id: Certificate ID
             progress_callback: Progress callback
+            qr_enabled: Include QR verification code in stamp
 
         Returns:
             Simulated signing result
@@ -109,6 +111,7 @@ class MockBatchManager:
             pos_pref = getattr(appearance, "position_preference", None)
             if pos_pref is not None:
                 position = pos_pref.value if hasattr(pos_pref, "value") else str(pos_pref)
+            qr_enabled = getattr(appearance, "qr_enabled", qr_enabled)
 
         total = len(file_list)
         successful = 0
@@ -117,7 +120,10 @@ class MockBatchManager:
 
         logger.info(f"[DRY-RUN] Simulating signing of {total} file(s)...")
         if visible:
-            logger.info(f"[DRY-RUN] Visible signatures on page: {page}, position: {position}")
+            qr_info = " with QR code" if qr_enabled else ""
+            logger.info(
+                f"[DRY-RUN] Visible signatures on page: {page}, position: {position}{qr_info}"
+            )
 
         for i, pdf_path in enumerate(file_list):
             current_file = str(pdf_path)
@@ -145,6 +151,7 @@ class MockBatchManager:
                     page_spec=page,
                     visible=visible,
                     position=position,
+                    qr_enabled=qr_enabled,
                 )
 
                 logger.info(f"[DRY-RUN] Signed: {pdf_path.name} → {output_path.name}")

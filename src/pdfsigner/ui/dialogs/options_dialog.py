@@ -157,6 +157,17 @@ class SignatureOptionsDialog(Gtk.Dialog):
         pos_box.append(self.position_combo)
         visible_box.append(pos_box)
 
+        # QR Code section
+        qr_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        qr_box.set_margin_top(12)
+
+        # QR checkbox
+        self.qr_checkbox = Gtk.CheckButton(label=_("Include QR verification code"))
+        self.qr_checkbox.set_active(self.default_appearance.qr_enabled)
+        qr_box.append(self.qr_checkbox)
+
+        visible_box.append(qr_box)
+
         self.visible_frame.set_child(visible_box)
         content.append(self.visible_frame)
 
@@ -196,6 +207,9 @@ class SignatureOptionsDialog(Gtk.Dialog):
         pos_id = self.position_combo.get_active_id()
         position = PositionPreference(pos_id)
 
+        # QR option
+        qr_enabled = self.qr_checkbox.get_active()
+
         return SignatureAppearance(
             visible=visible,
             page=page,
@@ -203,6 +217,7 @@ class SignatureOptionsDialog(Gtk.Dialog):
             height_mm=self.default_appearance.height_mm,
             position_preference=position,
             image_path=self.default_appearance.image_path,
+            qr_enabled=qr_enabled,
         )
 
 

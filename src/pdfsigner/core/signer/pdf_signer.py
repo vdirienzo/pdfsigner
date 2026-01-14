@@ -38,6 +38,8 @@ class SignatureAppearance:
     image_path: Path | None = None
     show_date: bool = True
     show_name: bool = True
+    qr_enabled: bool = False
+    qr_position: str = "left"
 
 
 @dataclass
@@ -123,12 +125,19 @@ class PDFSigner:
         suffix = settings.output_suffix
         return input_path.with_stem(f"{input_path.stem}{suffix}")
 
-    def _build_stamp_style(self, appearance: "SignatureAppearance"):
+    def _build_stamp_style(
+        self,
+        appearance: "SignatureAppearance",
+        input_path: Path | None = None,
+        signer_name: str | None = None,
+    ):
         """
         Builds the visual stamp style for visible signatures.
 
         Args:
             appearance: Signature appearance configuration
+            input_path: Path to PDF (needed for QR hash calculation)
+            signer_name: Name of signer from certificate (for QR)
 
         Returns:
             TextStampStyle if visible signature, None otherwise
@@ -140,18 +149,55 @@ class PDFSigner:
         from pyhanko import stamp
         from pyhanko.pdf_utils import images
 
-        # Build stamp text based on configuration
+        # If QR is enabled, generate composed stamp image
+        if appearance.qr_enabled and input_path:
+            try:
+                from pdfsigner.core.stamp.qr_generator import QRData, calculate_document_hash
+                from pdfsigner.core.stamp.stamp_composer import compose_stamp_with_qr
+
+                # Calculate document hash
+                doc_hash = calculate_document_hash(input_path)
+
+                # Get signer name (fallback to generic)
+                name = signer_name or "Digital Signature"
+
+                # Create QR data
+                qr_data = QRData(
+                    document_hash=doc_hash,
+                    signer_name=name,
+                )
+
+                # Compose stamp with QR
+                stamp_image_path = compose_stamp_with_qr(
+                    signer_name=name,
+                    timestamp=datetime.now(),
+                    qr_data=qr_data,
+                    qr_position=appearance.qr_position,
+                )
+
+                logger.debug(f"Generated QR stamp: {stamp_image_path}")
+
+                # Use composed image as background with minimal text
+                return stamp.TextStampStyle(
+                    stamp_text="",
+                    background=images.PdfImage(str(stamp_image_path)),
+                )
+
+            except Exception as e:
+                logger.warning(f"Could not generate QR stamp: {e}, falling back to text")
+
+        # Standard text-only stamp
         text_parts = []
 
         if appearance.show_name:
-            text_parts.append("Firmado por: %(signer)s")
+            text_parts.append("Signed by: %(signer)s")
 
         if appearance.show_date:
-            text_parts.append("Fecha: %(ts)s")
+            text_parts.append("Date: %(ts)s")
 
         # If no parts configured, use default
         if not text_parts:
-            text_parts = ["Firmado digitalmente"]
+            text_parts = ["Digitally signed"]
 
         stamp_text = "\n".join(text_parts)
 
@@ -227,8 +273,21 @@ class PDFSigner:
                 # Main signature field name (first one, or None for invisible)
                 sig_field_name = field_specs[0].sig_field_name if field_specs else None
 
+                # Extract signer name from certificate for QR
+                signer_name = None
+                if signer.signing_cert:
+                    cn_attrs = signer.signing_cert.subject.get_attributes_for_oid(
+                        x509.oid.NameOID.COMMON_NAME
+                    )
+                    if cn_attrs:
+                        signer_name = cn_attrs[0].value
+
                 # Build stamp style for visible signatures
-                stamp_style = self._build_stamp_style(appearance)
+                stamp_style = self._build_stamp_style(
+                    appearance,
+                    input_path=input_path,
+                    signer_name=signer_name,
+                )
 
                 # Create signature metadata
                 sig_metadata = signers.PdfSignatureMetadata(

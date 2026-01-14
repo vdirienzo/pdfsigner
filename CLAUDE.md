@@ -2,7 +2,7 @@
 
 > **Purpose:** This file helps Claude (or any AI assistant) understand the project context quickly.
 > **Last Updated:** 2026-01-14
-> **Version:** 0.7.0
+> **Version:** 0.8.0
 > **Author:** Homero Thompson del Lago del Terror
 
 ---
@@ -17,6 +17,7 @@
 - CLI with subcommands (sign, validate, list-certs)
 - Dry-run mode for testing without real token
 - Visible signature with smart positioning
+- **QR verification code** - Optional QR in visible signatures (hash, signer, timestamp)
 - Batch signing with PIN cache
 - **Multi-token PKCS#11 support**
 
@@ -75,6 +76,7 @@ pdfsigner/
 │   │   ├── mock/               # Dry-run simulation (MockBatchManager, stamp_simulator)
 │   │   ├── pdf_analyzer/       # Content analysis, position finding
 │   │   ├── signer/             # PAdES signing (pdf_signer, batch_manager, lta_handler)
+│   │   ├── stamp/              # QR code generation (qr_generator, stamp_composer)
 │   │   ├── token/              # NSS/PKCS#11 (nss_handler, cert_selector, pin_cache)
 │   │   ├── setup/              # NSS wizard (nss_checker, nss_setup)
 │   │   └── validator/          # Signature validation
@@ -245,6 +247,8 @@ GitHub Actions runs on push/PR to `main` and `dev`:
 | `nss_handler.py` | **NSS/PKCS#11 token communication** (multi-token support) |
 | `position_finder.py` | Smart signature position calculation |
 | `stamp_simulator.py` | Dry-run stamp simulation |
+| `qr_generator.py` | QR code generation (hash, signer, timestamp) |
+| `stamp_composer.py` | Image composition (text + QR) using Pillow |
 
 ### nss_handler.py Key Details
 - Contains `PKCS11_LIB_PATHS` constants for each token vendor
@@ -372,7 +376,17 @@ git push origin v0.7.0
 
 ---
 
-## Recent Changes (v0.7.0)
+## Recent Changes (v0.8.0)
+
+- **QR verification code** - Optional QR in visible signatures
+  - Contains: document hash (SHA-256), signer name, timestamp
+  - CLI flag: `--qr-code` (enables `--visible` automatically)
+  - GUI checkbox in signature options dialog
+  - New modules: `core/stamp/qr_generator.py`, `core/stamp/stamp_composer.py`
+  - New dependencies: `qrcode[pil]`, `pillow`
+- **Dry-run QR support** - Real QR generation with demo data (150 DPI quality)
+
+### Previous (v0.7.0)
 
 - **Complete packaging system** - AppImage, .deb, Flatpak
 - **GitHub Actions release workflow** - Automated builds on tag push
