@@ -12,7 +12,10 @@ from pathlib import Path
 from typing import Literal
 
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource
+
+# TOML config file path
+TOML_CONFIG_PATH = Path.home() / ".config" / "pdfsigner" / "config.toml"
 
 
 class Settings(BaseSettings):
@@ -21,9 +24,29 @@ class Settings(BaseSettings):
     model_config = SettingsConfigDict(
         env_prefix="PDFSIGNER_",
         env_file=".env",
-        toml_file=Path.home() / ".config" / "pdfsigner" / "config.toml",
         extra="ignore",
     )
+
+    @classmethod
+    def settings_customise_sources(
+        cls,
+        settings_cls: type[BaseSettings],
+        init_settings: PydanticBaseSettingsSource,
+        env_settings: PydanticBaseSettingsSource,
+        dotenv_settings: PydanticBaseSettingsSource,
+        file_secret_settings: PydanticBaseSettingsSource,
+    ) -> tuple[PydanticBaseSettingsSource, ...]:
+        """Customize settings sources to include TOML file."""
+        from pydantic_settings import TomlConfigSettingsSource
+
+        # Priority: init > env > dotenv > toml > secrets
+        return (
+            init_settings,
+            env_settings,
+            dotenv_settings,
+            TomlConfigSettingsSource(settings_cls, toml_file=TOML_CONFIG_PATH),
+            file_secret_settings,
+        )
 
     # --- NSS Database ---
     nss_db_path: Path = Field(
