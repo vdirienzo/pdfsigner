@@ -7,7 +7,7 @@
 # Requirements:
 #   - flatpak
 #   - flatpak-builder
-#   - org.gnome.Platform//46 and org.gnome.Sdk//46 runtimes
+#   - org.gnome.Platform//49 and org.gnome.Sdk//49 runtimes
 #
 # Usage: ./build-flatpak.sh
 
@@ -58,7 +58,7 @@ ensure_runtimes() {
 
     local runtime="org.gnome.Platform"
     local sdk="org.gnome.Sdk"
-    local version="46"
+    local version="49"
 
     if ! flatpak info "$runtime//$version" &>/dev/null; then
         log_info "Installing $runtime//$version..."

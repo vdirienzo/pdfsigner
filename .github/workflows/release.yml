@@ -160,7 +160,7 @@ jobs:
 
       - name: Install GNOME runtime
         run: |
-          sudo flatpak install -y flathub org.gnome.Platform//46 org.gnome.Sdk//46
+          sudo flatpak install -y flathub org.gnome.Platform//49 org.gnome.Sdk//49
 
       - name: Generate icons
         run: |

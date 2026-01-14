@@ -103,7 +103,10 @@ install_dependencies() {
 
     local site_packages="$APPDIR/usr/lib/python3/site-packages"
 
-    # Build wheel first
+    # Clean old wheels and build new one
+    rm -rf "$BUILD_DIR/wheels"
+    mkdir -p "$BUILD_DIR/wheels"
+
     cd "$PROJECT_ROOT"
     python3 -m pip wheel --no-deps -w "$BUILD_DIR/wheels" .
 

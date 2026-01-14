@@ -77,7 +77,7 @@ Before installing PDFSigner, you need:
 |-------------|-------------|
 | **USB Token** | Any PKCS#11 compatible token (see supported list below) |
 | **Certificate** | Digital signing certificate installed on the token |
-| **Linux** | Debian 12+, Ubuntu 22.04+, Fedora 38+, Arch, openSUSE |
+| **Linux** | Debian 13+, Ubuntu 24.04+, Fedora 39+, Arch, openSUSE Tumbleweed |
 | **Drivers** | Token-specific PKCS#11 driver |
 | **NSS Database** | NSS database with registered PKCS#11 module |
 
@@ -663,7 +663,7 @@ flatpak install --user dist/flatpak/PDFSigner-*.flatpak
 flatpak run com.pdfsigner.app
 ```
 
-**Requirements:** `flatpak`, `flatpak-builder`, GNOME Platform 46 runtime
+**Requirements:** `flatpak`, `flatpak-builder`, GNOME Platform 49 runtime
 
 ### AppImage
 
@@ -880,7 +880,7 @@ MIT License - See [LICENSE](LICENSE)
 
 #### Added
 - **Complete packaging system** for distribution:
-  - **Flatpak** manifest with GNOME Platform 46 runtime
+  - **Flatpak** manifest with GNOME Platform 49 runtime
   - **AppImage** builder with GTK4 availability check
   - **Debian (.deb)** packaging with proper dependencies
 - **GitHub Actions release workflow** - Automated builds on tag push

@@ -7,7 +7,7 @@
 
 app-id: com.pdfsigner.app
 runtime: org.gnome.Platform
-runtime-version: '46'
+runtime-version: '49'
 sdk: org.gnome.Sdk
 command: pdfsigner-gui
 
@@ -28,15 +28,12 @@ finish-args:
   - --socket=wayland
   - --socket=fallback-x11
 
-  # Network for TSA timestamps
+  # Network for TSA timestamps and pip install
   - --share=network
 
   # DBus for portal access
   - --talk-name=org.freedesktop.secrets
   - --talk-name=org.gtk.vfs.*
-
-  # Allow opening files via portal
-  - --system-talk-name=org.freedesktop.portal.FileChooser
 
 cleanup:
   - /include
@@ -46,29 +43,20 @@ cleanup:
   - '*.a'
 
 modules:
-  # Python dependencies module
-  - name: python-dependencies
-    buildsystem: simple
-    build-commands:
-      - pip3 install --verbose --exists-action=i --no-index --find-links="file://${PWD}"
-        --prefix=${FLATPAK_DEST} --no-build-isolation
-        pyhanko python-pkcs11 pymupdf pydantic-settings loguru
-        cryptography certifi urllib3 babel asn1crypto oscrypto
-        pyhanko-certvalidator qrcode tzlocal fonttools
-    sources:
-      - type: file
-        url: https://files.pythonhosted.org/packages/py3/p/pyhanko/pyhanko-0.25.1-py3-none-any.whl
-        sha256: placeholder_sha256_pyhanko
-      # Note: In production, generate sources with flatpak-pip-generator
-      # pip install flatpak-pip-generator
-      # flatpak-pip-generator pyhanko[pkcs11] python-pkcs11 pymupdf pydantic-settings loguru
-
-  # Main application
+  # Main application with all dependencies
   - name: pdfsigner
     buildsystem: simple
+    build-options:
+      build-args:
+        - --share=network
     build-commands:
-      # Install the application
-      - pip3 install --prefix=${FLATPAK_DEST} --no-deps --no-build-isolation .
+      # Install build backend and dependencies
+      - pip3 install --prefix=${FLATPAK_DEST} --no-cache-dir
+          hatchling pyhanko[pkcs11] python-pkcs11 pymupdf pydantic-settings
+          loguru cryptography certifi urllib3 babel
+
+      # Install the application itself
+      - pip3 install --prefix=${FLATPAK_DEST} --no-deps .
 
       # Install desktop file
       - install -Dm644 data/com.pdfsigner.app.desktop

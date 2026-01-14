@@ -1,3 +1,12 @@
+pdfsigner (0.7.0-1) unstable; urgency=medium
+
+  * Complete packaging system (AppImage, Debian, Flatpak)
+  * GitHub Actions release workflow
+  * AppStream metadata and desktop entry
+  * Multi-resolution icons for HiDPI
+
+ -- Homero Thompson del Lago del Terror <noreply@example.com>  Tue, 14 Jan 2026 12:00:00 +0000
+
 pdfsigner (0.6.0-1) unstable; urgency=medium
 
   * Multi-token PKCS#11 support with auto-detection

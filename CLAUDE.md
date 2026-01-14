@@ -324,7 +324,7 @@ git push origin v0.7.0
 | File | Purpose |
 |------|---------|
 | `scripts/build-packages.sh` | Main build script |
-| `flatpak/com.pdfsigner.app.yaml` | Flatpak manifest (GNOME Platform 46) |
+| `flatpak/com.pdfsigner.app.yaml` | Flatpak manifest (GNOME Platform 49) |
 | `debian/control` | Debian dependencies |
 | `debian/rules` | Debian build rules |
 | `data/com.pdfsigner.app.metainfo.xml` | AppStream metadata |
@@ -338,6 +338,8 @@ git push origin v0.7.0
 - **GitHub Actions release workflow** - Automated builds on tag push
 - **AppStream metadata** - For software centers
 - **Multi-resolution icons** - 16x16 to 512x512
+- **Debian 13+ / Python 3.12+** - Updated minimum requirements
+- **GNOME Platform 49** - Updated Flatpak runtime
 
 ### Previous (v0.6.0)
 
