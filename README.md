@@ -926,6 +926,13 @@ MIT License - See [LICENSE](LICENSE)
 
 ## 📝 Changelog
 
+### [0.8.2] - 2026-01-14
+
+#### Fixed
+- **AppStream metainfo** - Updated with all release history (v0.6.0 to v0.8.2)
+- **Screenshot URLs** - Fixed to point to correct branch for software centers
+- **Release workflow** - Added missing build dependencies (pillow, build, hatchling)
+
 ### [0.8.1] - 2026-01-14
 
 #### Changed

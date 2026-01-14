@@ -55,6 +55,16 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="0.8.2" date="2026-01-14">
+      <description>
+        <p>Metadata and packaging fixes:</p>
+        <ul>
+          <li>Updated AppStream metainfo with all release history</li>
+          <li>Fixed screenshot URLs for software centers</li>
+          <li>Improved release workflow</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.8.1" date="2026-01-14">
       <description>
         <p>QR verification and code quality release:</p>

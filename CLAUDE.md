@@ -2,7 +2,7 @@
 
 > **Purpose:** This file helps Claude (or any AI assistant) understand the project context quickly.
 > **Last Updated:** 2026-01-14
-> **Version:** 0.8.1
+> **Version:** 0.8.2
 > **Author:** Homero Thompson del Lago del Terror
 
 ---
@@ -368,10 +368,14 @@ git push origin v0.7.0
 
 ---
 
-## Recent Changes (v0.8.1)
+## Recent Changes (v0.8.2)
+
+- **Fixed AppStream metainfo** - Updated with all release history, fixed screenshot URLs
+- **Fixed release workflow** - Added missing pip dependencies (pillow, build, hatchling)
+
+### Previous (v0.8.1)
 
 - **Refactored nss_handler.py** - Extracted PKCS#11 paths to `pkcs11_libs.py`
-  - nss_handler.py: 382 → 285 lines (better modularity)
 - **Removed CI workflow** - No automated checks on push (release workflow kept)
 - **Updated packaging** - Added `qrcode pillow` to Flatpak/AppImage build scripts
 
