@@ -19,7 +19,9 @@ gi.require_version("GObject", "2.0")
 from gi.repository import GObject, Nautilus
 
 # Project path for launching GUI
-PROJECT_PATH = Path(__file__).parent.parent.parent.parent.parent
+# __file__ = .../pdfsigner/src/pdfsigner/nautilus_extension/sign_extension.py
+# We need:  .../pdfsigner (4 parents up)
+PROJECT_PATH = Path(__file__).parent.parent.parent.parent
 
 
 class PDFSignerExtension(GObject.GObject, Nautilus.MenuProvider):
