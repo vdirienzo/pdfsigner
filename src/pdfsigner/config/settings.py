@@ -1,11 +1,11 @@
 """
-settings.py - Configuración centralizada de PDFSigner
+settings.py - Centralized PDFSigner configuration
 
-Autor: Homero Thompson del Lago del Terror
+Author: Homero Thompson del Lago del Terror
 
-Usa pydantic-settings para cargar configuración desde:
-1. Variables de entorno
-2. Archivo ~/.config/pdfsigner/config.toml
+Uses pydantic-settings to load configuration from:
+1. Environment variables
+2. File ~/.config/pdfsigner/config.toml
 """
 
 from pathlib import Path
@@ -16,7 +16,7 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    """Configuración de PDFSigner desde archivo y variables de entorno."""
+    """PDFSigner configuration from file and environment variables."""
 
     model_config = SettingsConfigDict(
         env_prefix="PDFSIGNER_",
@@ -28,106 +28,106 @@ class Settings(BaseSettings):
     # --- NSS Database ---
     nss_db_path: Path = Field(
         default=Path.home() / ".nss",
-        description="Ruta a la base de datos NSS con el token",
+        description="Path to NSS database with token",
     )
 
     # --- TSA (Timestamp Authority) ---
     tsa_url: str = Field(
         default="",
-        description="URL del servidor de timestamp (requerido para PAdES-LTV)",
+        description="Timestamp server URL (required for PAdES-LTV)",
     )
     tsa_username: str | None = Field(
         default=None,
-        description="Usuario para autenticación TSA (si aplica)",
+        description="Username for TSA authentication (if applicable)",
     )
     tsa_password: str | None = Field(
         default=None,
-        description="Password para autenticación TSA (si aplica)",
+        description="Password for TSA authentication (if applicable)",
     )
 
-    # --- Firma Visible ---
+    # --- Visible Signature ---
     default_visible: bool = Field(
         default=False,
-        description="Si la firma es visible por defecto",
+        description="If signature is visible by default",
     )
     signature_width_mm: int = Field(
         default=50,
         ge=20,
         le=100,
-        description="Ancho del sello de firma en mm",
+        description="Signature stamp width in mm",
     )
     signature_height_mm: int = Field(
         default=20,
         ge=10,
         le=50,
-        description="Alto del sello de firma en mm",
+        description="Signature stamp height in mm",
     )
     signature_image_path: Path | None = Field(
         default=None,
-        description="Imagen personalizada para firma visible (PNG/JPG)",
+        description="Custom image for visible signature (PNG/JPG)",
     )
     default_page: Literal["last", "first", "all"] = Field(
         default="last",
-        description="Página por defecto para firma visible",
+        description="Default page for visible signature",
     )
 
     # --- Output ---
     output_suffix: str = Field(
         default="_firmado",
-        description="Sufijo para archivos firmados",
+        description="Suffix for signed files",
     )
 
     # --- Logging ---
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = Field(
         default="INFO",
-        description="Nivel de logging",
+        description="Logging level",
     )
     log_dir: Path = Field(
         default=Path.home() / ".local" / "share" / "pdfsigner" / "logs",
-        description="Directorio de logs",
+        description="Logs directory",
     )
 
     # --- PIN Cache ---
     pin_cache_enabled: bool = Field(
         default=True,
-        description="Cachear PIN durante firma en lote",
+        description="Cache PIN during batch signing",
     )
     pin_cache_timeout_seconds: int = Field(
         default=300,
         ge=60,
         le=3600,
-        description="Timeout de cache de PIN en segundos",
+        description="PIN cache timeout in seconds",
     )
 
     # --- Dry Run Mode ---
     dry_run: bool = Field(
         default=False,
-        description="Modo simulación sin token real",
+        description="Simulation mode without real token",
     )
 
     @field_validator("nss_db_path")
     @classmethod
     def validate_nss_path(cls, v: Path) -> Path:
-        """Valida que el path de NSS exista."""
+        """Validate that NSS path exists."""
         if not v.exists():
-            raise ValueError(f"Directorio NSS no existe: {v}")
+            raise ValueError(f"NSS directory does not exist: {v}")
         return v
 
     @field_validator("signature_image_path")
     @classmethod
     def validate_image_path(cls, v: Path | None) -> Path | None:
-        """Valida que la imagen de firma exista si se especifica."""
+        """Validate that signature image exists if specified."""
         if v is not None and not v.exists():
-            raise ValueError(f"Imagen de firma no existe: {v}")
+            raise ValueError(f"Signature image does not exist: {v}")
         return v
 
 
-# Singleton de configuración
+# Configuration singleton
 _settings: Settings | None = None
 
 
 def get_settings() -> Settings:
-    """Obtiene la instancia de configuración (singleton)."""
+    """Get configuration instance (singleton)."""
     global _settings
     if _settings is None:
         _settings = Settings()
@@ -135,7 +135,7 @@ def get_settings() -> Settings:
 
 
 def reload_settings() -> Settings:
-    """Recarga la configuración desde disco."""
+    """Reload configuration from disk."""
     global _settings
     _settings = Settings()
     return _settings

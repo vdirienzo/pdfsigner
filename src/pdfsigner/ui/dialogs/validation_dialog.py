@@ -1,10 +1,10 @@
 """
 validation_dialog.py - Diálogo de validación de firmas
 
-Autor: Homero Thompson del Lago del Terror
+Author: Homero Thompson del Lago del Terror
 
-Diálogo GTK4 que muestra el resultado de validación
-de firmas existentes en un PDF.
+GTK4 dialog that shows validation result
+of existing signatures in a PDF.
 """
 
 import gi
@@ -20,10 +20,10 @@ from pdfsigner.core.validator.pdf_validator import (
 
 class ValidationResultDialog(Gtk.Dialog):
     """
-    Diálogo que muestra resultados de validación de firmas.
+    Dialog that shows signature validation results.
 
-    Presenta información detallada de cada firma encontrada
-    en el documento PDF.
+    Presents detailed information of each signature found
+    in the PDF document.
     """
 
     def __init__(
@@ -32,14 +32,14 @@ class ValidationResultDialog(Gtk.Dialog):
         result: ValidationResult | None = None,
     ):
         """
-        Inicializa el diálogo.
+        Initializes the dialog.
 
         Args:
-            parent: Ventana padre
-            result: Resultado de validación
+            parent: Parent window
+            result: Validation result
         """
         super().__init__(
-            title="Validación de Firmas",
+            title="Signature Validation",
             transient_for=parent,
             modal=True,
         )
@@ -47,7 +47,7 @@ class ValidationResultDialog(Gtk.Dialog):
         self.result = result
 
         self.set_default_size(600, 450)
-        self.add_button("Cerrar", Gtk.ResponseType.CLOSE)
+        self.add_button("Close", Gtk.ResponseType.CLOSE)
 
         # Contenido
         content = self.get_content_area()
@@ -68,28 +68,28 @@ class ValidationResultDialog(Gtk.Dialog):
         self._show_signatures(content, result)
 
     def _show_error(self, content: Gtk.Box, result: ValidationResult | None) -> None:
-        """Muestra mensaje de error."""
+        """Shows error message."""
         icon = Gtk.Label(label="❌")
         icon.add_css_class("title-1")
         content.append(icon)
 
-        error_msg = result.error if result else "Error desconocido"
+        error_msg = result.error if result else "Unknown error"
         label = Gtk.Label(label=f"Error al validar el documento:\n{error_msg}")
         label.set_wrap(True)
         content.append(label)
 
     def _show_not_signed(self, content: Gtk.Box) -> None:
-        """Muestra mensaje de documento no firmado."""
+        """Shows unsigned document message."""
         icon = Gtk.Label(label="📄")
         icon.add_css_class("title-1")
         content.append(icon)
 
-        label = Gtk.Label(label="Este documento no tiene firmas digitales.")
+        label = Gtk.Label(label="This document has no digital signatures.")
         label.add_css_class("title-2")
         content.append(label)
 
     def _show_signatures(self, content: Gtk.Box, result: ValidationResult) -> None:
-        """Muestra información de firmas."""
+        """Shows signature information."""
         # Header con resumen
         header_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
 
@@ -136,7 +136,7 @@ class ValidationResultDialog(Gtk.Dialog):
         content.append(file_label)
 
     def _create_signature_row(self, sig) -> Gtk.ListBoxRow:
-        """Crea fila para una firma."""
+        """Creates row for a signature."""
         row = Gtk.ListBoxRow()
 
         main_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
@@ -197,9 +197,9 @@ class ValidationResultDialog(Gtk.Dialog):
 
         # Cobertura
         if sig.covers_whole_document:
-            coverage = "Cubre todo el documento"
+            coverage = "Covers entire document"
         else:
-            coverage = "Cubre revisión parcial"
+            coverage = "Covers partial revision"
         coverage_label = Gtk.Label(label=coverage)
         coverage_label.set_xalign(0)
         coverage_label.add_css_class("dim-label")
@@ -216,11 +216,11 @@ def show_validation_result(
     result: ValidationResult | None = None,
 ) -> None:
     """
-    Muestra diálogo de validación.
+    Shows validation dialog.
 
     Args:
-        parent: Ventana padre
-        result: Resultado de validación
+        parent: Parent window
+        result: Validation result
     """
     dialog = ValidationResultDialog(parent=parent, result=result)
     dialog.run()

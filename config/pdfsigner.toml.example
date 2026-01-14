@@ -1,110 +1,110 @@
-# PDFSigner - Configuración
+# PDFSigner - Configuration
 #
-# Autor: Homero Thompson del Lago del Terror
+# Author: Homero Thompson del Lago del Terror
 #
-# Copiar a ~/.config/pdfsigner/config.toml y ajustar valores.
+# Copy to ~/.config/pdfsigner/config.toml and adjust values.
 
 # ═══════════════════════════════════════════════════════════════
 # NSS Database
 # ═══════════════════════════════════════════════════════════════
-# Ruta a la base de datos NSS donde está configurado el token USB
+# Path to NSS database where USB token is configured
 nss_db_path = "/home/user/.nss"
 
 # ═══════════════════════════════════════════════════════════════
-# Timestamp Authority (TSA) - REQUERIDO para PAdES-LTV
+# Timestamp Authority (TSA) - REQUIRED for PAdES-LTV
 # ═══════════════════════════════════════════════════════════════
 #
-# El TSA (Timestamp Authority) provee prueba criptográfica de la
-# fecha/hora de la firma. Sin TSA, la firma es PAdES-B (básica).
+# TSA (Timestamp Authority) provides cryptographic proof of the
+# signature date/time. Without TSA, signature is PAdES-B (basic).
 #
 # ┌─────────────────────────────────────────────────────────────┐
-# │  OPCIÓN 1: TSA Públicos Gratuitos (recomendado)             │
+# │  OPTION 1: Free Public TSAs (recommended)                    │
 # └─────────────────────────────────────────────────────────────┘
-# Válidos legalmente, sin costo, sin autenticación.
+# Legally valid, no cost, no authentication.
 #
-# FreeTSA (recomendado):
+# FreeTSA (recommended):
 tsa_url = "https://freetsa.org/tsr"
 #
-# Alternativas gratuitas:
+# Free alternatives:
 #   tsa_url = "http://timestamp.digicert.com"
 #   tsa_url = "http://timestamp.sectigo.com"
 #   tsa_url = "http://timestamp.globalsign.com/tsa/r6advanced1"
 #   tsa_url = "http://tsa.starfieldtech.com"
 #
 # ┌─────────────────────────────────────────────────────────────┐
-# │  OPCIÓN 2: TSA Corporativo/Local                            │
+# │  OPTION 2: Corporate/Local TSA                               │
 # └─────────────────────────────────────────────────────────────┘
-# Si tu organización tiene un servidor TSA propio.
+# If your organization has its own TSA server.
 #
-# Ejemplo TSA corporativo:
-#   tsa_url = "https://tsa.miempresa.com/timestamp"
-#   tsa_username = "usuario"
-#   tsa_password = "contraseña"
+# Corporate TSA example:
+#   tsa_url = "https://tsa.mycompany.com/timestamp"
+#   tsa_username = "username"
+#   tsa_password = "password"
 #
-# Ejemplo TSA local (para desarrollo/testing):
+# Local TSA example (for development/testing):
 #   tsa_url = "http://localhost:8080/timestamp"
 #
 # ┌─────────────────────────────────────────────────────────────┐
-# │  OPCIÓN 3: TSA del proveedor del certificado                │
+# │  OPTION 3: Certificate provider's TSA                        │
 # └─────────────────────────────────────────────────────────────┘
-# Muchas CAs (Autoridades Certificadoras) ofrecen TSA incluido
-# con la compra del certificado. Consultar documentación de tu CA.
+# Many CAs (Certificate Authorities) offer TSA included
+# with certificate purchase. Check your CA's documentation.
 #
-# Ejemplos por país/proveedor:
+# Examples by country/provider:
 #   Argentina (AFIP): "https://tsaserver.afip.gob.ar/tsa/tss"
-#   España (FNMT): "https://www.fnmt.es/tsa/tss"
+#   Spain (FNMT): "https://www.fnmt.es/tsa/tss"
 #
 # ┌─────────────────────────────────────────────────────────────┐
-# │  OPCIÓN 4: Sin TSA (PAdES-B básico)                         │
+# │  OPTION 4: Without TSA (basic PAdES-B)                       │
 # └─────────────────────────────────────────────────────────────┘
-# Dejar vacío para firma sin timestamp. La firma es válida pero
-# no tiene prueba de cuándo se realizó.
+# Leave empty for signature without timestamp. Signature is valid but
+# has no proof of when it was created.
 #
 #   tsa_url = ""
 #
 # ───────────────────────────────────────────────────────────────
 
-# Credenciales TSA (solo si tu TSA requiere autenticación)
+# TSA credentials (only if your TSA requires authentication)
 # tsa_username = ""
 # tsa_password = ""
 
 # ═══════════════════════════════════════════════════════════════
-# Firma Visible (opcional)
+# Visible Signature (optional)
 # ═══════════════════════════════════════════════════════════════
-# Si la firma es visible por defecto
+# If signature is visible by default
 default_visible = false
 
-# Dimensiones del sello de firma (en milímetros)
+# Signature stamp dimensions (in millimeters)
 signature_width_mm = 50
 signature_height_mm = 20
 
-# Imagen personalizada para firma visible (PNG o JPG)
-# signature_image_path = "/ruta/a/mi_firma.png"
+# Custom image for visible signature (PNG or JPG)
+# signature_image_path = "/path/to/my_signature.png"
 
-# Página por defecto para firma visible: "last", "first", o número
+# Default page for visible signature: "last", "first", or number
 default_page = "last"
 
 # ═══════════════════════════════════════════════════════════════
 # Output
 # ═══════════════════════════════════════════════════════════════
-# Sufijo para archivos firmados
-# Ejemplo: documento.pdf → documento_firmado.pdf
+# Suffix for signed files
+# Example: document.pdf → document_firmado.pdf
 output_suffix = "_firmado"
 
 # ═══════════════════════════════════════════════════════════════
 # PIN Cache
 # ═══════════════════════════════════════════════════════════════
-# Cachear PIN durante firma en lote (más cómodo pero menos seguro)
+# Cache PIN during batch signing (more convenient but less secure)
 pin_cache_enabled = true
 
-# Tiempo de expiración del cache en segundos (5 minutos por defecto)
+# Cache expiration time in seconds (5 minutes by default)
 pin_cache_timeout_seconds = 300
 
 # ═══════════════════════════════════════════════════════════════
 # Logging
 # ═══════════════════════════════════════════════════════════════
-# Nivel de log: DEBUG, INFO, WARNING, ERROR
+# Log level: DEBUG, INFO, WARNING, ERROR
 log_level = "INFO"
 
-# Directorio de logs
+# Logs directory
 # log_dir = "~/.local/share/pdfsigner/logs"

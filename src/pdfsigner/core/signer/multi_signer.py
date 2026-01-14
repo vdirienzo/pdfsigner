@@ -1,10 +1,10 @@
 """
-multi_signer.py - Soporte para múltiples firmas en un PDF
+multi_signer.py - Support for multiple signatures in a PDF
 
-Autor: Homero Thompson del Lago del Terror
+Author: Homero Thompson del Lago del Terror
 
-Permite agregar firmas adicionales a PDFs que ya están firmados,
-preservando las firmas existentes.
+Allows adding additional signatures to PDFs that are already signed,
+preserving existing signatures.
 """
 
 from dataclasses import dataclass
@@ -19,7 +19,7 @@ from pdfsigner.core.validator.pdf_validator import PDFValidator
 
 @dataclass
 class ExistingSignatureInfo:
-    """Información resumida de firma existente."""
+    """Summary information of existing signature."""
 
     field_name: str
     signer_name: str
@@ -28,27 +28,27 @@ class ExistingSignatureInfo:
 
 class MultiSignatureHandler:
     """
-    Manejador de múltiples firmas en PDF.
+    Multiple PDF signature handler.
 
-    Permite:
-    - Detectar firmas existentes
-    - Agregar firmas adicionales sin invalidar las anteriores
-    - Generar nombres únicos para campos de firma
+    Allows:
+    - Detect existing signatures
+    - Add additional signatures without invalidating previous ones
+    - Generate unique names for signature fields
     """
 
     def __init__(self):
-        """Inicializa el handler."""
+        """Initializes the handler."""
         self.validator = PDFValidator()
 
     def get_existing_signatures(self, pdf_path: Path) -> list[ExistingSignatureInfo]:
         """
-        Obtiene información de firmas existentes.
+        Gets information about existing signatures.
 
         Args:
-            pdf_path: Ruta al PDF
+            pdf_path: Path to the PDF
 
         Returns:
-            Lista de firmas existentes
+            List of existing signatures
         """
         result = self.validator.validate(pdf_path)
 
@@ -63,17 +63,17 @@ class MultiSignatureHandler:
 
     def get_next_signature_field_name(self, pdf_path: Path) -> str:
         """
-        Genera nombre único para el siguiente campo de firma.
+        Generates unique name for the next signature field.
 
         Args:
-            pdf_path: Ruta al PDF
+            pdf_path: Path to the PDF
 
         Returns:
-            Nombre único para el campo (ej: "Signature2")
+            Unique name for the field (e.g., "Signature2")
         """
         existing = self.get_existing_signatures(pdf_path)
 
-        # Encontrar el número más alto
+        # Find the highest number
         max_num = 0
         for sig in existing:
             if sig.field_name.startswith("Signature"):
@@ -87,28 +87,28 @@ class MultiSignatureHandler:
 
     def can_add_signature(self, pdf_path: Path) -> tuple[bool, str]:
         """
-        Verifica si se puede agregar una firma adicional.
+        Verifies if an additional signature can be added.
 
         Args:
-            pdf_path: Ruta al PDF
+            pdf_path: Path to the PDF
 
         Returns:
-            Tupla (puede_firmar, mensaje)
+            Tuple (can_sign, message)
         """
         try:
             with open(pdf_path, "rb") as f:
                 reader = PdfFileReader(f)
 
-                # Verificar si el PDF está encriptado
+                # Check if PDF is encrypted
                 if reader.security_handler is not None:
-                    return False, "El PDF está protegido con contraseña"
+                    return False, "PDF is password protected"
 
-                # Verificar si permite modificaciones
-                # En PAdES, las firmas incrementales siempre son permitidas
+                # Check if modifications are allowed
+                # In PAdES, incremental signatures are always allowed
                 return True, "OK"
 
         except Exception as e:
-            return False, f"Error leyendo PDF: {e}"
+            return False, f"Error reading PDF: {e}"
 
     def prepare_for_additional_signature(
         self,
@@ -116,28 +116,28 @@ class MultiSignatureHandler:
         appearance: SignatureAppearance,
     ) -> tuple[SigFieldSpec | None, str]:
         """
-        Prepara el PDF para una firma adicional.
+        Prepares the PDF for an additional signature.
 
         Args:
-            pdf_path: Ruta al PDF
-            appearance: Configuración de apariencia
+            pdf_path: Path to the PDF
+            appearance: Appearance configuration
 
         Returns:
-            Tupla (spec_campo_firma, nombre_campo)
+            Tuple (signature_field_spec, field_name)
         """
         field_name = self.get_next_signature_field_name(pdf_path)
 
         if not appearance.visible:
             return None, field_name
 
-        # Para firma visible, crear spec con posición
+        # For visible signature, create spec with position
         from pdfsigner.core.pdf_analyzer.content_analyzer import ContentAnalyzer
         from pdfsigner.core.pdf_analyzer.position_finder import PositionFinder
 
         with ContentAnalyzer(pdf_path) as analyzer:
             total_pages = analyzer.page_count
 
-            # Determinar página
+            # Determine page
             if appearance.page == "last":
                 page_num = total_pages - 1
             elif appearance.page == "first":
@@ -147,7 +147,7 @@ class MultiSignatureHandler:
             else:
                 page_num = total_pages - 1
 
-            # Encontrar posición
+            # Find position
             finder = PositionFinder(analyzer)
             sig_width = appearance.width_mm * 72 / 25.4
             sig_height = appearance.height_mm * 72 / 25.4
@@ -177,26 +177,26 @@ class MultiSignatureHandler:
 
 def get_signature_summary(pdf_path: Path) -> str:
     """
-    Genera resumen de firmas para mostrar al usuario.
+    Generates signature summary to show the user.
 
     Args:
-        pdf_path: Ruta al PDF
+        pdf_path: Path to the PDF
 
     Returns:
-        Texto con resumen de firmas
+        Text with signature summary
     """
     handler = MultiSignatureHandler()
     signatures = handler.get_existing_signatures(pdf_path)
 
     if not signatures:
-        return "Este documento no tiene firmas digitales."
+        return "This document has no digital signatures."
 
-    lines = [f"Este documento tiene {len(signatures)} firma(s):"]
+    lines = [f"This document has {len(signatures)} signature(s):"]
     for i, sig in enumerate(signatures, 1):
         status = "✓" if sig.is_valid else "✗"
         lines.append(f"  {i}. {status} {sig.signer_name}")
 
     lines.append("")
-    lines.append("Se agregará una firma adicional sin invalidar las existentes.")
+    lines.append("An additional signature will be added without invalidating existing ones.")
 
     return "\n".join(lines)

@@ -1,9 +1,9 @@
 """
-cli - Módulo de comandos CLI
+cli - CLI commands module
 
-Autor: Homero Thompson del Lago del Terror
+Author: Homero Thompson del Lago del Terror
 
-Contiene los comandos del CLI: sign, validate, list-certs.
+Contains CLI commands: sign, validate, list-certs.
 """
 
 from pdfsigner.cli.list_certs import cmd_list_certs

@@ -1,159 +1,159 @@
 # PDFSigner
 
-**Firma digital de PDFs con token USB SafeNet 5110**
+**Digital PDF Signing with SafeNet 5110 USB Token**
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GTK4](https://img.shields.io/badge/GTK-4.0-green.svg)](https://gtk.org/)
 
-PDFSigner es una herramienta para firmar digitalmente documentos PDF usando tokens USB criptográficos (SafeNet 5110) con firma PAdES-LTV de validez legal.
+PDFSigner is a tool for digitally signing PDF documents using cryptographic USB tokens (SafeNet 5110) with legally valid PAdES-LTV signatures.
 
-## ✨ Características
+## ✨ Features
 
-- **Firma PAdES-LTV** - Long Term Validation con timestamp TSA
-- **Token SafeNet 5110** - Soporte completo vía NSS/PKCS#11
-- **Integración Nautilus** - Click derecho → "Firmar digitalmente"
-- **GUI Standalone** - Aplicación GTK4 independiente con drag & drop
-- **CLI Completo** - Para scripts y automatización
-- **Modo Dry-Run** - Simular firma sin token para testing
-- **Firma visible/invisible** - Con posicionamiento inteligente
-- **Firma en lote** - Múltiples PDFs con un solo PIN
-- **Validación** - Verificar firmas existentes
-- **Multi-firma** - Agregar firmas adicionales a PDFs ya firmados
-
----
-
-## 📋 Tabla de Contenidos
-
-1. [Requisitos Previos](#-requisitos-previos)
-2. [Instalación de Drivers SafeNet](#-instalación-de-drivers-safenet-5110)
-3. [Creación de Base de Datos NSS](#-creación-de-base-de-datos-nss)
-4. [Instalación de PDFSigner](#-instalación-de-pdfsigner)
-5. [Configuración](#️-configuración)
-6. [Uso](#️-uso)
-7. [Modo Dry-Run (Testing)](#-modo-dry-run-testing)
-8. [Solución de Problemas](#-solución-de-problemas)
-9. [Desarrollo](#-desarrollo)
+- **PAdES-LTV Signature** - Long Term Validation with TSA timestamp
+- **SafeNet 5110 Token** - Full support via NSS/PKCS#11
+- **Nautilus Integration** - Right-click → "Sign digitally"
+- **Standalone GUI** - Independent GTK4 application with drag & drop
+- **Complete CLI** - For scripts and automation
+- **Dry-Run Mode** - Simulate signing without token for testing
+- **Visible/invisible signature** - With smart positioning
+- **Batch signing** - Multiple PDFs with a single PIN
+- **Validation** - Verify existing signatures
+- **Multi-signature** - Add additional signatures to already signed PDFs
 
 ---
 
-## 🔧 Requisitos Previos
+## 📋 Table of Contents
 
-Antes de instalar PDFSigner, necesitas:
+1. [Prerequisites](#-prerequisites)
+2. [SafeNet Driver Installation](#-safenet-5110-driver-installation)
+3. [NSS Database Creation](#️-nss-database-creation)
+4. [PDFSigner Installation](#-pdfsigner-installation)
+5. [Configuration](#️-configuration)
+6. [Usage](#️-usage)
+7. [Dry-Run Mode (Testing)](#-dry-run-mode-testing)
+8. [Troubleshooting](#-troubleshooting)
+9. [Development](#-development)
 
-| Requisito | Descripción |
-|-----------|-------------|
-| **Token USB** | SafeNet 5110 (eToken) o compatible PKCS#11 |
-| **Certificado** | Certificado de firma digital instalado en el token |
+---
+
+## 🔧 Prerequisites
+
+Before installing PDFSigner, you need:
+
+| Requirement | Description |
+|-------------|-------------|
+| **USB Token** | SafeNet 5110 (eToken) or PKCS#11 compatible |
+| **Certificate** | Digital signing certificate installed on the token |
 | **Linux** | Debian 12+, Ubuntu 22.04+, Fedora 38+, Arch, openSUSE |
 | **Drivers** | SafeNet Authentication Client |
-| **NSS Database** | Base de datos NSS con el módulo PKCS#11 registrado |
+| **NSS Database** | NSS database with registered PKCS#11 module |
 
-### Verificar tu entorno
+### Verify your environment
 
 ```bash
-# ¿Tienes el token conectado?
+# Do you have the token connected?
 lsusb | grep -i "safenet\|gemalto\|thales"
 
-# Salida esperada (ejemplo):
+# Expected output (example):
 # Bus 001 Device 003: ID 0529:0620 Aladdin Knowledge Systems Token JC
 ```
 
 ---
 
-## 🔑 Instalación de Drivers SafeNet 5110
+## 🔑 SafeNet 5110 Driver Installation
 
-### Paso 1: Descargar el driver
+### Step 1: Download the driver
 
-Los drivers de SafeNet (ahora Thales) se obtienen de:
+SafeNet (now Thales) drivers are obtained from:
 
-1. **Opción A - Proveedor oficial:** Contactar a tu proveedor de certificados
-2. **Opción B - Portal Thales:** https://supportportal.thalesgroup.com (requiere cuenta)
-3. **Opción C - Tu organización:** El departamento de IT usualmente proporciona el instalador
+1. **Option A - Official provider:** Contact your certificate provider
+2. **Option B - Thales Portal:** https://supportportal.thalesgroup.com (requires account)
+3. **Option C - Your organization:** The IT department usually provides the installer
 
-El archivo típicamente se llama: `SafenetAuthenticationClient-*.deb` o `SAC*.rpm`
+The file is typically named: `SafenetAuthenticationClient-*.deb` or `SAC*.rpm`
 
-### Paso 2: Instalar el driver
+### Step 2: Install the driver
 
 #### Debian / Ubuntu
 
 ```bash
-# Si tienes el .deb
+# If you have the .deb
 sudo dpkg -i SafenetAuthenticationClient-*.deb
-sudo apt-get install -f  # Resolver dependencias
+sudo apt-get install -f  # Resolve dependencies
 
-# Verificar instalación
+# Verify installation
 ls -la /usr/lib/libeToken.so
-# Debería existir el archivo
+# The file should exist
 ```
 
 #### Fedora / RHEL
 
 ```bash
-# Si tienes el .rpm
+# If you have the .rpm
 sudo rpm -ivh SafenetAuthenticationClient-*.rpm
 
-# O con dnf
+# Or with dnf
 sudo dnf install ./SafenetAuthenticationClient-*.rpm
 
-# Verificar
+# Verify
 ls -la /usr/lib64/libeToken.so
 ```
 
 #### Arch Linux (AUR)
 
 ```bash
-# Usando yay
+# Using yay
 yay -S safenet-authentication-client
 
-# O manualmente desde AUR
+# Or manually from AUR
 git clone https://aur.archlinux.org/safenet-authentication-client.git
 cd safenet-authentication-client
 makepkg -si
 ```
 
-### Paso 3: Configurar permisos USB
+### Step 3: Configure USB permissions
 
 ```bash
-# Crear regla udev para el token
+# Create udev rule for the token
 sudo tee /etc/udev/rules.d/90-safenet.rules << 'EOF'
 # SafeNet eToken 5110
 SUBSYSTEM=="usb", ATTR{idVendor}=="0529", MODE="0666"
-# Gemalto/Thales (algunos modelos)
+# Gemalto/Thales (some models)
 SUBSYSTEM=="usb", ATTR{idVendor}=="08e6", MODE="0666"
 EOF
 
-# Recargar reglas
+# Reload rules
 sudo udevadm control --reload-rules
 sudo udevadm trigger
 
-# Desconectar y reconectar el token
+# Disconnect and reconnect the token
 ```
 
-### Paso 4: Verificar driver instalado
+### Step 4: Verify installed driver
 
 ```bash
-# Verificar que el módulo existe
+# Verify that the module exists
 ls -la /usr/lib/libeToken.so /usr/lib64/libeToken.so 2>/dev/null
 
-# Verificar con pkcs11-tool (de opensc)
+# Verify with pkcs11-tool (from opensc)
 pkcs11-tool --module /usr/lib/libeToken.so -L
 
-# Salida esperada:
+# Expected output:
 # Available slots:
 # Slot 0 (0x0): SafeNet eToken 5110 [Main Interface] 00 00
-#   token label        : Tu Nombre
+#   token label        : Your Name
 #   token manufacturer : SafeNet, Inc.
 #   ...
 ```
 
 ---
 
-## 🗄️ Creación de Base de Datos NSS
+## 🗄️ NSS Database Creation
 
-NSS (Network Security Services) es la base de datos que Mozilla usa para certificados. PDFSigner usa NSS para comunicarse con el token.
+NSS (Network Security Services) is the database that Mozilla uses for certificates. PDFSigner uses NSS to communicate with the token.
 
-### Paso 1: Instalar herramientas NSS
+### Step 1: Install NSS tools
 
 ```bash
 # Debian/Ubuntu
@@ -169,47 +169,47 @@ sudo pacman -S nss
 sudo zypper install mozilla-nss-tools
 ```
 
-### Paso 2: Crear directorio NSS
+### Step 2: Create NSS directory
 
 ```bash
-# Crear directorio para la base de datos
+# Create directory for the database
 mkdir -p ~/.nss
 
-# Verificar que está vacío
+# Verify it's empty
 ls -la ~/.nss
 ```
 
-### Paso 3: Inicializar base de datos NSS
+### Step 3: Initialize NSS database
 
 ```bash
-# Crear base de datos NSS (formato SQL, recomendado)
+# Create NSS database (SQL format, recommended)
 certutil -N -d sql:$HOME/.nss
 
-# Te pedirá una contraseña para la base de datos
-# IMPORTANTE: Esta NO es la contraseña del token, es para proteger la DB local
-# Puedes dejarla vacía para desarrollo (Enter dos veces)
+# You'll be asked for a password for the database
+# IMPORTANT: This is NOT the token password, it's to protect the local DB
+# You can leave it empty for development (Enter twice)
 
-# Verificar que se creó correctamente
+# Verify it was created correctly
 ls -la ~/.nss
-# Deberías ver: cert9.db, key4.db, pkcs11.txt
+# You should see: cert9.db, key4.db, pkcs11.txt
 ```
 
-### Paso 4: Registrar módulo SafeNet en NSS
+### Step 4: Register SafeNet module in NSS
 
 ```bash
-# Agregar el módulo PKCS#11 del SafeNet
-# IMPORTANTE: Usar el path correcto según tu sistema
+# Add the SafeNet PKCS#11 module
+# IMPORTANT: Use the correct path for your system
 
-# Para sistemas de 64 bits con lib en /usr/lib:
+# For 64-bit systems with lib in /usr/lib:
 modutil -add "SafeNet" -libfile /usr/lib/libeToken.so -dbdir sql:$HOME/.nss
 
-# Para sistemas con lib en /usr/lib64:
+# For systems with lib in /usr/lib64:
 modutil -add "SafeNet" -libfile /usr/lib64/libeToken.so -dbdir sql:$HOME/.nss
 
-# Verificar que se agregó
+# Verify it was added
 modutil -list -dbdir sql:$HOME/.nss
 
-# Salida esperada:
+# Expected output:
 # Listing of PKCS #11 Modules
 # -----------------------------------------------------------
 #   1. NSS Internal PKCS #11 Module
@@ -219,73 +219,73 @@ modutil -list -dbdir sql:$HOME/.nss
 #        ...
 ```
 
-### Paso 5: Verificar acceso al token
+### Step 5: Verify token access
 
 ```bash
-# Listar slots disponibles (con token conectado)
+# List available slots (with token connected)
 modutil -list -dbdir sql:$HOME/.nss
 
-# Listar certificados en el token
-# NOTA: Te pedirá el PIN del token
+# List certificates on the token
+# NOTE: You'll be asked for the token PIN
 certutil -L -d sql:$HOME/.nss -h "SafeNet eToken 5110"
 
-# Salida esperada:
+# Expected output:
 # Certificate Nickname                              Trust Attributes
 #                                                   SSL,S/MIME,JAR/XPI
-# SafeNet eToken 5110:Tu Nombre                     u,u,u
+# SafeNet eToken 5110:Your Name                     u,u,u
 ```
 
-### Paso 6: Verificar certificado de firma
+### Step 6: Verify signing certificate
 
 ```bash
-# Ver detalles del certificado
-certutil -L -d sql:$HOME/.nss -n "SafeNet eToken 5110:Tu Nombre"
+# View certificate details
+certutil -L -d sql:$HOME/.nss -n "SafeNet eToken 5110:Your Name"
 
-# Verificar que tiene capacidad de firma (Key Usage)
-# Buscar: "Digital Signature" o "Non-Repudiation" en la salida
+# Verify it has signing capability (Key Usage)
+# Look for: "Digital Signature" or "Non-Repudiation" in the output
 ```
 
-### Troubleshooting NSS
+### NSS Troubleshooting
 
 ```bash
 # Error: "SEC_ERROR_BAD_DATABASE"
-# Solución: Reiniciar la base de datos
+# Solution: Restart the database
 rm -rf ~/.nss/*
 certutil -N -d sql:$HOME/.nss
 
 # Error: "SEC_ERROR_PKCS11_DEVICE_ERROR"
-# Solución: El token no está conectado o el driver no funciona
+# Solution: The token is not connected or the driver doesn't work
 pkcs11-tool --module /usr/lib/libeToken.so -L
 
 # Error: "SEC_ERROR_TOKEN_NOT_LOGGED_IN"
-# Solución: Necesitas proporcionar el PIN del token
+# Solution: You need to provide the token PIN
 
-# Error: Módulo no encontrado
-# Solución: Verificar el path del módulo
+# Error: Module not found
+# Solution: Verify the module path
 find /usr -name "libeToken.so" 2>/dev/null
 ```
 
 ---
 
-## 📦 Instalación de PDFSigner
+## 📦 PDFSigner Installation
 
-### Instalación Rápida (Recomendada)
+### Quick Installation (Recommended)
 
 ```bash
-# Clonar repositorio
+# Clone repository
 git clone https://github.com/vdiriern/pdfsigner.git
 cd pdfsigner
 
-# Ejecutar instalador automático
+# Run automatic installer
 ./scripts/install.sh
 ```
 
-### Instalación Manual
+### Manual Installation
 
 #### Debian / Ubuntu / Linux Mint
 
 ```bash
-# 1. Dependencias del sistema
+# 1. System dependencies
 sudo apt update
 sudo apt install -y \
     python3-gi \
@@ -296,31 +296,31 @@ sudo apt install -y \
     libnss3-tools \
     opensc
 
-# 2. Instalar uv (gestor de paquetes Python)
+# 2. Install uv (Python package manager)
 curl -LsSf https://astral.sh/uv/install.sh | sh
 source ~/.bashrc
 
-# 3. Clonar e instalar
+# 3. Clone and install
 git clone https://github.com/vdiriern/pdfsigner.git
 cd pdfsigner
 uv sync
 
-# 4. Configurar acceso a PyGObject del sistema
+# 4. Configure access to system PyGObject
 echo "/usr/lib/python3/dist-packages" > .venv/lib/python3.*/site-packages/system-packages.pth
 
-# 5. Copiar configuración
+# 5. Copy configuration
 mkdir -p ~/.config/pdfsigner
 cp config/pdfsigner.toml.example ~/.config/pdfsigner/config.toml
 
-# 6. Editar configuración con tu path NSS
+# 6. Edit configuration with your NSS path
 nano ~/.config/pdfsigner/config.toml
-# Cambiar: nss_db_path = "/home/TU_USUARIO/.nss"
+# Change: nss_db_path = "/home/YOUR_USERNAME/.nss"
 ```
 
 #### Fedora / RHEL 9+
 
 ```bash
-# 1. Dependencias
+# 1. Dependencies
 sudo dnf install -y \
     python3-gobject \
     gtk4 \
@@ -329,14 +329,14 @@ sudo dnf install -y \
     nss-tools \
     opensc
 
-# 2-6. Igual que Debian, pero el path de sistema es diferente:
+# 2-6. Same as Debian, but the system path is different:
 echo "/usr/lib64/python3.*/site-packages" > .venv/lib/python3.*/site-packages/system-packages.pth
 ```
 
 #### Arch Linux
 
 ```bash
-# 1. Dependencias
+# 1. Dependencies
 sudo pacman -S --noconfirm \
     python-gobject \
     gtk4 \
@@ -345,73 +345,73 @@ sudo pacman -S --noconfirm \
     nss \
     opensc
 
-# 2-6. Igual que Debian
+# 2-6. Same as Debian
 echo "/usr/lib/python3.*/site-packages" > .venv/lib/python3.*/site-packages/system-packages.pth
 ```
 
-### Verificar instalación
+### Verify installation
 
 ```bash
-# Verificar que PDFSigner funciona
+# Verify that PDFSigner works
 uv run pdfsigner --help
 
-# Salida esperada:
+# Expected output:
 # usage: pdfsigner [-h] [-v] [--dry-run] {sign,validate,list-certs} ...
-# PDFSigner - Firma digital de PDFs con token USB
+# PDFSigner - Digital PDF signing with USB token
 ```
 
 ---
 
-## ⚙️ Configuración
+## ⚙️ Configuration
 
-### Archivo de configuración
+### Configuration file
 
-Ubicación: `~/.config/pdfsigner/config.toml`
+Location: `~/.config/pdfsigner/config.toml`
 
 ```toml
-# PDFSigner - Configuración
-# Autor: Homero Thompson del Lago del Terror
+# PDFSigner - Configuration
+# Author: Homero Thompson del Lago del Terror
 
 # ============================================================================
-# NSS Database (Token USB)
+# NSS Database (USB Token)
 # ============================================================================
-# IMPORTANTE: Cambiar a tu directorio de usuario
-nss_db_path = "/home/TU_USUARIO/.nss"
+# IMPORTANT: Change to your user directory
+nss_db_path = "/home/YOUR_USERNAME/.nss"
 
 # ============================================================================
-# TSA (Timestamp Authority) - REQUERIDO para firmas con validez legal
+# TSA (Timestamp Authority) - REQUIRED for legally valid signatures
 # ============================================================================
-# Opción 1: TSA Gratuito (para pruebas)
+# Option 1: Free TSA (for testing)
 tsa_url = "https://freetsa.org/tsr"
 
-# Opción 2: TSA Corporativo
-# tsa_url = "https://tsa.tuempresa.com/timestamp"
-# tsa_username = "usuario"
+# Option 2: Corporate TSA
+# tsa_url = "https://tsa.yourcompany.com/timestamp"
+# tsa_username = "username"
 # tsa_password = "password"
 
 # ============================================================================
-# Firma Visible
+# Visible Signature
 # ============================================================================
-default_visible = false          # true = mostrar sello de firma
-signature_width_mm = 50          # Ancho del sello
-signature_height_mm = 20         # Alto del sello
-default_page = "last"            # "last", "first", o número de página
+default_visible = false          # true = show signature stamp
+signature_width_mm = 50          # Stamp width
+signature_height_mm = 20         # Stamp height
+default_page = "last"            # "last", "first", or page number
 
 # ============================================================================
-# Archivos de Salida
+# Output Files
 # ============================================================================
-output_suffix = "_firmado"       # documento.pdf → documento_firmado.pdf
+output_suffix = "_signed"        # document.pdf → document_signed.pdf
 
 # ============================================================================
-# Cache de PIN
+# PIN Cache
 # ============================================================================
 pin_cache_enabled = true
-pin_cache_timeout_seconds = 300  # 5 minutos
+pin_cache_timeout_seconds = 300  # 5 minutes
 
 # ============================================================================
-# Modo Dry-Run (para testing sin token)
+# Dry-Run Mode (for testing without token)
 # ============================================================================
-dry_run = false                  # true = simular firma sin token real
+dry_run = false                  # true = simulate signing without real token
 
 # ============================================================================
 # Logging
@@ -419,239 +419,239 @@ dry_run = false                  # true = simular firma sin token real
 log_level = "INFO"               # DEBUG, INFO, WARNING, ERROR
 ```
 
-### TSAs Públicos Gratuitos
+### Free Public TSAs
 
-| Proveedor | URL | Uso |
-|-----------|-----|-----|
-| FreeTSA | `https://freetsa.org/tsr` | Pruebas, uso personal |
-| DigiCert | `http://timestamp.digicert.com` | Producción |
-| Sectigo | `http://timestamp.sectigo.com` | Producción |
-| GlobalSign | `http://timestamp.globalsign.com/tsa/r6advanced1` | Producción |
+| Provider | URL | Usage |
+|----------|-----|-------|
+| FreeTSA | `https://freetsa.org/tsr` | Testing, personal use |
+| DigiCert | `http://timestamp.digicert.com` | Production |
+| Sectigo | `http://timestamp.sectigo.com` | Production |
+| GlobalSign | `http://timestamp.globalsign.com/tsa/r6advanced1` | Production |
 
 ---
 
-## 🖥️ Uso
+## 🖥️ Usage
 
-### GUI (Aplicación Gráfica)
+### GUI (Graphical Application)
 
 ```bash
-# Iniciar la aplicación
+# Start the application
 uv run pdfsigner-gui
 
-# Con modo dry-run (sin token)
+# With dry-run mode (without token)
 PDFSIGNER_DRY_RUN=true uv run pdfsigner-gui
 ```
 
-**Funcionalidades:**
-- 📂 Arrastrar y soltar PDFs
-- ⚙️ Configuración desde la interfaz
-- 📝 Ver estado de cada archivo
-- ✅ Firmar en lote
-- 🔍 Validar firmas
+**Features:**
+- 📂 Drag and drop PDFs
+- ⚙️ Configuration from the interface
+- 📝 View status of each file
+- ✅ Batch signing
+- 🔍 Validate signatures
 
-**Atajos:**
-- `Ctrl+O` - Abrir archivos
-- `Ctrl+,` - Configuración
-- `Ctrl+Q` - Salir
+**Shortcuts:**
+- `Ctrl+O` - Open files
+- `Ctrl+,` - Configuration
+- `Ctrl+Q` - Quit
 
-### CLI (Línea de Comandos)
+### CLI (Command Line)
 
 ```bash
 # ═══════════════════════════════════════════════════════════
-# FIRMAR DOCUMENTOS
+# SIGN DOCUMENTS
 # ═══════════════════════════════════════════════════════════
 
-# Firmar un archivo (te pedirá el PIN)
-uv run pdfsigner sign documento.pdf
+# Sign a file (will ask for PIN)
+uv run pdfsigner sign document.pdf
 
-# Firmar con firma visible en última página
-uv run pdfsigner sign documento.pdf --visible --page last
+# Sign with visible signature on last page
+uv run pdfsigner sign document.pdf --visible --page last
 
-# Firmar en primera página
-uv run pdfsigner sign documento.pdf --visible --page first
+# Sign on first page
+uv run pdfsigner sign document.pdf --visible --page first
 
-# Firmar en página específica (ej: página 3)
-uv run pdfsigner sign documento.pdf --visible --page 3
+# Sign on specific page (e.g., page 3)
+uv run pdfsigner sign document.pdf --visible --page 3
 
-# Firmar múltiples archivos
-uv run pdfsigner sign archivo1.pdf archivo2.pdf archivo3.pdf
+# Sign multiple files
+uv run pdfsigner sign file1.pdf file2.pdf file3.pdf
 
-# Firmar todos los PDFs en un directorio
-uv run pdfsigner sign ./documentos/
+# Sign all PDFs in a directory
+uv run pdfsigner sign ./documents/
 
-# Firmar recursivamente
-uv run pdfsigner sign ./documentos/ -r
+# Sign recursively
+uv run pdfsigner sign ./documents/ -r
 
 # ═══════════════════════════════════════════════════════════
-# VALIDAR FIRMAS
+# VALIDATE SIGNATURES
 # ═══════════════════════════════════════════════════════════
 
-# Validar un documento firmado
-uv run pdfsigner validate documento_firmado.pdf
+# Validate a signed document
+uv run pdfsigner validate document_signed.pdf
 
-# Validar con detalles
-uv run pdfsigner -v validate documento_firmado.pdf
+# Validate with details
+uv run pdfsigner -v validate document_signed.pdf
 
-# Validar múltiples documentos
+# Validate multiple documents
 uv run pdfsigner validate *.pdf
 
 # ═══════════════════════════════════════════════════════════
-# CERTIFICADOS
+# CERTIFICATES
 # ═══════════════════════════════════════════════════════════
 
-# Listar certificados disponibles en el token
+# List available certificates on the token
 uv run pdfsigner list-certs
 
 # ═══════════════════════════════════════════════════════════
-# MODO DRY-RUN (TESTING)
+# DRY-RUN MODE (TESTING)
 # ═══════════════════════════════════════════════════════════
 
-# Simular firma sin token real
-uv run pdfsigner --dry-run sign documento.pdf
+# Simulate signing without real token
+uv run pdfsigner --dry-run sign document.pdf
 ```
 
-### Integración Nautilus
+### Nautilus Integration
 
 ```bash
-# Instalar extensión
+# Install extension
 ./scripts/install.sh
 
-# Reiniciar Nautilus
+# Restart Nautilus
 nautilus -q
 
-# Uso: Click derecho en PDF → "Firmar digitalmente"
+# Usage: Right-click on PDF → "Sign digitally"
 ```
 
 ---
 
-## 🧪 Modo Dry-Run (Testing)
+## 🧪 Dry-Run Mode (Testing)
 
-El modo dry-run permite probar PDFSigner sin tener el token USB conectado.
+Dry-run mode allows you to test PDFSigner without having the USB token connected.
 
-### ¿Qué hace el modo dry-run?
+### What does dry-run mode do?
 
-- ✅ Simula conexión con token
-- ✅ Acepta cualquier PIN de 4+ dígitos
-- ✅ Usa certificados ficticios
-- ✅ Copia archivos con sufijo `_firmado`
-- ⚠️ **NO** firma realmente los documentos
+- ✅ Simulates token connection
+- ✅ Accepts any PIN with 4+ digits
+- ✅ Uses dummy certificates
+- ✅ Copies files with `_signed` suffix
+- ⚠️ **DOES NOT** actually sign documents
 
-### Activar dry-run
+### Enable dry-run
 
 ```bash
-# Método 1: Flag en CLI
-uv run pdfsigner --dry-run sign documento.pdf
+# Method 1: CLI flag
+uv run pdfsigner --dry-run sign document.pdf
 
-# Método 2: Variable de entorno
-PDFSIGNER_DRY_RUN=true uv run pdfsigner sign documento.pdf
+# Method 2: Environment variable
+PDFSIGNER_DRY_RUN=true uv run pdfsigner sign document.pdf
 
-# Método 3: En config.toml
+# Method 3: In config.toml
 # dry_run = true
 
-# Método 4: GUI
+# Method 4: GUI
 PDFSIGNER_DRY_RUN=true uv run pdfsigner-gui
 ```
 
-### Ejemplo de salida dry-run
+### Example dry-run output
 
 ```
 ============================================================
-⚠️  MODO DRY-RUN - SIMULACIÓN SIN TOKEN REAL
+⚠️  DRY-RUN MODE - SIMULATION WITHOUT REAL TOKEN
 ============================================================
-Los archivos serán copiados con sufijo _firmado
-pero NO contendrán firma digital real.
+Files will be copied with _signed suffix
+but will NOT contain a real digital signature.
 
-[DRY-RUN] Simulando conexión con token...
-[DRY-RUN] Token simulado: SafeNet 5110 (SIMULADO)
-[DRY-RUN] Ingrese cualquier PIN de 4+ dígitos para simular:
-Ingrese PIN del token: ****
-[DRY-RUN] Autenticación simulada exitosa
-[DRY-RUN] Usando certificado simulado: Juan Pérez (PRUEBA)
+[DRY-RUN] Simulating token connection...
+[DRY-RUN] Simulated token: SafeNet 5110 (SIMULATED)
+[DRY-RUN] Enter any PIN with 4+ digits to simulate:
+Enter token PIN: ****
+[DRY-RUN] Simulated authentication successful
+[DRY-RUN] Using simulated certificate: Juan Pérez (TEST)
 
-[DRY-RUN] [100.0%] documento.pdf                     [success]
+[DRY-RUN] [100.0%] document.pdf                     [success]
 
 ------------------------------------------------------------
-✓ [DRY-RUN] 1 archivo(s) copiados con sufijo _firmado
+✓ [DRY-RUN] 1 file(s) copied with _signed suffix
 
-⚠️  Nota: Los archivos NO están realmente firmados.
-   Se crearon copias para simular el proceso.
+⚠️  Note: Files are NOT actually signed.
+   Copies were created to simulate the process.
 ```
 
 ---
 
-## 🐛 Solución de Problemas
+## 🐛 Troubleshooting
 
 ### "No module named 'gi'"
 
 ```bash
-# El venv necesita acceso a PyGObject del sistema
+# The venv needs access to system PyGObject
 echo "/usr/lib/python3/dist-packages" > .venv/lib/python3.*/site-packages/system-packages.pth
 ```
 
-### "No se detectó token USB"
+### "USB token not detected"
 
 ```bash
-# 1. Verificar conexión física
+# 1. Verify physical connection
 lsusb | grep -i safenet
 
-# 2. Verificar driver
+# 2. Verify driver
 ls -la /usr/lib/libeToken.so
 
-# 3. Verificar módulo en NSS
+# 3. Verify module in NSS
 modutil -list -dbdir sql:$HOME/.nss
 
-# 4. Probar con pkcs11-tool
+# 4. Test with pkcs11-tool
 pkcs11-tool --module /usr/lib/libeToken.so -L
 ```
 
 ### "SEC_ERROR_PKCS11_DEVICE_ERROR"
 
-El driver no puede comunicarse con el token:
+The driver cannot communicate with the token:
 
 ```bash
-# Verificar permisos USB
+# Verify USB permissions
 ls -la /dev/bus/usb/*/*
 
-# Recargar reglas udev
+# Reload udev rules
 sudo udevadm control --reload-rules
 sudo udevadm trigger
 
-# Desconectar y reconectar token
+# Disconnect and reconnect token
 ```
 
-### "Certificado no encontrado"
+### "Certificate not found"
 
 ```bash
-# Listar certificados disponibles
+# List available certificates
 certutil -L -d sql:$HOME/.nss -h all
 
-# Si no aparecen, verificar que el módulo está cargado
+# If they don't appear, verify the module is loaded
 modutil -list -dbdir sql:$HOME/.nss
 ```
 
-### "Error de TSA / Timeout"
+### "TSA error / Timeout"
 
 ```bash
-# Verificar conectividad
+# Verify connectivity
 curl -v https://freetsa.org/tsr
 
-# Probar otro TSA en config.toml
+# Try another TSA in config.toml
 # tsa_url = "http://timestamp.digicert.com"
 ```
 
-### La GUI no inicia
+### GUI doesn't start
 
 ```bash
-# Verificar GTK4
+# Verify GTK4
 python3 -c "import gi; gi.require_version('Gtk', '4.0'); print('OK')"
 
-# Verificar libadwaita
+# Verify libadwaita
 python3 -c "import gi; gi.require_version('Adw', '1'); print('OK')"
 ```
 
 ---
 
-## 🔧 Desarrollo
+## 🔧 Development
 
 ### Setup
 
@@ -662,7 +662,7 @@ uv sync --all-extras
 echo "/usr/lib/python3/dist-packages" > .venv/lib/python3.*/site-packages/system-packages.pth
 ```
 
-### Comandos
+### Commands
 
 ```bash
 # Tests
@@ -675,26 +675,26 @@ uv run ruff format .
 # Type checking
 uv run mypy src/pdfsigner
 
-# Seguridad
+# Security
 uv run bandit -r src/
 ```
 
-### Estructura
+### Structure
 
 ```
 pdfsigner/
 ├── src/pdfsigner/
-│   ├── cli/                 # Comandos CLI
-│   ├── config/              # Configuración
+│   ├── cli/                 # CLI commands
+│   ├── config/              # Configuration
 │   ├── core/
-│   │   ├── mock/            # Modo dry-run
-│   │   ├── pdf_analyzer/    # Análisis de PDFs
-│   │   ├── signer/          # Firma PAdES
+│   │   ├── mock/            # Dry-run mode
+│   │   ├── pdf_analyzer/    # PDF analysis
+│   │   ├── signer/          # PAdES signing
 │   │   ├── token/           # NSS/PKCS#11
-│   │   └── validator/       # Validación
-│   ├── gui/                 # Aplicación GTK4
-│   ├── nautilus_extension/  # Plugin Nautilus
-│   └── ui/                  # Diálogos y widgets
+│   │   └── validator/       # Validation
+│   ├── gui/                 # GTK4 application
+│   ├── nautilus_extension/  # Nautilus plugin
+│   └── ui/                  # Dialogs and widgets
 ├── tests/
 ├── scripts/
 └── config/
@@ -702,13 +702,13 @@ pdfsigner/
 
 ---
 
-## 📜 Licencia
+## 📜 License
 
-MIT License - Ver [LICENSE](LICENSE)
+MIT License - See [LICENSE](LICENSE)
 
 ---
 
-## 👤 Autor
+## 👤 Author
 
 **Homero Thompson del Lago del Terror**
 
@@ -719,13 +719,13 @@ MIT License - Ver [LICENSE](LICENSE)
 ### [0.1.0] - 2025-01-13
 
 #### Added
-- Firma PAdES-LTV con timestamp TSA
-- Soporte SafeNet 5110 vía NSS/PKCS#11
-- GUI standalone GTK4/libadwaita
-- CLI con subcomandos (sign, validate, list-certs)
-- **Modo dry-run** para testing sin token
-- Firma visible con posicionamiento inteligente
-- Firma en lote con cache de PIN
-- Validación de firmas
-- Integración Nautilus
-- Instalador multi-distribución
+- PAdES-LTV signature with TSA timestamp
+- SafeNet 5110 support via NSS/PKCS#11
+- Standalone GUI GTK4/libadwaita
+- CLI with subcommands (sign, validate, list-certs)
+- **Dry-run mode** for testing without token
+- Visible signature with smart positioning
+- Batch signing with PIN cache
+- Signature validation
+- Nautilus integration
+- Multi-distribution installer

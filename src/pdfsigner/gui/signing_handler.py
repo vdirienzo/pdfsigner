@@ -1,11 +1,11 @@
 """
 signing_handler.py - Manejador de firma para GUI
 
-Autor: Homero Thompson del Lago del Terror
+Author: Homero Thompson del Lago del Terror
 
-Orquesta el proceso de firma desde la GUI,
-ejecutando operaciones en threads separados.
-Soporta modo dry-run para testing sin token real.
+Orchestrates the signing process from the GUI,
+executing operations in separate threads.
+Supports dry-run mode for testing without real token.
 """
 
 from pathlib import Path
@@ -37,7 +37,7 @@ class SigningHandler:
 
     def __init__(self, window: Adw.ApplicationWindow):
         """
-        Inicializa el handler.
+        Initializes the handler.
 
         Args:
             window: Ventana principal de la aplicación
@@ -50,7 +50,7 @@ class SigningHandler:
 
     def sign_files(self, files: list[Path]) -> None:
         """
-        Inicia el proceso de firma para los archivos dados.
+        Starts the signing process for the given files.
 
         Args:
             files: Lista de archivos PDF a firmar
@@ -68,7 +68,7 @@ class SigningHandler:
         response: int,
         files: list[Path],
     ) -> None:
-        """Callback cuando se cierra el diálogo de opciones."""
+        """Callback when the options dialog is closed."""
         if response != Gtk.ResponseType.OK:
             dialog.destroy()
             return
@@ -82,7 +82,7 @@ class SigningHandler:
         self._request_pin(files)
 
     def _request_pin(self, files: list[Path]) -> None:
-        """Solicita el PIN del token."""
+        """Requests the token PIN."""
         pin_dialog = PinDialog(parent=self.window)
         pin_dialog.connect("response", self._on_pin_response, files)
         pin_dialog.present()
@@ -93,7 +93,7 @@ class SigningHandler:
         response: int,
         files: list[Path],
     ) -> None:
-        """Callback cuando se ingresa el PIN."""
+        """Callback when PIN is entered."""
         if response != Gtk.ResponseType.OK:
             dialog.destroy()
             return
@@ -113,7 +113,7 @@ class SigningHandler:
         ).start()
 
     def _verify_pin_and_sign(self, files: list[Path]) -> None:
-        """Verifica el PIN y procede a firmar (en thread separado)."""
+        """Verifies PIN and proceeds to sign (in separate thread)."""
         try:
             pin = self._current_pin or ""
 
@@ -134,12 +134,12 @@ class SigningHandler:
             GLib.idle_add(self._start_signing, files)
 
         except TokenError as e:
-            GLib.idle_add(self._show_error, "Error de token", str(e))
+            GLib.idle_add(self._show_error, "Token error", str(e))
         except Exception as e:
             GLib.idle_add(self._show_error, "Error", str(e))
 
     def _start_signing(self, files: list[Path]) -> None:
-        """Inicia el proceso de firma mostrando progreso."""
+        """Starts the signing process showing progress."""
         file_names = [f.name for f in files]
         self._progress_dialog = ProgressDialog(
             parent=self.window,
@@ -155,12 +155,12 @@ class SigningHandler:
         ).start()
 
     def _on_progress_cancel(self, dialog: ProgressDialog, response: int) -> None:
-        """Callback cuando se cancela el progreso."""
+        """Callback when progress is cancelled."""
         dialog.destroy()
         self._progress_dialog = None
 
     def _run_signing(self, files: list[Path]) -> None:
-        """Ejecuta el proceso de firma (en thread separado)."""
+        """Executes the signing process (in separate thread)."""
         try:
             pin = self._current_pin or ""
 
@@ -201,29 +201,29 @@ class SigningHandler:
             GLib.idle_add(self._signing_complete, results, self.settings.dry_run)
 
         except PDFSignerError as e:
-            GLib.idle_add(self._show_error, "Error de firma", str(e))
+            GLib.idle_add(self._show_error, "Signature error", str(e))
         except Exception as e:
-            GLib.idle_add(self._show_error, "Error inesperado", str(e))
+            GLib.idle_add(self._show_error, "Unexpected error", str(e))
         finally:
             self._current_pin = None
 
     def _update_progress(self, progress) -> None:
-        """Actualiza el diálogo de progreso."""
+        """Updates the progress dialog."""
         if self._progress_dialog:
             self._progress_dialog.update_progress(progress)
 
             if progress.current_file:
                 file_path = Path(progress.current_file)
                 if progress.status == "success":
-                    self.window.file_list.update_file_status(file_path, "signed", "Firmado")
+                    self.window.file_list.update_file_status(file_path, "signed", "Signed")
                 elif progress.status == "error":
                     msg = getattr(progress, "message", None) or "Error"
                     self.window.file_list.update_file_status(file_path, "error", msg)
                 else:
-                    self.window.file_list.update_file_status(file_path, "processing", "Firmando...")
+                    self.window.file_list.update_file_status(file_path, "processing", "Signing...")
 
     def _signing_complete(self, results, dry_run: bool = False) -> None:
-        """Callback cuando la firma se completa."""
+        """Callback when signing completes."""
         if self._progress_dialog:
             self._progress_dialog.destroy()
             self._progress_dialog = None
@@ -240,14 +240,14 @@ class SigningHandler:
         suffix = " (dry-run)" if dry_run else ""
 
         if failed == 0:
-            self.window.show_toast(f"✓ {prefix}{success} archivo(s) firmado(s){suffix}")
+            self.window.show_toast(f"✓ {prefix}{success} file(s) firmado(s){suffix}")
         else:
             self.window.show_toast(
                 f"{prefix}Firmados: {success}/{total} (Errores: {failed}){suffix}"
             )
 
     def _show_error(self, title: str, message: str) -> None:
-        """Muestra un diálogo de error."""
+        """Shows an error dialog."""
         if self._progress_dialog:
             self._progress_dialog.destroy()
             self._progress_dialog = None
@@ -257,5 +257,5 @@ class SigningHandler:
             heading=title,
             body=message,
         )
-        dialog.add_response("ok", "Aceptar")
+        dialog.add_response("ok", "Accept")
         dialog.present()

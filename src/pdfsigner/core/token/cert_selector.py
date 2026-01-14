@@ -1,10 +1,10 @@
 """
-cert_selector.py - Selector de certificados del token
+cert_selector.py - Token certificate selector
 
-Autor: Homero Thompson del Lago del Terror
+Author: Homero Thompson del Lago del Terror
 
-Filtra y selecciona certificados válidos para firma digital
-del token USB SafeNet.
+Filters and selects valid certificates for digital signature
+from the SafeNet USB token.
 """
 
 from dataclasses import dataclass
@@ -18,16 +18,16 @@ from pdfsigner.exceptions import CertificateExpiredError, CertificateNotFoundErr
 
 @dataclass
 class ValidCertificate:
-    """Certificado validado y listo para usar."""
+    """Validated certificate ready to use."""
 
     info: CertificateInfo
     days_until_expiry: int
-    is_expiring_soon: bool  # Menos de 30 días
+    is_expiring_soon: bool  # Less than 30 days
 
     @property
     def display_name(self) -> str:
-        """Nombre para mostrar al usuario."""
-        # Extraer CN del subject
+        """Display name for user."""
+        # Extract CN from subject
         subject = self.info.subject
         cn_parts = [p for p in subject.split(",") if p.strip().startswith("CN=")]
         if cn_parts:
@@ -37,51 +37,51 @@ class ValidCertificate:
 
 class CertificateSelector:
     """
-    Selector de certificados para firma.
+    Certificate selector for signing.
 
-    Filtra certificados válidos (no expirados, con keyUsage correcto)
-    y permite selección por el usuario si hay múltiples.
+    Filters valid certificates (not expired, with correct keyUsage)
+    and allows user selection if there are multiple.
     """
 
     EXPIRING_SOON_DAYS = 30
 
     def __init__(self, nss_handler: NSSHandler):
         """
-        Inicializa el selector.
+        Initialize selector.
 
         Args:
-            nss_handler: Handler de NSS autenticado
+            nss_handler: Authenticated NSS handler
         """
         self.nss_handler = nss_handler
 
     def get_valid_certificates(self) -> list[ValidCertificate]:
         """
-        Obtiene certificados válidos para firma.
+        Get valid certificates for signing.
 
         Returns:
-            Lista de certificados válidos ordenados por fecha de expiración
+            List of valid certificates sorted by expiration date
 
         Raises:
-            CertificateNotFoundError: Si no hay certificados válidos
+            CertificateNotFoundError: If no valid certificates found
         """
         all_certs = self.nss_handler.list_certificates()
         valid_certs = []
         now = datetime.now(UTC)
 
         for cert_info in all_certs:
-            # Filtrar solo certificados de firma
+            # Filter only signing certificates
             if not cert_info.can_sign:
-                logger.debug(f"Certificado '{cert_info.label}' no puede firmar, ignorado")
+                logger.debug(f"Certificate '{cert_info.label}' cannot sign, ignored")
                 continue
 
-            # Verificar expiración
+            # Check expiration
             try:
                 not_after = datetime.fromisoformat(cert_info.not_after)
                 if not_after.tzinfo is None:
                     not_after = not_after.replace(tzinfo=UTC)
 
                 if not_after < now:
-                    logger.warning(f"Certificado '{cert_info.label}' expirado")
+                    logger.warning(f"Certificate '{cert_info.label}' expired")
                     continue
 
                 days_until_expiry = (not_after - now).days
@@ -89,7 +89,7 @@ class CertificateSelector:
 
                 if is_expiring_soon:
                     logger.warning(
-                        f"Certificado '{cert_info.label}' expira en {days_until_expiry} días"
+                        f"Certificate '{cert_info.label}' expires in {days_until_expiry} days"
                     )
 
                 valid_cert = ValidCertificate(
@@ -100,43 +100,43 @@ class CertificateSelector:
                 valid_certs.append(valid_cert)
 
             except (ValueError, TypeError) as e:
-                logger.warning(f"Error procesando fecha de certificado: {e}")
+                logger.warning(f"Error processing certificate date: {e}")
                 continue
 
         if not valid_certs:
-            raise CertificateNotFoundError("No hay certificados válidos para firma")
+            raise CertificateNotFoundError("No valid certificates for signing")
 
-        # Ordenar por fecha de expiración (más lejana primero)
+        # Sort by expiration date (furthest first)
         valid_certs.sort(key=lambda c: c.days_until_expiry, reverse=True)
 
-        logger.info(f"Encontrados {len(valid_certs)} certificados válidos para firma")
+        logger.info(f"Found {len(valid_certs)} valid certificates for signing")
         return valid_certs
 
     def get_default_certificate(self) -> ValidCertificate:
         """
-        Obtiene el certificado por defecto (el de mayor validez).
+        Get default certificate (the one with longest validity).
 
         Returns:
-            Certificado por defecto
+            Default certificate
 
         Raises:
-            CertificateNotFoundError: Si no hay certificados válidos
+            CertificateNotFoundError: If no valid certificates found
         """
         valid_certs = self.get_valid_certificates()
         return valid_certs[0]
 
     def select_by_label(self, label: str) -> ValidCertificate:
         """
-        Selecciona un certificado por su etiqueta.
+        Select a certificate by its label.
 
         Args:
-            label: Etiqueta del certificado
+            label: Certificate label
 
         Returns:
-            Certificado seleccionado
+            Selected certificate
 
         Raises:
-            CertificateNotFoundError: Si no se encuentra el certificado
+            CertificateNotFoundError: If certificate not found
         """
         valid_certs = self.get_valid_certificates()
 
@@ -144,19 +144,19 @@ class CertificateSelector:
             if cert.info.label == label:
                 return cert
 
-        raise CertificateNotFoundError(f"Certificado '{label}' no encontrado o no válido")
+        raise CertificateNotFoundError(f"Certificate '{label}' not found or invalid")
 
     def validate_certificate(self, cert: ValidCertificate, allow_expiring: bool = True) -> None:
         """
-        Valida un certificado antes de usarlo.
+        Validate a certificate before using it.
 
         Args:
-            cert: Certificado a validar
-            allow_expiring: Permitir certificados próximos a expirar
+            cert: Certificate to validate
+            allow_expiring: Allow certificates about to expire
 
         Raises:
-            CertificateExpiredError: Si el certificado expiró
-            CertificateNotFoundError: Si el certificado no es válido para firma
+            CertificateExpiredError: If certificate expired
+            CertificateNotFoundError: If certificate not valid for signing
         """
         if cert.days_until_expiry <= 0:
             raise CertificateExpiredError(cert.display_name, cert.info.not_after)
@@ -164,12 +164,12 @@ class CertificateSelector:
         if not allow_expiring and cert.is_expiring_soon:
             raise CertificateExpiredError(
                 cert.display_name,
-                f"expira en {cert.days_until_expiry} días ({cert.info.not_after})",
+                f"expires in {cert.days_until_expiry} days ({cert.info.not_after})",
             )
 
         if not cert.info.can_sign:
             raise CertificateNotFoundError(
-                f"Certificado '{cert.display_name}' no tiene permiso de firma"
+                f"Certificate '{cert.display_name}' does not have signing permission"
             )
 
-        logger.debug(f"Certificado '{cert.display_name}' validado correctamente")
+        logger.debug(f"Certificate '{cert.display_name}' validated correctly")

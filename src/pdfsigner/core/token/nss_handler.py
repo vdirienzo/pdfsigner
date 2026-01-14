@@ -1,10 +1,10 @@
 """
-nss_handler.py - Manejador de conexión con NSS/PKCS#11
+nss_handler.py - NSS/PKCS#11 connection handler
 
-Autor: Homero Thompson del Lago del Terror
+Author: Homero Thompson del Lago del Terror
 
-Maneja la comunicación con el token USB SafeNet 5110
-a través de la base de datos NSS usando python-pkcs11.
+Manages communication with the SafeNet 5110 USB token
+through the NSS database using python-pkcs11.
 """
 
 from dataclasses import dataclass
@@ -26,7 +26,7 @@ from pdfsigner.exceptions import (
 
 @dataclass
 class CertificateInfo:
-    """Información de un certificado en el token."""
+    """Information about a certificate in the token."""
 
     label: str
     subject: str
@@ -40,12 +40,12 @@ class CertificateInfo:
 
 class NSSHandler:
     """
-    Manejador de conexión con NSS/PKCS#11.
+    NSS/PKCS#11 connection handler.
 
-    Gestiona la comunicación con el token USB a través de NSS.
+    Manages communication with USB token through NSS.
     """
 
-    # Rutas comunes de la librería NSS
+    # Common NSS library paths
     NSS_LIB_PATHS = [
         "/usr/lib/x86_64-linux-gnu/libnssckbi.so",
         "/usr/lib/x86_64-linux-gnu/libsoftokn3.so",
@@ -53,7 +53,7 @@ class NSSHandler:
         "/usr/lib/libsoftokn3.so",
     ]
 
-    # Ruta del módulo SafeNet (si está instalado)
+    # SafeNet module path (if installed)
     SAFENET_LIB_PATHS = [
         "/usr/lib/libeToken.so",
         "/usr/lib/x86_64-linux-gnu/libeToken.so",
@@ -62,10 +62,10 @@ class NSSHandler:
 
     def __init__(self, nss_db_path: Path | None = None):
         """
-        Inicializa el handler de NSS.
+        Initialize NSS handler.
 
         Args:
-            nss_db_path: Ruta a la base de datos NSS (default: desde settings)
+            nss_db_path: Path to NSS database (default: from settings)
         """
         settings = get_settings()
         self.nss_db_path = nss_db_path or settings.nss_db_path
@@ -75,38 +75,37 @@ class NSSHandler:
 
     def _find_pkcs11_lib(self) -> str:
         """
-        Encuentra la librería PKCS#11 disponible.
+        Find available PKCS#11 library.
 
         Returns:
-            Ruta a la librería encontrada
+            Path to found library
 
         Raises:
-            TokenNotFoundError: Si no se encuentra librería
+            TokenNotFoundError: If library not found
         """
-        # Primero intentar SafeNet
+        # First try SafeNet
         for path in self.SAFENET_LIB_PATHS:
             if Path(path).exists():
-                logger.debug(f"Usando librería SafeNet: {path}")
+                logger.debug(f"Using SafeNet library: {path}")
                 return path
 
-        # Luego NSS
+        # Then NSS
         for path in self.NSS_LIB_PATHS:
             if Path(path).exists():
-                logger.debug(f"Usando librería NSS: {path}")
+                logger.debug(f"Using NSS library: {path}")
                 return path
 
         raise TokenNotFoundError(
-            "No se encontró librería PKCS#11 (NSS o SafeNet). "
-            "Verifica que el driver del token esté instalado."
+            "PKCS#11 library not found (NSS or SafeNet). Verify that token driver is installed."
         )
 
     def initialize(self) -> None:
         """
-        Inicializa la conexión con PKCS#11.
+        Initialize PKCS#11 connection.
 
         Raises:
-            NSSConfigError: Si la configuración de NSS es inválida
-            TokenNotFoundError: Si no se detecta el token
+            NSSConfigError: If NSS configuration is invalid
+            TokenNotFoundError: If token not detected
         """
         if not self.nss_db_path.exists():
             raise NSSConfigError(str(self.nss_db_path))
@@ -115,16 +114,16 @@ class NSSHandler:
 
         try:
             self._lib = lib(lib_path)
-            logger.info(f"Librería PKCS#11 cargada: {lib_path}")
+            logger.info(f"PKCS#11 library loaded: {lib_path}")
         except Exception as e:
-            raise TokenNotFoundError(f"Error cargando librería PKCS#11: {e}")
+            raise TokenNotFoundError(f"Error loading PKCS#11 library: {e}")
 
     def get_available_tokens(self) -> list[str]:
         """
-        Lista los tokens disponibles.
+        List available tokens.
 
         Returns:
-            Lista de nombres de tokens
+            List of token names
         """
         if self._lib is None:
             self.initialize()
@@ -133,19 +132,19 @@ class NSSHandler:
         for slot in self._lib.get_slots(token_present=True):
             token = slot.get_token()
             tokens.append(token.label.strip())
-            logger.debug(f"Token encontrado: {token.label}")
+            logger.debug(f"Token found: {token.label}")
 
         return tokens
 
     def connect_token(self, token_label: str | None = None) -> None:
         """
-        Conecta con un token específico.
+        Connect to a specific token.
 
         Args:
-            token_label: Etiqueta del token (None = primer token disponible)
+            token_label: Token label (None = first available token)
 
         Raises:
-            TokenNotFoundError: Si no se encuentra el token
+            TokenNotFoundError: If token not found
         """
         if self._lib is None:
             self.initialize()
@@ -154,45 +153,45 @@ class NSSHandler:
             token = slot.get_token()
             if token_label is None or token.label.strip() == token_label:
                 self._token = token
-                logger.info(f"Conectado al token: {token.label.strip()}")
+                logger.info(f"Connected to token: {token.label.strip()}")
                 return
 
         raise TokenNotFoundError(
-            f"Token '{token_label}' no encontrado" if token_label else "No hay tokens disponibles"
+            f"Token '{token_label}' not found" if token_label else "No tokens available"
         )
 
     def authenticate(self, pin: str) -> None:
         """
-        Autentica con el token usando el PIN.
+        Authenticate with token using PIN.
 
         Args:
-            pin: PIN del token
+            pin: Token PIN
 
         Raises:
-            TokenAuthenticationError: Si el PIN es incorrecto
+            TokenAuthenticationError: If PIN is incorrect
         """
         if self._token is None:
-            raise TokenNotFoundError("Primero debe conectar un token")
+            raise TokenNotFoundError("You must connect a token first")
 
         try:
             self._session = self._token.open(user_pin=pin)
-            logger.info("Autenticación exitosa con el token")
+            logger.info("Successful authentication with token")
         except pkcs11.exceptions.PinIncorrect:
-            raise TokenAuthenticationError("PIN incorrecto")
+            raise TokenAuthenticationError("Incorrect PIN")
         except pkcs11.exceptions.PinLocked:
-            raise TokenAuthenticationError("Token bloqueado por demasiados intentos")
+            raise TokenAuthenticationError("Token locked due to too many attempts")
         except Exception as e:
-            raise TokenAuthenticationError(f"Error de autenticación: {e}")
+            raise TokenAuthenticationError(f"Authentication error: {e}")
 
     def list_certificates(self) -> list[CertificateInfo]:
         """
-        Lista los certificados disponibles en el token.
+        List available certificates in the token.
 
         Returns:
-            Lista de información de certificados
+            List of certificate information
         """
         if self._session is None:
-            raise TokenAuthenticationError("Debe autenticarse primero")
+            raise TokenAuthenticationError("You must authenticate first")
 
         certs = []
         for obj in self._session.get_objects({ObjectClass.CERTIFICATE}):
@@ -200,13 +199,13 @@ class NSSHandler:
                 cert_der = obj[pkcs11.Attribute.VALUE]
                 cert = x509.load_der_x509_certificate(cert_der)
 
-                # Verificar si tiene key usage para firma
+                # Check if it has key usage for signing
                 can_sign = False
                 try:
                     key_usage = cert.extensions.get_extension_for_class(x509.KeyUsage)
                     can_sign = key_usage.value.digital_signature or key_usage.value.non_repudiation
                 except x509.ExtensionNotFound:
-                    can_sign = True  # Si no tiene extensión, asumir que puede firmar
+                    can_sign = True  # If no extension, assume it can sign
 
                 cert_info = CertificateInfo(
                     label=obj[pkcs11.Attribute.LABEL],
@@ -219,10 +218,10 @@ class NSSHandler:
                     pkcs11_id=obj[pkcs11.Attribute.ID],
                 )
                 certs.append(cert_info)
-                logger.debug(f"Certificado encontrado: {cert_info.label}")
+                logger.debug(f"Certificate found: {cert_info.label}")
 
             except Exception as e:
-                logger.warning(f"Error leyendo certificado: {e}")
+                logger.warning(f"Error reading certificate: {e}")
                 continue
 
         return certs
@@ -231,42 +230,42 @@ class NSSHandler:
         self, cert_id: bytes | None = None
     ) -> tuple[pkcs11.PrivateKey, bytes]:
         """
-        Obtiene la clave privada y certificado para firmar.
+        Get private key and certificate for signing.
 
         Args:
-            cert_id: ID del certificado (None = primer certificado de firma)
+            cert_id: Certificate ID (None = first signing certificate)
 
         Returns:
-            Tupla (clave_privada, certificado_der)
+            Tuple (private_key, certificate_der)
 
         Raises:
-            CertificateNotFoundError: Si no se encuentra certificado de firma
+            CertificateNotFoundError: If signing certificate not found
         """
         if self._session is None:
-            raise TokenAuthenticationError("Debe autenticarse primero")
+            raise TokenAuthenticationError("You must authenticate first")
 
-        # Buscar certificados que pueden firmar
+        # Search for certificates that can sign
         certs = [c for c in self.list_certificates() if c.can_sign]
         if not certs:
             raise CertificateNotFoundError()
 
-        # Seleccionar certificado
+        # Select certificate
         selected = None
         if cert_id:
             selected = next((c for c in certs if c.pkcs11_id == cert_id), None)
         if selected is None:
             selected = certs[0]
 
-        # Obtener clave privada asociada
+        # Get associated private key
         try:
             priv_key = self._session.get_key(
                 object_class=ObjectClass.PRIVATE_KEY,
                 id=selected.pkcs11_id,
             )
         except Exception as e:
-            raise CertificateNotFoundError(f"No se encontró clave privada: {e}")
+            raise CertificateNotFoundError(f"Private key not found: {e}")
 
-        # Obtener certificado DER
+        # Get DER certificate
         cert_obj = list(
             self._session.get_objects(
                 {
@@ -280,7 +279,7 @@ class NSSHandler:
         return priv_key, cert_der
 
     def close(self) -> None:
-        """Cierra la sesión con el token."""
+        """Close token session."""
         if self._session is not None:
             try:
                 self._session.close()
@@ -288,7 +287,7 @@ class NSSHandler:
                 pass
             self._session = None
         self._token = None
-        logger.debug("Sesión con token cerrada")
+        logger.debug("Token session closed")
 
     def __enter__(self):
         """Context manager entry."""

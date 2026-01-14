@@ -1,10 +1,10 @@
 """
 file_list_widget.py - Widget de lista de archivos
 
-Autor: Homero Thompson del Lago del Terror
+Author: Homero Thompson del Lago del Terror
 
-Widget GTK4 que muestra la lista de archivos PDF
-con estado y acciones individuales.
+GTK4 widget that displays the list of PDF files
+with status and individual actions.
 """
 
 from pathlib import Path
@@ -18,11 +18,11 @@ from pdfsigner.core.validator.pdf_validator import PDFValidator
 
 
 class FileRow(Gtk.Box):
-    """Fila individual para un archivo PDF."""
+    """Individual row for a PDF file."""
 
     def __init__(self, file_path: Path):
         """
-        Inicializa la fila.
+        Initializes the row.
 
         Args:
             file_path: Ruta al archivo PDF
@@ -71,7 +71,7 @@ class FileRow(Gtk.Box):
         # Botón quitar
         remove_button = Gtk.Button(icon_name="user-trash-symbolic")
         remove_button.add_css_class("flat")
-        remove_button.set_tooltip_text("Quitar de la lista")
+        remove_button.set_tooltip_text("Remove from list")
         remove_button.connect("clicked", self._on_remove_clicked)
         self.append(remove_button)
 
@@ -79,19 +79,19 @@ class FileRow(Gtk.Box):
         self._check_signature_status()
 
     def _check_signature_status(self) -> None:
-        """Verifica si el archivo ya tiene firmas."""
+        """Checks if the file already has signatures."""
         try:
             validator = PDFValidator()
             count = validator.get_signature_count(self.file_path)
             if count > 0:
-                self.signature_label.set_label(f"{count} firma(s)")
+                self.signature_label.set_label(f"{count} signature(s)")
                 self.status_icon.set_label("✓")
                 self.status_icon.add_css_class("success")
         except Exception:
             pass
 
     def _on_remove_clicked(self, button: Gtk.Button) -> None:
-        """Quita este archivo de la lista."""
+        """Removes this file from the list."""
         # En GTK4, el widget está envuelto en un ListBoxRow
         # Necesitamos obtener el ListBox (abuelo) para remover
         row = self.get_parent()  # ListBoxRow
@@ -102,7 +102,7 @@ class FileRow(Gtk.Box):
 
     def set_status(self, status: str, message: str = "") -> None:
         """
-        Actualiza el estado del archivo.
+        Updates the file status.
 
         Args:
             status: pending, processing, signed, error
@@ -140,7 +140,7 @@ class FileListWidget(Gtk.ScrolledWindow):
     """
 
     def __init__(self):
-        """Inicializa el widget."""
+        """Initializes the widget."""
         super().__init__()
 
         self.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
@@ -165,7 +165,7 @@ class FileListWidget(Gtk.ScrolledWindow):
         self._file_paths: set[Path] = set()
 
     def _create_placeholder(self) -> Gtk.Box:
-        """Crea el placeholder cuando no hay archivos."""
+        """Creates the placeholder when there are no files."""
         box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
         box.set_valign(Gtk.Align.CENTER)
         box.set_margin_top(48)
@@ -176,7 +176,7 @@ class FileListWidget(Gtk.ScrolledWindow):
         icon.add_css_class("dim-label")
         box.append(icon)
 
-        label = Gtk.Label(label="Arrastra archivos PDF aquí\no usa el botón + para agregarlos")
+        label = Gtk.Label(label="Drag PDF files here\nor use the + button to add them")
         label.set_justify(Gtk.Justification.CENTER)
         label.add_css_class("dim-label")
         box.append(label)
@@ -185,7 +185,7 @@ class FileListWidget(Gtk.ScrolledWindow):
 
     def add_file(self, file_path: Path) -> bool:
         """
-        Agrega un archivo a la lista.
+        Adds a file to the list.
 
         Args:
             file_path: Ruta al archivo
@@ -204,7 +204,7 @@ class FileListWidget(Gtk.ScrolledWindow):
         return True
 
     def remove_file(self, file_path: Path) -> None:
-        """Quita un archivo de la lista."""
+        """Removes a file from the list."""
         self._file_paths.discard(file_path)
 
         # Buscar y quitar la fila
@@ -217,7 +217,7 @@ class FileListWidget(Gtk.ScrolledWindow):
             child = next_child
 
     def clear(self) -> None:
-        """Limpia todos los archivos."""
+        """Clears all files."""
         self._file_paths.clear()
 
         # Quitar todas las filas
@@ -228,15 +228,15 @@ class FileListWidget(Gtk.ScrolledWindow):
             self.listbox.remove(child)
 
     def get_files(self) -> list[Path]:
-        """Obtiene la lista de archivos."""
+        """Gets the list of files."""
         return list(self._file_paths)
 
     def get_file_count(self) -> int:
-        """Obtiene el número de archivos."""
+        """Gets the number of files."""
         return len(self._file_paths)
 
     def get_rows(self) -> list[FileRow]:
-        """Obtiene todas las filas."""
+        """Gets all rows."""
         rows = []
         child = self.listbox.get_first_child()
         while child:
@@ -247,7 +247,7 @@ class FileListWidget(Gtk.ScrolledWindow):
 
     def update_file_status(self, file_path: Path, status: str, message: str = "") -> None:
         """
-        Actualiza el estado de un archivo.
+        Updates a file status.
 
         Args:
             file_path: Ruta del archivo

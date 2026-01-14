@@ -1,12 +1,12 @@
 """
-lta_handler.py - Manejador de Long Term Archival (LTV)
+lta_handler.py - Long Term Archival (LTV) handler
 
-Autor: Homero Thompson del Lago del Terror
+Author: Homero Thompson del Lago del Terror
 
-Gestiona los componentes necesarios para firma PAdES-LTV:
-- Timestamp de TSA
-- Respuestas OCSP
-- Listas CRL
+Manages the components necessary for PAdES-LTV signing:
+- TSA Timestamp
+- OCSP responses
+- CRL lists
 """
 
 from dataclasses import dataclass
@@ -22,7 +22,7 @@ from pdfsigner.exceptions import TSAConnectionError
 
 @dataclass
 class TSAConfig:
-    """Configuración del servidor de timestamp."""
+    """Timestamp server configuration."""
 
     url: str
     username: str | None = None
@@ -32,18 +32,18 @@ class TSAConfig:
 
 class LTAHandler:
     """
-    Manejador de Long Term Archival.
+    Long Term Archival handler.
 
-    Configura y gestiona los servicios necesarios para
-    crear firmas PAdES-LTV con validez a largo plazo.
+    Configures and manages the services necessary to
+    create PAdES-LTV signatures with long-term validity.
     """
 
     def __init__(self, tsa_config: TSAConfig | None = None):
         """
-        Inicializa el handler LTA.
+        Initializes the LTA handler.
 
         Args:
-            tsa_config: Configuración TSA (None = desde settings)
+            tsa_config: TSA configuration (None = from settings)
         """
         if tsa_config is None:
             settings = get_settings()
@@ -57,24 +57,24 @@ class LTAHandler:
 
     def validate_tsa_connection(self) -> bool:
         """
-        Valida la conexión con el servidor TSA.
+        Validates connection to the TSA server.
 
         Returns:
-            True si la conexión es válida
+            True if the connection is valid
 
         Raises:
-            TSAConnectionError: Si no se puede conectar
+            TSAConnectionError: If connection cannot be established
         """
         if not self.tsa_config.url:
-            raise TSAConnectionError("URL de TSA no configurada")
+            raise TSAConnectionError("TSA URL not configured")
 
         try:
-            # Verificar que la URL es válida
+            # Verify URL is valid
             parsed = urlparse(self.tsa_config.url)
             if not parsed.scheme or not parsed.netloc:
-                raise TSAConnectionError(f"URL inválida: {self.tsa_config.url}")
+                raise TSAConnectionError(f"Invalid URL: {self.tsa_config.url}")
 
-            # Hacer request de prueba (HEAD o GET)
+            # Make test request (HEAD or GET)
             auth = None
             if self.tsa_config.username and self.tsa_config.password:
                 auth = (self.tsa_config.username, self.tsa_config.password)
@@ -86,30 +86,30 @@ class LTAHandler:
                 allow_redirects=True,
             )
 
-            # TSA puede devolver 405 (Method Not Allowed) para HEAD, eso está ok
+            # TSA may return 405 (Method Not Allowed) for HEAD, that's ok
             if response.status_code not in (200, 405, 400):
-                logger.warning(f"TSA respondió con código: {response.status_code}")
+                logger.warning(f"TSA responded with code: {response.status_code}")
 
-            logger.info(f"Conexión TSA validada: {self.tsa_config.url}")
+            logger.info(f"TSA connection validated: {self.tsa_config.url}")
             return True
 
         except requests.exceptions.ConnectionError as e:
             raise TSAConnectionError(self.tsa_config.url) from e
         except requests.exceptions.Timeout as e:
-            raise TSAConnectionError(f"Timeout conectando a TSA: {self.tsa_config.url}") from e
+            raise TSAConnectionError(f"Timeout connecting to TSA: {self.tsa_config.url}") from e
 
     def get_timestamper(self) -> HTTPTimeStamper:
         """
-        Obtiene el timestamper configurado.
+        Gets the configured timestamper.
 
         Returns:
-            HTTPTimeStamper configurado para el TSA
+            HTTPTimeStamper configured for the TSA
 
         Raises:
-            TSAConnectionError: Si no hay TSA configurado
+            TSAConnectionError: If TSA is not configured
         """
         if not self.tsa_config.url:
-            raise TSAConnectionError("URL de TSA no configurada")
+            raise TSAConnectionError("TSA URL not configured")
 
         if self._timestamper is None:
             auth = None
@@ -124,7 +124,7 @@ class LTAHandler:
                 https_timeout=self.tsa_config.timeout,
             )
 
-            # Si hay autenticación, configurarla en la sesión
+            # If there's authentication, configure it in the session
             if auth:
                 self._timestamper.session.auth = auth
 
@@ -132,10 +132,10 @@ class LTAHandler:
 
     def get_validation_context_kwargs(self) -> dict:
         """
-        Obtiene kwargs para configurar validación LTV.
+        Gets kwargs to configure LTV validation.
 
         Returns:
-            Dict con configuración para ValidationContext
+            Dict with configuration for ValidationContext
         """
         return {
             "revocation_mode": "require",
@@ -144,18 +144,18 @@ class LTAHandler:
 
     def get_signature_kwargs(self) -> dict:
         """
-        Obtiene kwargs para configurar firma PAdES-LTV.
+        Gets kwargs to configure PAdES-LTV signing.
 
         Returns:
-            Dict con configuración para sign_pdf
+            Dict with configuration for sign_pdf
         """
         kwargs = {}
 
-        # Agregar timestamper si está configurado
+        # Add timestamper if configured
         if self.tsa_config.url:
             kwargs["timestamper"] = self.get_timestamper()
 
-        # Configurar embebido de información de revocación
+        # Configure embedding of revocation information
         kwargs["embed_validation_info"] = True
 
         return kwargs
@@ -163,38 +163,38 @@ class LTAHandler:
     @staticmethod
     def get_ltv_profile() -> str:
         """
-        Obtiene el perfil de firma para PAdES-LTV.
+        Gets the signature profile for PAdES-LTV.
 
         Returns:
-            Nombre del perfil de firma
+            Signature profile name
         """
         return "PAdES-LTV"
 
     @staticmethod
     def get_subfilter() -> str:
         """
-        Obtiene el subfilter para firma PAdES.
+        Gets the subfilter for PAdES signature.
 
         Returns:
-            SubFilter para el campo de firma
+            SubFilter for the signature field
         """
         return "ETSI.CAdES.detached"
 
 
 def create_lta_handler_from_settings() -> LTAHandler:
     """
-    Crea un LTAHandler desde la configuración.
+    Creates an LTAHandler from configuration.
 
     Returns:
-        LTAHandler configurado
+        Configured LTAHandler
 
     Raises:
-        TSAConnectionError: Si la configuración es inválida
+        TSAConnectionError: If configuration is invalid
     """
     settings = get_settings()
 
     if not settings.tsa_url:
-        logger.warning("TSA no configurado, las firmas no incluirán timestamp")
+        logger.warning("TSA not configured, signatures will not include timestamp")
         return LTAHandler(TSAConfig(url=""))
 
     config = TSAConfig(
@@ -205,11 +205,11 @@ def create_lta_handler_from_settings() -> LTAHandler:
 
     handler = LTAHandler(config)
 
-    # Validar conexión
+    # Validate connection
     try:
         handler.validate_tsa_connection()
     except TSAConnectionError:
-        logger.error(f"No se puede conectar al TSA: {settings.tsa_url}")
+        logger.error(f"Cannot connect to TSA: {settings.tsa_url}")
         raise
 
     return handler

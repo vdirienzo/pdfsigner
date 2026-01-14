@@ -1,9 +1,9 @@
 """
-validate.py - Comando de validación CLI
+validate.py - CLI validation command
 
-Autor: Homero Thompson del Lago del Terror
+Author: Homero Thompson del Lago del Terror
 
-Implementa el comando 'validate' para validar firmas de PDFs.
+Implements the 'validate' command to validate PDF signatures.
 """
 
 import argparse
@@ -15,11 +15,11 @@ from pdfsigner.core.validator.pdf_validator import PDFValidator, SignatureStatus
 
 
 def cmd_validate(args: argparse.Namespace) -> int:
-    """Comando de validación."""
+    """Validation command."""
     pdf_files = collect_pdf_files(args.files, args.recursive)
 
     if not pdf_files:
-        logger.error("No hay archivos PDF para validar")
+        logger.error("No PDF files to validate")
         return 1
 
     validator = PDFValidator()
@@ -35,18 +35,18 @@ def cmd_validate(args: argparse.Namespace) -> int:
             continue
 
         if not result.is_signed:
-            print(f"○ {pdf_path.name}: Sin firmas")
+            print(f"○ {pdf_path.name}: No signatures")
             continue
 
         total_signatures += result.signature_count
 
         if result.all_valid:
-            print(f"✓ {pdf_path.name}: {result.signature_count} firma(s) válida(s)")
+            print(f"✓ {pdf_path.name}: {result.signature_count} valid signature(s)")
         else:
-            print(f"⚠ {pdf_path.name}: {result.signature_count} firma(s), algunas inválidas")
+            print(f"⚠ {pdf_path.name}: {result.signature_count} signature(s), some invalid")
             all_valid = False
 
-        # Mostrar detalles si es verbose
+        # Show details if verbose
         if args.verbose:
             for sig in result.signatures:
                 status_icon = "✓" if sig.status == SignatureStatus.VALID else "✗"
@@ -55,5 +55,5 @@ def cmd_validate(args: argparse.Namespace) -> int:
                     ts_info = f" ({sig.signing_time.strftime('%d/%m/%Y %H:%M')})"
                 print(f"    {status_icon} {sig.signer_name}{ts_info}")
 
-    print(f"\nTotal: {len(pdf_files)} archivo(s), {total_signatures} firma(s)")
+    print(f"\nTotal: {len(pdf_files)} file(s), {total_signatures} signature(s)")
     return 0 if all_valid else 1

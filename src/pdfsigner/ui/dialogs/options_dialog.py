@@ -1,12 +1,12 @@
 """
 options_dialog.py - Diálogo de opciones de firma
 
-Autor: Homero Thompson del Lago del Terror
+Author: Homero Thompson del Lago del Terror
 
-Diálogo GTK4 para configurar opciones de firma:
+GTK4 dialog to configure signature options:
 - Firma visible/invisible
 - Selección de página
-- Preferencia de posición
+- Position preference
 """
 
 import gi
@@ -20,12 +20,12 @@ from pdfsigner.core.signer.pdf_signer import SignatureAppearance
 
 class SignatureOptionsDialog(Gtk.Dialog):
     """
-    Diálogo de opciones de firma.
+    Signature options dialog.
 
-    Permite configurar:
-    - Firma visible o invisible
-    - Página donde colocar la firma
-    - Posición preferida
+    Allows configuring:
+    - Visible or invisible signature
+    - Page where to place the signature
+    - Preferred position
     """
 
     def __init__(
@@ -35,15 +35,15 @@ class SignatureOptionsDialog(Gtk.Dialog):
         default_appearance: SignatureAppearance | None = None,
     ):
         """
-        Inicializa el diálogo de opciones.
+        Initializes the options dialog.
 
         Args:
-            parent: Ventana padre
-            total_pages: Número total de páginas del PDF
-            default_appearance: Configuración por defecto
+            parent: Parent window
+            total_pages: Total number of PDF pages
+            default_appearance: Default configuration
         """
         super().__init__(
-            title="Opciones de Firma",
+            title="Signature Options",
             transient_for=parent,
             modal=True,
         )
@@ -54,8 +54,8 @@ class SignatureOptionsDialog(Gtk.Dialog):
         self.set_default_size(450, 350)
 
         # Botones
-        self.add_button("Cancelar", Gtk.ResponseType.CANCEL)
-        ok_button = self.add_button("Firmar", Gtk.ResponseType.OK)
+        self.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        ok_button = self.add_button("Sign", Gtk.ResponseType.OK)
         ok_button.add_css_class("suggested-action")
 
         # Contenido
@@ -67,15 +67,15 @@ class SignatureOptionsDialog(Gtk.Dialog):
         content.set_margin_end(18)
 
         # === Sección: Tipo de firma ===
-        type_frame = self._create_section("Tipo de Firma")
+        type_frame = self._create_section("Signature Type")
         type_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
 
         # Radio: Invisible
-        self.radio_invisible = Gtk.CheckButton(label="Firma invisible (solo metadatos)")
+        self.radio_invisible = Gtk.CheckButton(label="Invisible signature (metadata only)")
         self.radio_invisible.set_active(not self.default_appearance.visible)
 
         # Radio: Visible
-        self.radio_visible = Gtk.CheckButton(label="Firma visible (sello en el documento)")
+        self.radio_visible = Gtk.CheckButton(label="Visible signature (stamp on document)")
         self.radio_visible.set_group(self.radio_invisible)
         self.radio_visible.set_active(self.default_appearance.visible)
         self.radio_visible.connect("toggled", self._on_visible_toggled)
@@ -86,18 +86,18 @@ class SignatureOptionsDialog(Gtk.Dialog):
         content.append(type_frame)
 
         # === Sección: Opciones de firma visible ===
-        self.visible_frame = self._create_section("Opciones de Firma Visible")
+        self.visible_frame = self._create_section("Visible Signature Options")
         visible_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
 
         # Selector de página
         page_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-        page_label = Gtk.Label(label="Página:")
+        page_label = Gtk.Label(label="Page:")
         page_label.set_xalign(0)
         page_label.set_size_request(100, -1)
 
         self.page_combo = Gtk.ComboBoxText()
-        self.page_combo.append("last", "Última página")
-        self.page_combo.append("first", "Primera página")
+        self.page_combo.append("last", "Last page")
+        self.page_combo.append("first", "First page")
         for i in range(1, min(total_pages + 1, 100)):
             self.page_combo.append(str(i - 1), f"Página {i}")
         self.page_combo.set_active_id(
@@ -112,17 +112,17 @@ class SignatureOptionsDialog(Gtk.Dialog):
 
         # Selector de posición
         pos_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-        pos_label = Gtk.Label(label="Posición:")
+        pos_label = Gtk.Label(label="Position:")
         pos_label.set_xalign(0)
         pos_label.set_size_request(100, -1)
 
         self.position_combo = Gtk.ComboBoxText()
-        self.position_combo.append("auto", "Automática (buscar espacio libre)")
-        self.position_combo.append("bottom_right", "Inferior derecha")
-        self.position_combo.append("bottom_left", "Inferior izquierda")
-        self.position_combo.append("bottom_center", "Inferior centro")
-        self.position_combo.append("top_right", "Superior derecha")
-        self.position_combo.append("top_left", "Superior izquierda")
+        self.position_combo.append("auto", "Automatic (find free space)")
+        self.position_combo.append("bottom_right", "Bottom right")
+        self.position_combo.append("bottom_left", "Bottom left")
+        self.position_combo.append("bottom_center", "Bottom center")
+        self.position_combo.append("top_right", "Top right")
+        self.position_combo.append("top_left", "Top left")
         self.position_combo.set_active_id(self.default_appearance.position_preference.value)
 
         pos_box.append(pos_label)
@@ -136,17 +136,17 @@ class SignatureOptionsDialog(Gtk.Dialog):
         self._on_visible_toggled(self.radio_visible)
 
     def _create_section(self, title: str) -> Gtk.Frame:
-        """Crea un frame de sección."""
+        """Creates a section frame."""
         frame = Gtk.Frame()
         frame.set_label(title)
         return frame
 
     def _on_visible_toggled(self, button: Gtk.CheckButton) -> None:
-        """Muestra/oculta opciones de firma visible."""
+        """Shows/hides visible signature options."""
         self.visible_frame.set_sensitive(button.get_active())
 
     def get_appearance(self) -> SignatureAppearance:
-        """Obtiene la configuración seleccionada."""
+        """Gets the selected configuration."""
         visible = self.radio_visible.get_active()
 
         # Página
@@ -176,15 +176,15 @@ def ask_signature_options(
     default_appearance: SignatureAppearance | None = None,
 ) -> SignatureAppearance | None:
     """
-    Función de conveniencia para solicitar opciones de firma.
+    Convenience function to request signature options.
 
     Args:
-        parent: Ventana padre
+        parent: Parent window
         total_pages: Número de páginas del PDF
-        default_appearance: Configuración por defecto
+        default_appearance: Default configuration
 
     Returns:
-        SignatureAppearance configurada o None si se cancela
+        Configured SignatureAppearance or None if cancelled
     """
     dialog = SignatureOptionsDialog(
         parent=parent,

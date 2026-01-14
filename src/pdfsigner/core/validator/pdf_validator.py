@@ -1,10 +1,10 @@
 """
-pdf_validator.py - Validador de firmas digitales en PDFs
+pdf_validator.py - PDF digital signature validator
 
-Autor: Homero Thompson del Lago del Terror
+Author: Homero Thompson del Lago del Terror
 
-Verifica firmas existentes en documentos PDF y extrae
-información sobre los firmantes.
+Verifies existing signatures in PDF documents and extracts
+information about signers.
 """
 
 from dataclasses import dataclass
@@ -19,7 +19,7 @@ from pyhanko.sign.validation.settings import KeyUsageConstraints
 
 
 class SignatureStatus(Enum):
-    """Estado de validación de una firma."""
+    """Signature validation status."""
 
     VALID = "valid"
     INVALID = "invalid"
@@ -29,7 +29,7 @@ class SignatureStatus(Enum):
 
 @dataclass
 class SignatureInfo:
-    """Información de una firma en el PDF."""
+    """Signature information in PDF."""
 
     signer_name: str
     signer_email: str | None
@@ -44,12 +44,12 @@ class SignatureInfo:
     field_name: str
     covers_whole_document: bool
     is_modification_allowed: bool
-    page_number: int | None  # Página donde está la firma visible (si aplica)
+    page_number: int | None  # Page where visible signature is located (if applicable)
 
 
 @dataclass
 class ValidationResult:
-    """Resultado de validación de un PDF."""
+    """PDF validation result."""
 
     file_path: Path
     is_signed: bool
@@ -61,25 +61,25 @@ class ValidationResult:
 
 class PDFValidator:
     """
-    Validador de firmas digitales en PDFs.
+    PDF digital signature validator.
 
-    Verifica la integridad y autenticidad de las firmas
-    existentes en un documento PDF.
+    Verifies integrity and authenticity of existing
+    signatures in a PDF document.
     """
 
     def __init__(self):
-        """Inicializa el validador."""
+        """Initialize validator."""
         pass
 
     def validate(self, pdf_path: Path | str) -> ValidationResult:
         """
-        Valida todas las firmas de un PDF.
+        Validate all signatures in a PDF.
 
         Args:
-            pdf_path: Ruta al archivo PDF
+            pdf_path: Path to PDF file
 
         Returns:
-            ValidationResult con información de todas las firmas
+            ValidationResult with information about all signatures
         """
         pdf_path = Path(pdf_path)
         signatures: list[SignatureInfo] = []
@@ -88,7 +88,7 @@ class PDFValidator:
             with open(pdf_path, "rb") as f:
                 reader = PdfFileReader(f)
 
-                # Obtener campos de firma
+                # Get signature fields
                 sig_fields = self._get_signature_fields(reader)
 
                 if not sig_fields:
@@ -100,7 +100,7 @@ class PDFValidator:
                         signatures=[],
                     )
 
-                # Validar cada firma
+                # Validate each signature
                 all_valid = True
                 for field_name in sig_fields:
                     sig_info = self._validate_signature(reader, field_name)
@@ -110,8 +110,8 @@ class PDFValidator:
                         all_valid = False
 
                 logger.info(
-                    f"Validación completada: {pdf_path.name} - "
-                    f"{len(signatures)} firma(s), válidas: {all_valid}"
+                    f"Validation completed: {pdf_path.name} - "
+                    f"{len(signatures)} signature(s), valid: {all_valid}"
                 )
 
                 return ValidationResult(
@@ -123,7 +123,7 @@ class PDFValidator:
                 )
 
         except Exception as e:
-            logger.error(f"Error validando {pdf_path.name}: {e}")
+            logger.error(f"Error validating {pdf_path.name}: {e}")
             return ValidationResult(
                 file_path=pdf_path,
                 is_signed=False,
@@ -134,20 +134,20 @@ class PDFValidator:
             )
 
     def _get_signature_fields(self, reader: PdfFileReader) -> list[str]:
-        """Obtiene los nombres de campos de firma del PDF."""
+        """Get signature field names from PDF."""
         sig_fields = []
         try:
             if reader.embedded_signatures:
                 for sig in reader.embedded_signatures:
                     sig_fields.append(sig.field_name)
         except Exception as e:
-            logger.warning(f"Error obteniendo campos de firma: {e}")
+            logger.warning(f"Error getting signature fields: {e}")
         return sig_fields
 
     def _validate_signature(self, reader: PdfFileReader, field_name: str) -> SignatureInfo:
-        """Valida una firma específica."""
+        """Validate a specific signature."""
         try:
-            # Encontrar la firma
+            # Find signature
             sig = None
             for s in reader.embedded_signatures:
                 if s.field_name == field_name:
@@ -155,9 +155,9 @@ class PDFValidator:
                     break
 
             if sig is None:
-                return self._create_error_info(field_name, "Firma no encontrada")
+                return self._create_error_info(field_name, "Signature not found")
 
-            # Validar la firma
+            # Validate signature
             status = validate_pdf_signature(
                 sig,
                 key_usage_settings=KeyUsageConstraints(
@@ -165,22 +165,22 @@ class PDFValidator:
                 ),
             )
 
-            # Extraer información del certificado
+            # Extract certificate information
             cert = sig.signer_cert
             signer_name = self._extract_cn(cert.subject.human_friendly)
             signer_email = self._extract_email(cert)
             issuer = self._extract_cn(cert.issuer.human_friendly)
 
-            # Determinar estado
+            # Determine status
             if status.valid:
                 sig_status = SignatureStatus.VALID
-                status_msg = "Firma válida"
+                status_msg = "Valid signature"
             elif status.intact:
                 sig_status = SignatureStatus.INDETERMINATE
-                status_msg = "Firma intacta pero no se pudo verificar cadena"
+                status_msg = "Intact signature but couldn't verify chain"
             else:
                 sig_status = SignatureStatus.INVALID
-                status_msg = "Firma inválida o documento modificado"
+                status_msg = "Invalid signature or modified document"
 
             return SignatureInfo(
                 signer_name=signer_name,
@@ -197,23 +197,23 @@ class PDFValidator:
                 status=sig_status,
                 status_message=status_msg,
                 field_name=field_name,
-                covers_whole_document=status.coverage.value >= 2,  # ENTIRE_REVISION o más
+                covers_whole_document=status.coverage.value >= 2,  # ENTIRE_REVISION or more
                 is_modification_allowed=status.modification_level is not None,
-                page_number=None,  # TODO: extraer de annotation
+                page_number=None,  # TODO: extract from annotation
             )
 
         except Exception as e:
-            logger.warning(f"Error validando firma {field_name}: {e}")
+            logger.warning(f"Error validating signature {field_name}: {e}")
             return self._create_error_info(field_name, str(e))
 
     def _create_error_info(self, field_name: str, error: str) -> SignatureInfo:
-        """Crea SignatureInfo para errores."""
+        """Create SignatureInfo for errors."""
         return SignatureInfo(
-            signer_name="Desconocido",
+            signer_name="Unknown",
             signer_email=None,
             signing_time=None,
             is_timestamp_valid=False,
-            certificate_issuer="Desconocido",
+            certificate_issuer="Unknown",
             certificate_serial="",
             certificate_valid_from=None,
             certificate_valid_to=None,
@@ -226,8 +226,8 @@ class PDFValidator:
         )
 
     def _extract_cn(self, subject: str) -> str:
-        """Extrae el Common Name (CN) de un subject."""
-        # subject viene como "CN=Nombre,O=Org,..."
+        """Extract Common Name (CN) from subject."""
+        # subject comes as "CN=Name,O=Org,..."
         for part in subject.split(","):
             part = part.strip()
             if part.startswith("CN="):
@@ -235,7 +235,7 @@ class PDFValidator:
         return subject
 
     def _extract_email(self, cert) -> str | None:
-        """Extrae email del certificado si existe."""
+        """Extract email from certificate if exists."""
         try:
             for ext in cert.extensions:
                 if ext.oid.dotted_string == "2.5.29.17":  # Subject Alt Name
@@ -248,13 +248,13 @@ class PDFValidator:
 
     def get_signature_count(self, pdf_path: Path | str) -> int:
         """
-        Cuenta rápidamente las firmas en un PDF.
+        Quickly count signatures in a PDF.
 
         Args:
-            pdf_path: Ruta al PDF
+            pdf_path: Path to PDF
 
         Returns:
-            Número de firmas
+            Number of signatures
         """
         try:
             with open(pdf_path, "rb") as f:
@@ -265,12 +265,12 @@ class PDFValidator:
 
     def is_signed(self, pdf_path: Path | str) -> bool:
         """
-        Verifica rápidamente si un PDF está firmado.
+        Quickly check if a PDF is signed.
 
         Args:
-            pdf_path: Ruta al PDF
+            pdf_path: Path to PDF
 
         Returns:
-            True si tiene al menos una firma
+            True if it has at least one signature
         """
         return self.get_signature_count(pdf_path) > 0

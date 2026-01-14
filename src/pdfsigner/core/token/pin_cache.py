@@ -1,12 +1,12 @@
 """
-pin_cache.py - Cache seguro de PIN en memoria
+pin_cache.py - Secure in-memory PIN cache
 
-Autor: Homero Thompson del Lago del Terror
+Author: Homero Thompson del Lago del Terror
 
-Implementa cache de PIN para firma en lote con:
-- Almacenamiento solo en memoria (nunca en disco)
-- Expiración automática por tiempo
-- Limpieza segura de memoria
+Implements PIN cache for batch signing with:
+- Storage only in memory (never on disk)
+- Automatic expiration by time
+- Secure memory cleanup
 """
 
 import secrets
@@ -17,7 +17,7 @@ from dataclasses import dataclass
 
 @dataclass
 class CachedPin:
-    """PIN cacheado con metadata de expiración."""
+    """Cached PIN with expiration metadata."""
 
     pin: str
     created_at: float
@@ -26,18 +26,18 @@ class CachedPin:
 
 class PinCache:
     """
-    Cache seguro de PIN en memoria.
+    Secure in-memory PIN cache.
 
-    El PIN se almacena temporalmente para permitir firma en lote
-    sin pedir el PIN múltiples veces.
+    PIN is stored temporarily to allow batch signing
+    without asking for PIN multiple times.
     """
 
     def __init__(self, timeout_seconds: int = 300):
         """
-        Inicializa el cache de PIN.
+        Initialize PIN cache.
 
         Args:
-            timeout_seconds: Tiempo de expiración en segundos (default: 5 min)
+            timeout_seconds: Expiration timeout in seconds (default: 5 min)
         """
         self._timeout = timeout_seconds
         self._cache: CachedPin | None = None
@@ -45,10 +45,10 @@ class PinCache:
 
     def store(self, pin: str) -> None:
         """
-        Almacena el PIN en cache.
+        Store PIN in cache.
 
         Args:
-            pin: PIN a cachear
+            pin: PIN to cache
         """
         with self._lock:
             now = time.time()
@@ -60,10 +60,10 @@ class PinCache:
 
     def get(self) -> str | None:
         """
-        Obtiene el PIN cacheado si no ha expirado.
+        Get cached PIN if not expired.
 
         Returns:
-            PIN si está válido, None si expiró o no existe
+            PIN if valid, None if expired or doesn't exist
         """
         with self._lock:
             if self._cache is None:
@@ -76,34 +76,34 @@ class PinCache:
             return self._cache.pin
 
     def clear(self) -> None:
-        """Limpia el cache de forma segura."""
+        """Clear cache securely."""
         with self._lock:
             self._clear_unsafe()
 
     def _clear_unsafe(self) -> None:
-        """Limpia el cache (debe llamarse con lock adquirido)."""
+        """Clear cache (must be called with lock acquired)."""
         if self._cache is not None:
-            # Sobrescribir el PIN en memoria antes de eliminar
+            # Overwrite PIN in memory before deleting
             if self._cache.pin:
-                # Generar datos aleatorios del mismo tamaño
+                # Generate random data of same size
                 dummy = secrets.token_hex(len(self._cache.pin))
-                # Sobrescribir (mejor esfuerzo en Python)
+                # Overwrite (best effort in Python)
                 self._cache.pin = dummy
             self._cache = None
 
     def is_valid(self) -> bool:
-        """Verifica si hay un PIN válido en cache."""
+        """Check if there's a valid PIN in cache."""
         return self.get() is not None
 
     def extend(self, additional_seconds: int | None = None) -> bool:
         """
-        Extiende la validez del PIN cacheado.
+        Extend cached PIN validity.
 
         Args:
-            additional_seconds: Segundos a agregar (default: timeout original)
+            additional_seconds: Seconds to add (default: original timeout)
 
         Returns:
-            True si se extendió, False si no había PIN válido
+            True if extended, False if no valid PIN found
         """
         with self._lock:
             if self._cache is None or time.time() > self._cache.expires_at:
@@ -115,7 +115,7 @@ class PinCache:
 
     @property
     def remaining_seconds(self) -> int:
-        """Segundos restantes de validez del PIN."""
+        """Remaining seconds of PIN validity."""
         with self._lock:
             if self._cache is None:
                 return 0
@@ -123,19 +123,19 @@ class PinCache:
             return max(0, int(remaining))
 
 
-# Singleton global del cache
+# Global cache singleton
 _pin_cache: PinCache | None = None
 
 
 def get_pin_cache(timeout_seconds: int = 300) -> PinCache:
     """
-    Obtiene la instancia global del cache de PIN.
+    Get global PIN cache instance.
 
     Args:
-        timeout_seconds: Timeout inicial si se crea nueva instancia
+        timeout_seconds: Initial timeout if creating new instance
 
     Returns:
-        Instancia singleton de PinCache
+        PinCache singleton instance
     """
     global _pin_cache
     if _pin_cache is None:
@@ -144,7 +144,7 @@ def get_pin_cache(timeout_seconds: int = 300) -> PinCache:
 
 
 def clear_global_cache() -> None:
-    """Limpia el cache global de PIN."""
+    """Clear global PIN cache."""
     global _pin_cache
     if _pin_cache is not None:
         _pin_cache.clear()

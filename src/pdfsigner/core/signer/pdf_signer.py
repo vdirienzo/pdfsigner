@@ -1,10 +1,10 @@
 """
-pdf_signer.py - Firmador de PDFs con PAdES-LTV
+pdf_signer.py - PDF signer with PAdES-LTV
 
-Autor: Homero Thompson del Lago del Terror
+Author: Homero Thompson del Lago del Terror
 
-Implementa firma digital PAdES-LTV usando pyHanko
-con soporte para token USB vía PKCS#11/NSS.
+Implements PAdES-LTV digital signature using pyHanko
+with USB token support via PKCS#11/NSS.
 """
 
 from dataclasses import dataclass
@@ -28,10 +28,10 @@ from pdfsigner.exceptions import PDFCorruptedError, PDFProtectedError
 
 @dataclass
 class SignatureAppearance:
-    """Configuración de apariencia de firma visible."""
+    """Visible signature appearance configuration."""
 
     visible: bool = False
-    page: int | str = "last"  # Número de página o "last", "first", "all"
+    page: int | str = "last"  # Page number or "last", "first", "all"
     width_mm: float = 50
     height_mm: float = 20
     position_preference: PositionPreference = PositionPreference.AUTO
@@ -42,7 +42,7 @@ class SignatureAppearance:
 
 @dataclass
 class SigningResult:
-    """Resultado de una operación de firma."""
+    """Result of a signing operation."""
 
     success: bool
     input_path: Path
@@ -53,10 +53,10 @@ class SigningResult:
 
 class PDFSigner:
     """
-    Firmador de PDFs con PAdES-LTV.
+    PDF signer with PAdES-LTV.
 
-    Usa pyHanko para crear firmas digitales válidas
-    según el estándar PAdES-LTV.
+    Uses pyHanko to create valid digital signatures
+    according to the PAdES-LTV standard.
     """
 
     def __init__(
@@ -65,26 +65,26 @@ class PDFSigner:
         lta_handler: LTAHandler | None = None,
     ):
         """
-        Inicializa el firmador.
+        Initializes the signer.
 
         Args:
-            nss_handler: Handler de NSS autenticado
-            lta_handler: Handler LTA para timestamp (opcional)
+            nss_handler: Authenticated NSS handler
+            lta_handler: LTA handler for timestamp (optional)
         """
         self.nss_handler = nss_handler
         self.lta_handler = lta_handler
         self._signer: signers.Signer | None = None
 
     def _create_signer(self, cert_id: bytes | None = None) -> signers.Signer:
-        """Crea el signer de pyHanko con el certificado del token."""
+        """Creates the pyHanko signer with the token certificate."""
         priv_key, cert_der = self.nss_handler.get_signing_key_and_cert(cert_id)
 
-        # Cargar certificado
+        # Load certificate
         cert = x509.load_der_x509_certificate(cert_der)
 
-        # Crear signer PKCS#11
-        # pyHanko espera un SimpleSigner o PKCS11Signer
-        # Como estamos usando python-pkcs11, creamos un wrapper
+        # Create PKCS#11 signer
+        # pyHanko expects a SimpleSigner or PKCS11Signer
+        # Since we're using python-pkcs11, we create a wrapper
         signer = signers.SimpleSigner(
             signing_cert=cert,
             signing_key=priv_key,
@@ -94,18 +94,18 @@ class PDFSigner:
         return signer
 
     def _validate_pdf(self, pdf_path: Path) -> None:
-        """Valida que el PDF pueda ser firmado."""
+        """Validates that the PDF can be signed."""
         try:
             with open(pdf_path, "rb") as f:
                 reader = PdfFileReader(f)
 
-                # Verificar que no esté corrupto
+                # Verify it's not corrupted
                 if reader.root is None:
                     raise PDFCorruptedError(pdf_path.name)
 
-                # Verificar permisos
+                # Verify permissions
                 if reader.security_handler is not None:
-                    # PDF está encriptado
+                    # PDF is encrypted
                     perms = reader.security_handler.permissions
                     if perms is not None and not perms.can_modify:
                         raise PDFProtectedError(pdf_path.name)
@@ -118,13 +118,13 @@ class PDFSigner:
             raise PDFCorruptedError(pdf_path.name) from e
 
     def _get_output_path(self, input_path: Path) -> Path:
-        """Genera el path de salida para el PDF firmado."""
+        """Generates the output path for the signed PDF."""
         settings = get_settings()
         suffix = settings.output_suffix
         return input_path.with_stem(f"{input_path.stem}{suffix}")
 
     def _mm_to_points(self, mm: float) -> float:
-        """Convierte milímetros a puntos PDF."""
+        """Converts millimeters to PDF points."""
         return mm * 72 / 25.4
 
     def _create_signature_field_spec(
@@ -132,11 +132,11 @@ class PDFSigner:
         pdf_path: Path,
         appearance: SignatureAppearance,
     ) -> SigFieldSpec | None:
-        """Crea la especificación del campo de firma visible."""
+        """Creates the visible signature field specification."""
         if not appearance.visible:
             return None
 
-        # Determinar página
+        # Determine page
         with ContentAnalyzer(pdf_path) as analyzer:
             total_pages = analyzer.page_count
 
@@ -149,7 +149,7 @@ class PDFSigner:
             else:
                 page_num = total_pages - 1
 
-            # Encontrar posición óptima
+            # Find optimal position
             finder = PositionFinder(analyzer)
             sig_width = self._mm_to_points(appearance.width_mm)
             sig_height = self._mm_to_points(appearance.height_mm)
@@ -161,7 +161,7 @@ class PDFSigner:
                 appearance.position_preference,
             )
 
-        # Crear especificación del campo
+        # Create field specification
         box = (
             position.x,
             position.y,
@@ -183,51 +183,51 @@ class PDFSigner:
         cert_id: bytes | None = None,
     ) -> SigningResult:
         """
-        Firma un PDF.
+        Signs a PDF.
 
         Args:
-            input_path: Ruta al PDF a firmar
-            output_path: Ruta de salida (None = automática)
-            appearance: Configuración de apariencia
-            cert_id: ID del certificado a usar (None = default)
+            input_path: Path to the PDF to sign
+            output_path: Output path (None = automatic)
+            appearance: Appearance configuration
+            cert_id: Certificate ID to use (None = default)
 
         Returns:
-            Resultado de la operación de firma
+            Signing operation result
         """
         input_path = Path(input_path)
         output_path = output_path or self._get_output_path(input_path)
         appearance = appearance or SignatureAppearance()
 
-        logger.info(f"Firmando: {input_path.name}")
+        logger.info(f"Signing: {input_path.name}")
 
         try:
-            # Validar PDF
+            # Validate PDF
             self._validate_pdf(input_path)
 
-            # Crear signer
+            # Create signer
             signer = self._create_signer(cert_id)
 
-            # Configurar firma
+            # Configure signature
             sig_kwargs = {}
 
-            # Agregar timestamper si está disponible
+            # Add timestamper if available
             if self.lta_handler and self.lta_handler.tsa_config.url:
                 sig_kwargs["timestamper"] = self.lta_handler.get_timestamper()
                 sig_kwargs["embed_validation_info"] = True
 
-            # Abrir PDF
+            # Open PDF
             with open(input_path, "rb") as f:
                 writer = IncrementalPdfFileWriter(f)
 
-                # Agregar campo de firma si es visible
+                # Add signature field if visible
                 field_spec = self._create_signature_field_spec(input_path, appearance)
                 if field_spec:
                     append_signature_field(writer, field_spec)
 
-                # Crear configuración de firma
+                # Create signature configuration
                 sig_field_name = field_spec.sig_field_name if field_spec else None
 
-                # Firmar
+                # Sign
                 with open(output_path, "wb") as out:
                     signers.sign_pdf(
                         writer,
@@ -241,7 +241,7 @@ class PDFSigner:
                         **sig_kwargs,
                     )
 
-            logger.info(f"PDF firmado exitosamente: {output_path.name}")
+            logger.info(f"PDF signed successfully: {output_path.name}")
 
             return SigningResult(
                 success=True,
@@ -251,7 +251,7 @@ class PDFSigner:
             )
 
         except (PDFCorruptedError, PDFProtectedError) as e:
-            logger.error(f"Error en PDF: {e}")
+            logger.error(f"PDF error: {e}")
             return SigningResult(
                 success=False,
                 input_path=input_path,
@@ -259,7 +259,7 @@ class PDFSigner:
                 error=str(e),
             )
         except Exception as e:
-            logger.error(f"Error firmando PDF: {e}")
+            logger.error(f"Error signing PDF: {e}")
             return SigningResult(
                 success=False,
                 input_path=input_path,

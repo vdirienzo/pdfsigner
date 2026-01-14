@@ -1,10 +1,10 @@
 """
 signature_preview.py - Widget de preview de firma visible
 
-Autor: Homero Thompson del Lago del Terror
+Author: Homero Thompson del Lago del Terror
 
-Widget GTK4 que muestra una miniatura de la página PDF
-con la posición donde se colocará la firma.
+GTK4 widget that shows a thumbnail of the PDF page
+with the position where the signature will be placed.
 """
 
 from pathlib import Path
@@ -26,17 +26,17 @@ from pdfsigner.core.pdf_analyzer.position_finder import (
 
 class SignaturePreviewWidget(Gtk.Box):
     """
-    Widget de preview de firma visible.
+    Visible signature preview widget.
 
-    Muestra miniatura de la página con rectángulo
-    indicando dónde se colocará la firma.
+    Shows page thumbnail with rectangle
+    indicating where the signature will be placed.
     """
 
     PREVIEW_WIDTH = 300
     PREVIEW_HEIGHT = 400
 
     def __init__(self):
-        """Inicializa el widget."""
+        """Initializes the widget."""
         super().__init__(orientation=Gtk.Orientation.VERTICAL, spacing=8)
 
         self._pdf_path: Path | None = None
@@ -44,7 +44,7 @@ class SignaturePreviewWidget(Gtk.Box):
         self._signature_position: SignaturePosition | None = None
 
         # Título
-        title = Gtk.Label(label="Vista Previa")
+        title = Gtk.Label(label="Preview")
         title.add_css_class("heading")
         self.append(title)
 
@@ -76,14 +76,14 @@ class SignaturePreviewWidget(Gtk.Box):
         preference: PositionPreference = PositionPreference.AUTO,
     ) -> None:
         """
-        Configura el PDF y calcula la posición de firma.
+        Configures the PDF and calculates signature position.
 
         Args:
-            pdf_path: Ruta al PDF
-            page_number: Número de página (0-indexed)
-            sig_width_mm: Ancho de firma en mm
-            sig_height_mm: Alto de firma en mm
-            preference: Preferencia de posición
+            pdf_path: Path to the PDF
+            page_number: Page number (0-indexed)
+            sig_width_mm: Signature width in mm
+            sig_height_mm: Signature height in mm
+            preference: Position preference
         """
         self._pdf_path = pdf_path
         self._page_number = page_number
@@ -102,7 +102,7 @@ class SignaturePreviewWidget(Gtk.Box):
         # Actualizar label
         if self._signature_position:
             pos = self._signature_position
-            status = "✓ Espacio libre" if pos.is_optimal else "⚠ Posición de respaldo"
+            status = "✓ Free space" if pos.is_optimal else "⚠ Fallback position"
             self.position_label.set_label(
                 f"Página {page_number + 1} - {status}\nPosición: ({pos.x:.0f}, {pos.y:.0f})"
             )
@@ -111,7 +111,7 @@ class SignaturePreviewWidget(Gtk.Box):
         self.drawing_area.queue_draw()
 
     def _render_page(self) -> None:
-        """Renderiza la página del PDF como pixbuf."""
+        """Renders the PDF page as pixbuf."""
         if self._pdf_path is None:
             return
 
@@ -158,7 +158,7 @@ class SignaturePreviewWidget(Gtk.Box):
         width: int,
         height: int,
     ) -> None:
-        """Callback de dibujo."""
+        """Drawing callback."""
         # Fondo gris
         cr.set_source_rgb(0.9, 0.9, 0.9)
         cr.paint()
@@ -169,7 +169,7 @@ class SignaturePreviewWidget(Gtk.Box):
             cr.select_font_face("Sans")
             cr.set_font_size(14)
             cr.move_to(width / 2 - 50, height / 2)
-            cr.show_text("Sin preview")
+            cr.show_text("No preview")
             return
 
         # Calcular posición centrada
@@ -209,15 +209,15 @@ class SignaturePreviewWidget(Gtk.Box):
             cr.rectangle(sig_x, sig_y, sig_w, sig_h)
             cr.stroke()
 
-            # Texto "FIRMA"
+            # Texto "SIGNATURE"
             cr.set_source_rgb(0, 0, 0)
             cr.select_font_face("Sans")
             cr.set_font_size(10)
             cr.move_to(sig_x + 4, sig_y + sig_h / 2 + 4)
-            cr.show_text("FIRMA")
+            cr.show_text("SIGNATURE")
 
     def clear(self) -> None:
-        """Limpia el preview."""
+        """Clears the preview."""
         self._pdf_path = None
         self._page_pixbuf = None
         self._signature_position = None

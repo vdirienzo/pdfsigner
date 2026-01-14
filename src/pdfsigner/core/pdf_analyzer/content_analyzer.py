@@ -1,10 +1,10 @@
 """
-content_analyzer.py - Analizador de contenido de PDFs
+content_analyzer.py - PDF content analyzer
 
-Autor: Homero Thompson del Lago del Terror
+Author: Homero Thompson del Lago del Terror
 
-Usa PyMuPDF para analizar el contenido de páginas PDF
-y crear mapas de ocupación para posicionamiento de firma.
+Uses PyMuPDF to analyze PDF page content
+and create occupancy maps for signature positioning.
 """
 
 from dataclasses import dataclass
@@ -16,7 +16,7 @@ from loguru import logger
 
 @dataclass
 class BoundingBox:
-    """Rectángulo delimitador."""
+    """Bounding box."""
 
     x0: float
     y0: float
@@ -25,28 +25,28 @@ class BoundingBox:
 
     @property
     def width(self) -> float:
-        """Ancho del rectángulo."""
+        """Rectangle width."""
         return self.x1 - self.x0
 
     @property
     def height(self) -> float:
-        """Alto del rectángulo."""
+        """Rectangle height."""
         return self.y1 - self.y0
 
     def intersects(self, other: "BoundingBox") -> bool:
-        """Verifica si intersecta con otro rectángulo."""
+        """Check if it intersects with another rectangle."""
         return not (
             self.x1 < other.x0 or self.x0 > other.x1 or self.y1 < other.y0 or self.y0 > other.y1
         )
 
     def to_tuple(self) -> tuple[float, float, float, float]:
-        """Convierte a tupla (x0, y0, x1, y1)."""
+        """Convert to tuple (x0, y0, x1, y1)."""
         return (self.x0, self.y0, self.x1, self.y1)
 
 
 @dataclass
 class PageInfo:
-    """Información de una página PDF."""
+    """PDF page information."""
 
     page_number: int
     width: float
@@ -57,35 +57,35 @@ class PageInfo:
 
     @property
     def all_content_blocks(self) -> list[BoundingBox]:
-        """Todos los bloques de contenido."""
+        """All content blocks."""
         return self.text_blocks + self.image_blocks + self.drawing_blocks
 
 
 class ContentAnalyzer:
     """
-    Analizador de contenido de páginas PDF.
+    PDF page content analyzer.
 
-    Detecta áreas ocupadas por texto, imágenes y dibujos
-    para encontrar espacio libre para la firma.
+    Detects areas occupied by text, images and drawings
+    to find free space for signature.
     """
 
     def __init__(self, pdf_path: Path | str):
         """
-        Inicializa el analizador.
+        Initialize analyzer.
 
         Args:
-            pdf_path: Ruta al archivo PDF
+            pdf_path: Path to PDF file
         """
         self.pdf_path = Path(pdf_path)
         self._doc: fitz.Document | None = None
 
     def open(self) -> None:
-        """Abre el documento PDF."""
+        """Open PDF document."""
         self._doc = fitz.open(str(self.pdf_path))
-        logger.debug(f"PDF abierto: {self.pdf_path.name} ({len(self._doc)} páginas)")
+        logger.debug(f"PDF opened: {self.pdf_path.name} ({len(self._doc)} pages)")
 
     def close(self) -> None:
-        """Cierra el documento PDF."""
+        """Close PDF document."""
         if self._doc:
             self._doc.close()
             self._doc = None
@@ -102,32 +102,32 @@ class ContentAnalyzer:
 
     @property
     def page_count(self) -> int:
-        """Número de páginas del PDF."""
+        """Number of PDF pages."""
         if self._doc is None:
-            raise ValueError("Documento no abierto")
+            raise ValueError("Document not opened")
         return len(self._doc)
 
     def analyze_page(self, page_number: int) -> PageInfo:
         """
-        Analiza el contenido de una página.
+        Analyze page content.
 
         Args:
-            page_number: Número de página (0-indexed)
+            page_number: Page number (0-indexed)
 
         Returns:
-            Información de la página con áreas ocupadas
+            Page information with occupied areas
         """
         if self._doc is None:
-            raise ValueError("Documento no abierto")
+            raise ValueError("Document not opened")
 
         page = self._doc[page_number]
         rect = page.rect
 
-        # Extraer bloques de texto
+        # Extract text blocks
         text_blocks = []
         text_dict = page.get_text("dict", flags=fitz.TEXT_PRESERVE_WHITESPACE)
         for block in text_dict.get("blocks", []):
-            if block.get("type") == 0:  # Texto
+            if block.get("type") == 0:  # Text
                 bbox = BoundingBox(
                     x0=block["bbox"][0],
                     y0=block["bbox"][1],
@@ -136,7 +136,7 @@ class ContentAnalyzer:
                 )
                 text_blocks.append(bbox)
 
-        # Extraer imágenes
+        # Extract images
         image_blocks = []
         for img in page.get_images():
             try:
@@ -152,7 +152,7 @@ class ContentAnalyzer:
             except Exception:
                 continue
 
-        # Extraer dibujos (paths)
+        # Extract drawings (paths)
         drawing_blocks = []
         for drawing in page.get_drawings():
             if drawing.get("rect"):
@@ -161,10 +161,10 @@ class ContentAnalyzer:
                 drawing_blocks.append(bbox)
 
         logger.debug(
-            f"Página {page_number + 1}: "
-            f"{len(text_blocks)} textos, "
-            f"{len(image_blocks)} imágenes, "
-            f"{len(drawing_blocks)} dibujos"
+            f"Page {page_number + 1}: "
+            f"{len(text_blocks)} texts, "
+            f"{len(image_blocks)} images, "
+            f"{len(drawing_blocks)} drawings"
         )
 
         return PageInfo(
@@ -178,19 +178,19 @@ class ContentAnalyzer:
 
     def is_area_free(self, page_number: int, bbox: BoundingBox, margin: float = 5.0) -> bool:
         """
-        Verifica si un área está libre de contenido.
+        Check if an area is free of content.
 
         Args:
-            page_number: Número de página
-            bbox: Rectángulo a verificar
-            margin: Margen adicional alrededor del área
+            page_number: Page number
+            bbox: Rectangle to check
+            margin: Additional margin around area
 
         Returns:
-            True si el área está libre
+            True if area is free
         """
         page_info = self.analyze_page(page_number)
 
-        # Expandir bbox con margen
+        # Expand bbox with margin
         check_bbox = BoundingBox(
             x0=bbox.x0 - margin,
             y0=bbox.y0 - margin,
@@ -198,7 +198,7 @@ class ContentAnalyzer:
             y1=bbox.y1 + margin,
         )
 
-        # Verificar intersección con cualquier contenido
+        # Check intersection with any content
         for content_bbox in page_info.all_content_blocks:
             if check_bbox.intersects(content_bbox):
                 return False
@@ -207,21 +207,21 @@ class ContentAnalyzer:
 
     def get_page_margins(self, page_number: int) -> dict[str, float]:
         """
-        Estima los márgenes de una página.
+        Estimate page margins.
 
         Args:
-            page_number: Número de página
+            page_number: Page number
 
         Returns:
-            Dict con márgenes estimados (top, bottom, left, right)
+            Dict with estimated margins (top, bottom, left, right)
         """
         page_info = self.analyze_page(page_number)
 
         if not page_info.all_content_blocks:
-            # Sin contenido, usar márgenes por defecto (72 pts = 1 inch)
+            # No content, use default margins (72 pts = 1 inch)
             return {"top": 72, "bottom": 72, "left": 72, "right": 72}
 
-        # Encontrar extremos del contenido
+        # Find content extremes
         min_x = min(b.x0 for b in page_info.all_content_blocks)
         max_x = max(b.x1 for b in page_info.all_content_blocks)
         min_y = min(b.y0 for b in page_info.all_content_blocks)

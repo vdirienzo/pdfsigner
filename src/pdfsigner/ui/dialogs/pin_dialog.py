@@ -1,10 +1,10 @@
 """
 pin_dialog.py - Diálogo para ingreso de PIN
 
-Autor: Homero Thompson del Lago del Terror
+Author: Homero Thompson del Lago del Terror
 
-Diálogo GTK4 para solicitar el PIN del token USB
-con validación y toggle de visibilidad.
+GTK4 dialog to request the USB token PIN
+with validation and visibility toggle.
 """
 
 import gi
@@ -15,26 +15,26 @@ from gi.repository import Gtk
 
 class PinDialog(Gtk.Dialog):
     """
-    Diálogo para ingreso de PIN del token.
+    Dialog for token PIN entry.
 
-    Características:
-    - Campo de contraseña con toggle de visibilidad
-    - Validación de PIN no vacío
-    - Soporte para múltiples intentos
+    Features:
+    - Password field with visibility toggle
+    - Non-empty PIN validation
+    - Support for multiple attempts
     """
 
     def __init__(
         self,
         parent: Gtk.Window | None = None,
-        title: str = "Ingrese PIN del Token",
-        message: str = "Ingrese el PIN de su token USB para firmar:",
+        title: str = "Enter Token PIN",
+        message: str = "Enter the PIN of your USB token to sign:",
         attempts_remaining: int | None = None,
     ):
         """
-        Inicializa el diálogo de PIN.
+        Initializes the PIN dialog.
 
         Args:
-            parent: Ventana padre
+            parent: Parent window
             title: Título del diálogo
             message: Mensaje a mostrar
             attempts_remaining: Intentos restantes (None = no mostrar)
@@ -48,8 +48,8 @@ class PinDialog(Gtk.Dialog):
         self.set_default_size(400, 150)
 
         # Configurar botones
-        self.add_button("Cancelar", Gtk.ResponseType.CANCEL)
-        ok_button = self.add_button("Aceptar", Gtk.ResponseType.OK)
+        self.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        ok_button = self.add_button("Accept", Gtk.ResponseType.OK)
         ok_button.add_css_class("suggested-action")
 
         # Área de contenido
@@ -101,47 +101,47 @@ class PinDialog(Gtk.Dialog):
         self.pin_entry.grab_focus()
 
     def _on_entry_activate(self, entry: Gtk.Entry) -> None:
-        """Maneja Enter en el campo de PIN."""
+        """Handles Enter in PIN field."""
         if self.pin_entry.get_text():
             self.response(Gtk.ResponseType.OK)
 
     def _on_entry_changed(self, entry: Gtk.Entry) -> None:
-        """Actualiza estado del botón OK según contenido."""
+        """Updates OK button status according to content."""
         has_pin = bool(self.pin_entry.get_text())
         self._ok_button.set_sensitive(has_pin)
         self.error_label.set_visible(False)
 
     def get_pin(self) -> str:
-        """Obtiene el PIN ingresado."""
+        """Gets the entered PIN."""
         return self.pin_entry.get_text()
 
     def show_error(self, message: str) -> None:
-        """Muestra mensaje de error."""
+        """Shows error message."""
         self.error_label.set_label(message)
         self.error_label.set_visible(True)
         self.pin_entry.grab_focus()
         self.pin_entry.select_region(0, -1)
 
     def clear(self) -> None:
-        """Limpia el campo de PIN."""
+        """Clears the PIN field."""
         self.pin_entry.set_text("")
 
 
 def ask_pin(
     parent: Gtk.Window | None = None,
-    message: str = "Ingrese el PIN de su token USB:",
+    message: str = "Enter the PIN of your USB token:",
     attempts_remaining: int | None = None,
 ) -> str | None:
     """
-    Función de conveniencia para solicitar PIN.
+    Convenience function to request PIN.
 
     Args:
-        parent: Ventana padre
+        parent: Parent window
         message: Mensaje a mostrar
         attempts_remaining: Intentos restantes
 
     Returns:
-        PIN ingresado o None si se cancela
+        Entered PIN or None if cancelled
     """
     dialog = PinDialog(
         parent=parent,

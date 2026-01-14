@@ -1,10 +1,10 @@
 """
 validation_handler.py - Manejador de validación para GUI
 
-Autor: Homero Thompson del Lago del Terror
+Author: Homero Thompson del Lago del Terror
 
-Orquesta la validación de firmas desde la GUI,
-ejecutando operaciones en threads separados.
+Orchestrates signature validation from the GUI,
+executing operations in separate threads.
 """
 
 from pathlib import Path
@@ -24,7 +24,7 @@ class ValidationHandler:
 
     def __init__(self, window: Adw.ApplicationWindow):
         """
-        Inicializa el handler.
+        Initializes the handler.
 
         Args:
             window: Ventana principal de la aplicación
@@ -33,7 +33,7 @@ class ValidationHandler:
 
     def validate_files(self, files: list[Path]) -> None:
         """
-        Valida las firmas de los archivos dados.
+        Validates the signatures of the given files.
 
         Args:
             files: Lista de archivos PDF a validar
@@ -49,7 +49,7 @@ class ValidationHandler:
 
     def _run_validation(self, files: list[Path]) -> None:
         """
-        Ejecuta validación de firmas (en thread separado).
+        Executes signature validation (in separate thread).
 
         Args:
             files: Archivos a validar
@@ -66,12 +66,12 @@ class ValidationHandler:
 
                 if sig_count > 0:
                     status = "signed" if validation.all_valid else "error"
-                    message = f"{sig_count} firma(s)"
+                    message = f"{sig_count} signature(s)"
                     if not validation.all_valid:
                         all_valid = False
                 else:
                     status = "pending"
-                    message = "Sin firmas"
+                    message = "No signatures"
 
                 GLib.idle_add(
                     self.window.file_list.update_file_status,
@@ -92,11 +92,11 @@ class ValidationHandler:
         # Mostrar resumen
         if total_signatures > 0:
             msg = (
-                f"✓ {total_signatures} firma(s) válida(s)"
+                f"✓ {total_signatures} signature(s) válida(s)"
                 if all_valid
-                else f"⚠ {total_signatures} firma(s), algunas inválidas"
+                else f"⚠ {total_signatures} signature(s), algunas inválidas"
             )
         else:
-            msg = "No se encontraron firmas"
+            msg = "No signatures found"
 
         GLib.idle_add(self.window.show_toast, msg)

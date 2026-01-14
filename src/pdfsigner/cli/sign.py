@@ -1,10 +1,10 @@
 """
-sign.py - Comando de firma CLI
+sign.py - CLI signature command
 
-Autor: Homero Thompson del Lago del Terror
+Author: Homero Thompson del Lago del Terror
 
-Implementa el comando 'sign' para firma de PDFs.
-Soporta modo real y dry-run.
+Implements the 'sign' command for PDF signing.
+Supports real mode and dry-run.
 """
 
 import argparse
@@ -21,28 +21,28 @@ from pdfsigner.core.token.cert_selector import CertificateSelector
 from pdfsigner.core.token.nss_handler import NSSHandler
 from pdfsigner.exceptions import PDFSignerError
 
-# Flag global para dry-run (seteado desde main.py)
+# Global flag for dry-run (set from main.py)
 _dry_run_mode = False
 
 
 def set_dry_run_mode(enabled: bool) -> None:
-    """Activa/desactiva modo dry-run globalmente."""
+    """Enable/disable dry-run mode globally."""
     global _dry_run_mode
     _dry_run_mode = enabled
 
 
 def cmd_sign(args: argparse.Namespace) -> int:
-    """Comando de firma."""
+    """Signature command."""
     try:
         pdf_files = collect_pdf_files(args.files, args.recursive)
 
         if not pdf_files:
-            logger.error("No hay archivos PDF para firmar")
+            logger.error("No PDF files to sign")
             return 1
 
-        logger.info(f"Archivos a firmar: {len(pdf_files)}")
+        logger.info(f"Files to sign: {len(pdf_files)}")
 
-        # Determinar si estamos en modo dry-run
+        # Determine if we're in dry-run mode
         dry_run = _dry_run_mode or get_settings().dry_run
 
         if dry_run:
@@ -54,43 +54,43 @@ def cmd_sign(args: argparse.Namespace) -> int:
         logger.error(f"Error: {e}")
         return 1
     except KeyboardInterrupt:
-        print("\nCancelado")
+        print("\nCancelled")
         return 130
 
 
 def _sign_dry_run(args: argparse.Namespace, pdf_files: list[Path]) -> int:
-    """Firma en modo simulación (dry-run)."""
+    """Sign in simulation mode (dry-run)."""
     from pdfsigner.core.mock import MockBatchManager, MockNSSHandler, create_mock_certificate
 
     print("\n" + "=" * 60)
-    print("⚠️  MODO DRY-RUN - SIMULACIÓN SIN TOKEN REAL")
+    print("⚠️  DRY-RUN MODE - SIMULATION WITHOUT REAL TOKEN")
     print("=" * 60)
-    print("Los archivos serán copiados con sufijo _firmado")
-    print("pero NO contendrán firma digital real.\n")
+    print("Files will be copied with _firmado suffix")
+    print("but will NOT contain real digital signature.\n")
 
-    logger.info("[DRY-RUN] Simulando conexión con token...")
+    logger.info("[DRY-RUN] Simulating token connection...")
     nss_handler = MockNSSHandler()
     nss_handler.initialize()
 
     tokens = nss_handler.get_available_tokens()
-    logger.info(f"[DRY-RUN] Token simulado: {tokens[0]}")
+    logger.info(f"[DRY-RUN] Simulated token: {tokens[0]}")
     nss_handler.connect_token()
 
-    print("[DRY-RUN] Ingrese cualquier PIN de 4+ dígitos para simular:")
+    print("[DRY-RUN] Enter any PIN with 4+ digits to simulate:")
     pin = get_pin_from_user()
     nss_handler.authenticate(pin)
-    logger.info("[DRY-RUN] Autenticación simulada exitosa")
+    logger.info("[DRY-RUN] Simulated authentication successful")
 
     certs = nss_handler.get_certificates()
     cert = certs[0] if certs else create_mock_certificate()
-    print(f"\n[DRY-RUN] Usando certificado simulado: {cert.display_name}")
+    print(f"\n[DRY-RUN] Using simulated certificate: {cert.display_name}")
 
     page = _parse_page(args.page)
     batch_manager = MockBatchManager()
 
     def progress_callback(progress):
         pct = progress.current / progress.total * 100
-        current = progress.current_file or "Completado"
+        current = progress.current_file or "Completed"
         status = f"[{progress.status}]" if progress.status else ""
         print(f"\r[DRY-RUN] [{pct:5.1f}%] {current:<40} {status}", end="", flush=True)
 
@@ -108,59 +108,59 @@ def _sign_dry_run(args: argparse.Namespace, pdf_files: list[Path]) -> int:
 
     print("\n" + "-" * 60)
     if result.all_successful:
-        print(f"✓ [DRY-RUN] {result.successful} archivo(s) copiados con sufijo _firmado")
-        print("\n⚠️  Nota: Los archivos NO están realmente firmados.")
-        print("   Se crearon copias para simular el proceso.")
+        print(f"✓ [DRY-RUN] {result.successful} file(s) copied with _firmado suffix")
+        print("\n⚠️  Note: Files are NOT actually signed.")
+        print("   Copies were created to simulate the process.")
         return 0
     else:
-        print(f"[DRY-RUN] {result.successful} copiado(s), {result.failed} fallido(s)")
+        print(f"[DRY-RUN] {result.successful} copied, {result.failed} failed")
         for path, error in result.get_failed_files():
             print(f"  ✗ {path.name}: {error}")
         return 1
 
 
 def _sign_real(args: argparse.Namespace, pdf_files: list[Path]) -> int:
-    """Firma real con token USB."""
-    logger.info("Conectando con token USB...")
+    """Real signing with USB token."""
+    logger.info("Connecting to USB token...")
     nss_handler = NSSHandler()
     nss_handler.initialize()
 
     tokens = nss_handler.get_available_tokens()
     if not tokens:
-        logger.error("No se detectó token USB")
+        logger.error("USB token not detected")
         return 1
 
-    logger.info(f"Token encontrado: {tokens[0]}")
+    logger.info(f"Token found: {tokens[0]}")
     nss_handler.connect_token()
 
     pin = get_pin_from_user()
     nss_handler.authenticate(pin)
-    logger.info("Autenticación exitosa")
+    logger.info("Authentication successful")
 
     cert_selector = CertificateSelector(nss_handler)
     certs = cert_selector.get_valid_certificates()
 
     if len(certs) > 1 and not args.cert:
-        print("\nCertificados disponibles:")
+        print("\nAvailable certificates:")
         for i, cert in enumerate(certs, 1):
             status = "⚠" if cert.is_expiring_soon else "✓"
-            print(f"  {i}. [{status}] {cert.display_name} ({cert.days_until_expiry} días)")
-        print(f"\nUsando certificado por defecto: {certs[0].display_name}")
-        print("Use --cert N para seleccionar otro\n")
+            print(f"  {i}. [{status}] {cert.display_name} ({cert.days_until_expiry} days)")
+        print(f"\nUsing default certificate: {certs[0].display_name}")
+        print("Use --cert N to select another\n")
 
     cert_index = (args.cert - 1) if args.cert else 0
     if cert_index >= len(certs):
-        logger.error(f"Certificado {args.cert} no existe")
+        logger.error(f"Certificate {args.cert} does not exist")
         nss_handler.close()
         return 1
 
     cert = certs[cert_index]
-    logger.info(f"Usando certificado: {cert.display_name}")
+    logger.info(f"Using certificate: {cert.display_name}")
 
     try:
         lta_handler = create_lta_handler_from_settings()
     except Exception as e:
-        logger.warning(f"TSA no disponible: {e}")
+        logger.warning(f"TSA not available: {e}")
         lta_handler = None
 
     page = _parse_page(args.page)
@@ -170,7 +170,7 @@ def _sign_real(args: argparse.Namespace, pdf_files: list[Path]) -> int:
 
     def progress_callback(progress):
         pct = (progress.completed + progress.failed) / progress.total * 100
-        current = progress.current_file or "Completado"
+        current = progress.current_file or "Completed"
         print(f"\r[{pct:5.1f}%] {current:<50}", end="", flush=True)
 
     print()
@@ -185,17 +185,17 @@ def _sign_real(args: argparse.Namespace, pdf_files: list[Path]) -> int:
     nss_handler.close()
 
     if result.all_successful:
-        print(f"\n✓ {result.successful} archivo(s) firmado(s) correctamente")
+        print(f"\n✓ {result.successful} file(s) signed successfully")
         return 0
     else:
-        print(f"\n{result.successful} exitoso(s), {result.failed} fallido(s)")
+        print(f"\n{result.successful} successful, {result.failed} failed")
         for path, error in result.get_failed_files():
             print(f"  ✗ {path.name}: {error}")
         return 1
 
 
 def _parse_page(page: str) -> str | int:
-    """Parsea el argumento de página."""
+    """Parse page argument."""
     if page in ("last", "first"):
         return page
     try:

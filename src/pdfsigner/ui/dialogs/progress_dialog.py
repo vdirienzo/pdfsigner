@@ -1,10 +1,10 @@
 """
 progress_dialog.py - Diálogo de progreso de firma
 
-Autor: Homero Thompson del Lago del Terror
+Author: Homero Thompson del Lago del Terror
 
-Diálogo GTK4 que muestra el progreso de firma en lote
-con lista de archivos y estado individual.
+GTK4 dialog that shows batch signing progress
+with file list and individual status.
 """
 
 import gi
@@ -17,15 +17,15 @@ from pdfsigner.core.signer.batch_manager import BatchProgress, BatchResult
 
 class ProgressDialog(Gtk.Dialog):
     """
-    Diálogo de progreso para firma en lote.
+    Progress dialog for batch signing.
 
-    Muestra:
-    - Barra de progreso general
-    - Lista de archivos con estado (✓/✗/⏳)
-    - Botón de cancelar
+    Shows:
+    - Overall progress bar
+    - List of files with status (✓/✗/⏳)
+    - Cancel button
     """
 
-    # Iconos de estado
+    # Status icons
     ICON_PENDING = "⏳"
     ICON_SUCCESS = "✓"
     ICON_FAILED = "✗"
@@ -37,14 +37,14 @@ class ProgressDialog(Gtk.Dialog):
         file_names: list[str] | None = None,
     ):
         """
-        Inicializa el diálogo de progreso.
+        Initializes the progress dialog.
 
         Args:
-            parent: Ventana padre
-            file_names: Lista de nombres de archivos a procesar
+            parent: Parent window
+            file_names: List of file names to process
         """
         super().__init__(
-            title="Firmando documentos...",
+            title="Signing documents...",
             transient_for=parent,
             modal=True,
         )
@@ -56,7 +56,7 @@ class ProgressDialog(Gtk.Dialog):
         self.set_deletable(False)
 
         # Botón cancelar
-        cancel_button = self.add_button("Cancelar", Gtk.ResponseType.CANCEL)
+        cancel_button = self.add_button("Cancel", Gtk.ResponseType.CANCEL)
         cancel_button.connect("clicked", self._on_cancel_clicked)
 
         # Contenido
@@ -68,7 +68,7 @@ class ProgressDialog(Gtk.Dialog):
         content.set_margin_end(12)
 
         # Label de estado actual
-        self.status_label = Gtk.Label(label="Preparando...")
+        self.status_label = Gtk.Label(label="Preparing...")
         self.status_label.set_xalign(0)
         self.status_label.add_css_class("heading")
         content.append(self.status_label)
@@ -99,7 +99,7 @@ class ProgressDialog(Gtk.Dialog):
         content.append(scrolled)
 
     def _create_file_row(self, file_name: str) -> Gtk.Box:
-        """Crea una fila para un archivo."""
+        """Creates a row for a file."""
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         box.set_margin_top(6)
         box.set_margin_bottom(6)
@@ -112,7 +112,7 @@ class ProgressDialog(Gtk.Dialog):
         status_label.set_size_request(24, -1)
         box.append(status_label)
 
-        # Nombre del archivo
+        # File name
         name_label = Gtk.Label(label=file_name)
         name_label.set_hexpand(True)
         name_label.set_xalign(0)
@@ -122,21 +122,21 @@ class ProgressDialog(Gtk.Dialog):
         return box
 
     def _on_cancel_clicked(self, button: Gtk.Button) -> None:
-        """Maneja click en cancelar."""
+        """Handles click on cancel."""
         self._cancelled = True
-        self.status_label.set_label("Cancelando...")
+        self.status_label.set_label("Cancelling...")
         button.set_sensitive(False)
 
     def is_cancelled(self) -> bool:
-        """Verifica si se solicitó cancelación."""
+        """Checks if cancellation was requested."""
         return self._cancelled
 
     def update_progress(self, progress: BatchProgress) -> None:
         """
-        Actualiza el progreso mostrado.
+        Updates the displayed progress.
 
         Args:
-            progress: Estado actual del lote
+            progress: Current batch status
         """
         # Actualizar barra de progreso
         fraction = (progress.completed + progress.failed) / max(progress.total, 1)
@@ -154,18 +154,18 @@ class ProgressDialog(Gtk.Dialog):
                 if status_label:
                     status_label.set_label(self.ICON_CURRENT)
         else:
-            self.status_label.set_label("Completado")
+            self.status_label.set_label("Completed")
 
         # En GTK4, los eventos se procesan automáticamente via GLib main loop
         # No es necesario llamar a events_pending/main_iteration
 
     def mark_file_complete(self, file_name: str, success: bool) -> None:
         """
-        Marca un archivo como completado.
+        Marks a file as completed.
 
         Args:
-            file_name: Nombre del archivo
-            success: True si fue exitoso
+            file_name: File name
+            success: True if successful
         """
         if file_name in self._file_rows:
             row = self._file_rows[file_name]
@@ -182,15 +182,15 @@ class ProgressDialog(Gtk.Dialog):
 
     def show_result(self, result: BatchResult) -> None:
         """
-        Muestra el resultado final.
+        Shows the final result.
 
         Args:
-            result: Resultado del lote
+            result: Batch result
         """
         # Actualizar estado final
         if result.all_successful:
             self.status_label.set_label(
-                f"✓ {result.successful} archivo(s) firmado(s) correctamente"
+                f"✓ {result.successful} file(s) firmado(s) correctamente"
             )
             self.status_label.add_css_class("success")
         else:
@@ -200,15 +200,15 @@ class ProgressDialog(Gtk.Dialog):
             if result.failed > 0:
                 self.status_label.add_css_class("warning")
 
-        # Cambiar botón a "Cerrar"
-        self.get_widget_for_response(Gtk.ResponseType.CANCEL).set_label("Cerrar")
+        # Cambiar botón a "Close"
+        self.get_widget_for_response(Gtk.ResponseType.CANCEL).set_label("Close")
         self.get_widget_for_response(Gtk.ResponseType.CANCEL).set_sensitive(True)
 
         # Barra al 100%
         self.progress_bar.set_fraction(1.0)
 
     def pulse(self) -> None:
-        """Pulsa la barra de progreso (para operaciones indeterminadas)."""
+        """Pulses the progress bar (for indeterminate operations)."""
         self.progress_bar.pulse()
         while Gtk.events_pending():
             Gtk.main_iteration()

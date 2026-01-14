@@ -1,113 +1,113 @@
 """
-exceptions.py - Excepciones personalizadas para PDFSigner
+exceptions.py - Custom exceptions for PDFSigner
 
-Autor: Homero Thompson del Lago del Terror
+Author: Homero Thompson del Lago del Terror
 
-Define la jerarquía de excepciones para manejo de errores
-en todo el sistema de firma digital.
+Defines the exception hierarchy for error handling
+throughout the digital signature system.
 """
 
 
 class PDFSignerError(Exception):
-    """Excepción base para todos los errores de PDFSigner."""
+    """Base exception for all PDFSigner errors."""
 
     pass
 
 
 class TokenError(PDFSignerError):
-    """Errores relacionados con el token USB/NSS."""
+    """Errors related to USB token/NSS."""
 
     pass
 
 
 class TokenNotFoundError(TokenError):
-    """Token USB no detectado o no disponible."""
+    """USB token not detected or unavailable."""
 
-    def __init__(self, message: str = "Token USB no detectado"):
+    def __init__(self, message: str = "USB token not detected"):
         super().__init__(message)
 
 
 class TokenAuthenticationError(TokenError):
-    """Error de autenticación con el token (PIN incorrecto)."""
+    """Authentication error with token (incorrect PIN)."""
 
-    def __init__(self, message: str = "PIN incorrecto o autenticación fallida"):
+    def __init__(self, message: str = "Incorrect PIN or authentication failed"):
         super().__init__(message)
 
 
 class CertificateError(PDFSignerError):
-    """Errores relacionados con certificados."""
+    """Errors related to certificates."""
 
     pass
 
 
 class CertificateNotFoundError(CertificateError):
-    """Certificado de firma no encontrado en el token."""
+    """Signing certificate not found on token."""
 
-    def __init__(self, message: str = "No se encontró certificado de firma válido"):
+    def __init__(self, message: str = "Valid signing certificate not found"):
         super().__init__(message)
 
 
 class CertificateExpiredError(CertificateError):
-    """Certificado expirado."""
+    """Certificate expired."""
 
     def __init__(self, cert_name: str, expiry_date: str):
-        super().__init__(f"Certificado '{cert_name}' expiró el {expiry_date}")
+        super().__init__(f"Certificate '{cert_name}' expired on {expiry_date}")
 
 
 class SigningError(PDFSignerError):
-    """Errores durante el proceso de firma."""
+    """Errors during signing process."""
 
     pass
 
 
 class PDFError(SigningError):
-    """Errores relacionados con el archivo PDF."""
+    """Errors related to PDF file."""
 
     pass
 
 
 class PDFProtectedError(PDFError):
-    """PDF está protegido y no se puede firmar."""
+    """PDF is protected and cannot be signed."""
 
     def __init__(self, filename: str):
-        super().__init__(f"El archivo '{filename}' está protegido contra modificaciones")
+        super().__init__(f"File '{filename}' is protected against modifications")
 
 
 class PDFCorruptedError(PDFError):
-    """PDF corrupto o inválido."""
+    """PDF corrupted or invalid."""
 
     def __init__(self, filename: str):
-        super().__init__(f"El archivo '{filename}' está corrupto o no es un PDF válido")
+        super().__init__(f"File '{filename}' is corrupted or not a valid PDF")
 
 
 class TimestampError(SigningError):
-    """Errores con el servidor de timestamp (TSA)."""
+    """Errors with timestamp server (TSA)."""
 
     pass
 
 
 class TSAConnectionError(TimestampError):
-    """No se puede conectar al servidor TSA."""
+    """Cannot connect to TSA server."""
 
     def __init__(self, tsa_url: str):
-        super().__init__(f"No se puede conectar al servidor de timestamp: {tsa_url}")
+        super().__init__(f"Cannot connect to timestamp server: {tsa_url}")
 
 
 class TSAResponseError(TimestampError):
-    """Respuesta inválida del servidor TSA."""
+    """Invalid response from TSA server."""
 
-    def __init__(self, message: str = "Respuesta inválida del servidor de timestamp"):
+    def __init__(self, message: str = "Invalid response from timestamp server"):
         super().__init__(message)
 
 
 class ConfigurationError(PDFSignerError):
-    """Errores de configuración."""
+    """Configuration errors."""
 
     pass
 
 
 class NSSConfigError(ConfigurationError):
-    """Error en la configuración de NSS."""
+    """Error in NSS configuration."""
 
     def __init__(self, nss_path: str):
-        super().__init__(f"Base de datos NSS no válida en: {nss_path}")
+        super().__init__(f"Invalid NSS database at: {nss_path}")

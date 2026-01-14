@@ -1,10 +1,10 @@
 """
 cert_selector_dialog.py - Diálogo de selección de certificado
 
-Autor: Homero Thompson del Lago del Terror
+Author: Homero Thompson del Lago del Terror
 
-Diálogo GTK4 para seleccionar entre múltiples certificados
-disponibles en el token USB.
+GTK4 dialog to select among multiple certificates
+available on the USB token.
 """
 
 import gi
@@ -17,10 +17,10 @@ from pdfsigner.core.token.cert_selector import ValidCertificate
 
 class CertificateSelectorDialog(Gtk.Dialog):
     """
-    Diálogo para seleccionar certificado de firma.
+    Dialog to select signing certificate.
 
-    Muestra lista de certificados válidos con información
-    relevante para que el usuario elija cuál usar.
+    Shows list of valid certificates with information
+    relevant for the user to choose which one to use.
     """
 
     def __init__(
@@ -29,14 +29,14 @@ class CertificateSelectorDialog(Gtk.Dialog):
         certificates: list[ValidCertificate] | None = None,
     ):
         """
-        Inicializa el diálogo.
+        Initializes the dialog.
 
         Args:
-            parent: Ventana padre
-            certificates: Lista de certificados disponibles
+            parent: Parent window
+            certificates: List of available certificates
         """
         super().__init__(
-            title="Seleccionar Certificado",
+            title="Select Certificate",
             transient_for=parent,
             modal=True,
         )
@@ -47,8 +47,8 @@ class CertificateSelectorDialog(Gtk.Dialog):
         self.set_default_size(550, 400)
 
         # Botones
-        self.add_button("Cancelar", Gtk.ResponseType.CANCEL)
-        self._ok_button = self.add_button("Usar Certificado", Gtk.ResponseType.OK)
+        self.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        self._ok_button = self.add_button("Use Certificate", Gtk.ResponseType.OK)
         self._ok_button.add_css_class("suggested-action")
         self._ok_button.set_sensitive(False)
 
@@ -61,7 +61,7 @@ class CertificateSelectorDialog(Gtk.Dialog):
         content.set_margin_end(12)
 
         # Mensaje
-        msg_label = Gtk.Label(label="Seleccione el certificado para firmar:")
+        msg_label = Gtk.Label(label="Select the certificate to sign:")
         msg_label.set_xalign(0)
         content.append(msg_label)
 
@@ -85,7 +85,7 @@ class CertificateSelectorDialog(Gtk.Dialog):
 
         # Info del certificado seleccionado
         self.info_frame = Gtk.Frame()
-        self.info_frame.set_label("Detalles del Certificado")
+        self.info_frame.set_label("Certificate Details")
         self.info_label = Gtk.Label()
         self.info_label.set_wrap(True)
         self.info_label.set_xalign(0)
@@ -103,7 +103,7 @@ class CertificateSelectorDialog(Gtk.Dialog):
                 self.listbox.select_row(first_row)
 
     def _create_cert_row(self, cert: ValidCertificate) -> Gtk.ListBoxRow:
-        """Crea una fila para un certificado."""
+        """Creates a row for a certificate."""
         row = Gtk.ListBoxRow()
         row.cert = cert  # Guardar referencia
 
@@ -153,7 +153,7 @@ class CertificateSelectorDialog(Gtk.Dialog):
         return row
 
     def _on_row_selected(self, listbox: Gtk.ListBox, row: Gtk.ListBoxRow | None) -> None:
-        """Maneja selección de certificado."""
+        """Handles certificate selection."""
         if row is None:
             self._selected_cert = None
             self._ok_button.set_sensitive(False)
@@ -175,7 +175,7 @@ class CertificateSelectorDialog(Gtk.Dialog):
         self.info_label.set_label(info_text)
 
     def get_selected_certificate(self) -> ValidCertificate | None:
-        """Obtiene el certificado seleccionado."""
+        """Gets the selected certificate."""
         return self._selected_cert
 
 
@@ -184,14 +184,14 @@ def ask_certificate(
     certificates: list[ValidCertificate] | None = None,
 ) -> ValidCertificate | None:
     """
-    Función de conveniencia para seleccionar certificado.
+    Convenience function to select certificate.
 
     Args:
-        parent: Ventana padre
+        parent: Parent window
         certificates: Lista de certificados
 
     Returns:
-        Certificado seleccionado o None si cancela
+        Selected certificate or None if cancelled
     """
     if not certificates:
         return None

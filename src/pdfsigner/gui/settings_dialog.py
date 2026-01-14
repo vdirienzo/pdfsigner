@@ -1,10 +1,10 @@
 """
 settings_dialog.py - Diálogo de configuración
 
-Autor: Homero Thompson del Lago del Terror
+Author: Homero Thompson del Lago del Terror
 
-Diálogo GTK4 para configurar todos los parámetros
-de PDFSigner.
+GTK4 dialog to configure all parameters
+of PDFSigner.
 """
 
 from pathlib import Path
@@ -20,7 +20,7 @@ from pdfsigner.config.settings import get_settings, reload_settings
 
 class SettingsDialog(Adw.PreferencesWindow):
     """
-    Diálogo de configuración de PDFSigner.
+    Diálogo de configuración of PDFSigner.
 
     Organizado en páginas:
     - General (TSA, NSS)
@@ -29,10 +29,10 @@ class SettingsDialog(Adw.PreferencesWindow):
     """
 
     def __init__(self, **kwargs):
-        """Inicializa el diálogo."""
+        """Initializes the dialog."""
         super().__init__(**kwargs)
 
-        self.set_title("Configuración")
+        self.set_title("Preferences")
         self.set_default_size(600, 500)
         self.set_search_enabled(False)
 
@@ -43,19 +43,19 @@ class SettingsDialog(Adw.PreferencesWindow):
         self._create_advanced_page()
 
     def _create_general_page(self) -> None:
-        """Crea la página de configuración general."""
+        """Creates the general settings page."""
         page = Adw.PreferencesPage()
         page.set_title("General")
         page.set_icon_name("preferences-system-symbolic")
 
         # Grupo: NSS/Token
         nss_group = Adw.PreferencesGroup()
-        nss_group.set_title("Token USB")
-        nss_group.set_description("Configuración de la base de datos NSS")
+        nss_group.set_title("USB Token")
+        nss_group.set_description("NSS database configuration")
 
         # NSS Path
         self.nss_path_row = Adw.EntryRow()
-        self.nss_path_row.set_title("Ruta NSS Database")
+        self.nss_path_row.set_title("NSS Database Path")
         self.nss_path_row.set_text(str(self.settings.nss_db_path))
         self.nss_path_row.set_show_apply_button(True)
         self.nss_path_row.connect("apply", self._on_setting_changed)
@@ -65,12 +65,12 @@ class SettingsDialog(Adw.PreferencesWindow):
 
         # Grupo: TSA
         tsa_group = Adw.PreferencesGroup()
-        tsa_group.set_title("Servidor de Timestamp (TSA)")
-        tsa_group.set_description("Requerido para firmas PAdES-LTV con validez legal")
+        tsa_group.set_title("Timestamp Server (TSA)")
+        tsa_group.set_description("Required for PAdES-LTV signatures with legal validity")
 
         # TSA URL
         self.tsa_url_row = Adw.EntryRow()
-        self.tsa_url_row.set_title("URL del TSA")
+        self.tsa_url_row.set_title("TSA URL")
         self.tsa_url_row.set_text(self.settings.tsa_url or "")
         self.tsa_url_row.set_show_apply_button(True)
         self.tsa_url_row.connect("apply", self._on_setting_changed)
@@ -78,12 +78,12 @@ class SettingsDialog(Adw.PreferencesWindow):
 
         # TSA presets
         presets_row = Adw.ComboRow()
-        presets_row.set_title("TSA Preconfigurados")
-        presets_row.set_subtitle("Selecciona un TSA público gratuito")
+        presets_row.set_title("Preconfigured TSAs")
+        presets_row.set_subtitle("Select a free public TSA")
 
         presets = Gtk.StringList.new(
             [
-                "Personalizado",
+                "Custom",
                 "FreeTSA (freetsa.org)",
                 "DigiCert",
                 "Sectigo",
@@ -97,13 +97,13 @@ class SettingsDialog(Adw.PreferencesWindow):
 
         # Credenciales TSA
         self.tsa_user_row = Adw.EntryRow()
-        self.tsa_user_row.set_title("Usuario TSA (opcional)")
+        self.tsa_user_row.set_title("TSA Username (optional)")
         self.tsa_user_row.set_text(self.settings.tsa_username or "")
         self.tsa_user_row.set_show_apply_button(True)
         tsa_group.add(self.tsa_user_row)
 
         self.tsa_pass_row = Adw.PasswordEntryRow()
-        self.tsa_pass_row.set_title("Contraseña TSA (opcional)")
+        self.tsa_pass_row.set_title("TSA Password (optional)")
         self.tsa_pass_row.set_text(self.settings.tsa_password or "")
         self.tsa_pass_row.set_show_apply_button(True)
         tsa_group.add(self.tsa_pass_row)
@@ -112,26 +112,26 @@ class SettingsDialog(Adw.PreferencesWindow):
         self.add(page)
 
     def _create_signature_page(self) -> None:
-        """Crea la página de configuración de firma visible."""
+        """Creates the visible signature settings page."""
         page = Adw.PreferencesPage()
-        page.set_title("Firma Visible")
+        page.set_title("Visible Signature")
         page.set_icon_name("edit-symbolic")
 
         # Grupo: Apariencia
         appearance_group = Adw.PreferencesGroup()
-        appearance_group.set_title("Apariencia")
+        appearance_group.set_title("Appearance")
 
         # Firma visible por defecto
         self.visible_switch = Adw.SwitchRow()
-        self.visible_switch.set_title("Firma visible por defecto")
-        self.visible_switch.set_subtitle("Mostrar sello de firma en el documento")
+        self.visible_switch.set_title("Visible signature by default")
+        self.visible_switch.set_subtitle("Show signature stamp on document")
         self.visible_switch.set_active(self.settings.default_visible)
         appearance_group.add(self.visible_switch)
 
         # Página por defecto
         self.page_combo = Adw.ComboRow()
-        self.page_combo.set_title("Página por defecto")
-        pages = Gtk.StringList.new(["Última página", "Primera página"])
+        self.page_combo.set_title("Default page")
+        pages = Gtk.StringList.new(["Last page", "First page"])
         self.page_combo.set_model(pages)
         self.page_combo.set_selected(0 if self.settings.default_page == "last" else 1)
         appearance_group.add(self.page_combo)
@@ -140,17 +140,17 @@ class SettingsDialog(Adw.PreferencesWindow):
 
         # Grupo: Dimensiones
         dimensions_group = Adw.PreferencesGroup()
-        dimensions_group.set_title("Dimensiones del sello")
+        dimensions_group.set_title("Stamp dimensions")
 
         # Ancho
         self.width_spin = Adw.SpinRow.new_with_range(20, 100, 5)
-        self.width_spin.set_title("Ancho (mm)")
+        self.width_spin.set_title("Width (mm)")
         self.width_spin.set_value(self.settings.signature_width_mm)
         dimensions_group.add(self.width_spin)
 
         # Alto
         self.height_spin = Adw.SpinRow.new_with_range(10, 50, 5)
-        self.height_spin.set_title("Alto (mm)")
+        self.height_spin.set_title("Height (mm)")
         self.height_spin.set_value(self.settings.signature_height_mm)
         dimensions_group.add(self.height_spin)
 
@@ -158,11 +158,11 @@ class SettingsDialog(Adw.PreferencesWindow):
 
         # Grupo: Output
         output_group = Adw.PreferencesGroup()
-        output_group.set_title("Archivos de salida")
+        output_group.set_title("Output files")
 
         # Sufijo
         self.suffix_row = Adw.EntryRow()
-        self.suffix_row.set_title("Sufijo para archivos firmados")
+        self.suffix_row.set_title("Suffix for signed files")
         self.suffix_row.set_text(self.settings.output_suffix)
         self.suffix_row.set_show_apply_button(True)
         output_group.add(self.suffix_row)
@@ -171,26 +171,26 @@ class SettingsDialog(Adw.PreferencesWindow):
         self.add(page)
 
     def _create_advanced_page(self) -> None:
-        """Crea la página de configuración avanzada."""
+        """Creates the advanced settings page."""
         page = Adw.PreferencesPage()
-        page.set_title("Avanzado")
+        page.set_title("Advanced")
         page.set_icon_name("applications-system-symbolic")
 
         # Grupo: PIN Cache
         pin_group = Adw.PreferencesGroup()
-        pin_group.set_title("Cache de PIN")
-        pin_group.set_description("Cachear PIN durante firma en lote")
+        pin_group.set_title("PIN Cache")
+        pin_group.set_description("Cache PIN during batch signing")
 
         # Habilitar cache
         self.pin_cache_switch = Adw.SwitchRow()
-        self.pin_cache_switch.set_title("Habilitar cache de PIN")
-        self.pin_cache_switch.set_subtitle("Más cómodo pero menos seguro")
+        self.pin_cache_switch.set_title("Enable PIN cache")
+        self.pin_cache_switch.set_subtitle("More convenient but less secure")
         self.pin_cache_switch.set_active(self.settings.pin_cache_enabled)
         pin_group.add(self.pin_cache_switch)
 
         # Timeout
         self.pin_timeout_spin = Adw.SpinRow.new_with_range(60, 3600, 60)
-        self.pin_timeout_spin.set_title("Timeout (segundos)")
+        self.pin_timeout_spin.set_title("Timeout (seconds)")
         self.pin_timeout_spin.set_value(self.settings.pin_cache_timeout_seconds)
         pin_group.add(self.pin_timeout_spin)
 
@@ -202,7 +202,7 @@ class SettingsDialog(Adw.PreferencesWindow):
 
         # Nivel de log
         self.log_level_combo = Adw.ComboRow()
-        self.log_level_combo.set_title("Nivel de log")
+        self.log_level_combo.set_title("Log level")
         levels = Gtk.StringList.new(["DEBUG", "INFO", "WARNING", "ERROR"])
         self.log_level_combo.set_model(levels)
 
@@ -216,7 +216,7 @@ class SettingsDialog(Adw.PreferencesWindow):
         actions_group = Adw.PreferencesGroup()
 
         # Botón guardar
-        save_button = Gtk.Button(label="Guardar configuración")
+        save_button = Gtk.Button(label="Save settings")
         save_button.add_css_class("suggested-action")
         save_button.connect("clicked", self._on_save_clicked)
         actions_group.add(save_button)
@@ -225,7 +225,7 @@ class SettingsDialog(Adw.PreferencesWindow):
         self.add(page)
 
     def _on_tsa_preset_selected(self, combo, param) -> None:
-        """Maneja selección de TSA preconfigurado."""
+        """Handles preconfigured TSA selection."""
         presets = {
             0: "",  # Personalizado
             1: "https://freetsa.org/tsr",
@@ -240,11 +240,11 @@ class SettingsDialog(Adw.PreferencesWindow):
             self.tsa_url_row.set_text(url)
 
     def _on_setting_changed(self, row) -> None:
-        """Maneja cambio en una configuración."""
+        """Handles change in a setting."""
         pass  # Se guarda al presionar "Guardar"
 
     def _on_save_clicked(self, button: Gtk.Button) -> None:
-        """Guarda la configuración."""
+        """Saves the settings."""
         config_path = Path.home() / ".config" / "pdfsigner" / "config.toml"
         config_path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -281,4 +281,4 @@ class SettingsDialog(Adw.PreferencesWindow):
         reload_settings()
 
         # Mostrar confirmación
-        self.add_toast(Adw.Toast(title="Configuración guardada"))
+        self.add_toast(Adw.Toast(title="Settings saved"))

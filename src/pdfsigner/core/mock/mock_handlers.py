@@ -1,10 +1,10 @@
 """
-mock_handlers.py - Handlers mock para modo dry-run
+mock_handlers.py - Mock handlers for dry-run mode
 
-Autor: Homero Thompson del Lago del Terror
+Author: Homero Thompson del Lago del Terror
 
-Simula el comportamiento del token y firma sin hardware real.
-Útil para testing y demostración.
+Simulates token and signing behavior without real hardware.
+Useful for testing and demonstration.
 """
 
 import shutil
@@ -18,7 +18,7 @@ from loguru import logger
 
 @dataclass
 class MockCertificateInfo:
-    """Información de certificado simulado."""
+    """Simulated certificate information."""
 
     subject: str
     issuer: str
@@ -30,7 +30,7 @@ class MockCertificateInfo:
 
 @dataclass
 class MockCertificate:
-    """Certificado simulado para dry-run."""
+    """Simulated certificate for dry-run."""
 
     info: MockCertificateInfo
     display_name: str
@@ -38,20 +38,20 @@ class MockCertificate:
     is_expiring_soon: bool = False
 
 
-def create_mock_certificate(name: str = "Usuario de Prueba") -> MockCertificate:
+def create_mock_certificate(name: str = "Test User") -> MockCertificate:
     """
-    Crea un certificado mock para pruebas.
+    Creates a mock certificate for testing.
 
     Args:
-        name: Nombre del titular del certificado
+        name: Name of the certificate holder
 
     Returns:
-        Certificado simulado
+        Simulated certificate
     """
     now = datetime.now()
     info = MockCertificateInfo(
-        subject=f"CN={name}, O=Organización de Prueba, C=AR",
-        issuer="CN=CA de Prueba, O=Autoridad Certificante, C=AR",
+        subject=f"CN={name}, O=Test Organization, C=AR",
+        issuer="CN=Test CA, O=Certificate Authority, C=AR",
         serial_number="1234567890ABCDEF",
         not_before=now - timedelta(days=365),
         not_after=now + timedelta(days=365),
@@ -67,74 +67,74 @@ def create_mock_certificate(name: str = "Usuario de Prueba") -> MockCertificate:
 
 class MockNSSHandler:
     """
-    Handler NSS simulado para modo dry-run.
+    Mock NSS handler for dry-run mode.
 
-    Simula todas las operaciones del token sin hardware real.
+    Simulates all token operations without real hardware.
     """
 
     def __init__(self):
-        """Inicializa el handler mock."""
+        """Initializes the mock handler."""
         self._initialized = False
         self._authenticated = False
         self._connected = False
-        logger.info("[DRY-RUN] MockNSSHandler creado")
+        logger.info("[DRY-RUN] MockNSSHandler created")
 
     def initialize(self) -> None:
-        """Simula inicialización de NSS."""
-        logger.info("[DRY-RUN] Inicializando NSS (simulado)...")
-        time.sleep(0.2)  # Simular latencia
+        """Simulates NSS initialization."""
+        logger.info("[DRY-RUN] Initializing NSS (simulated)...")
+        time.sleep(0.2)  # Simulate latency
         self._initialized = True
-        logger.info("[DRY-RUN] NSS inicializado correctamente")
+        logger.info("[DRY-RUN] NSS initialized successfully")
 
     def get_available_tokens(self) -> list[str]:
-        """Retorna tokens simulados."""
+        """Returns simulated tokens."""
         if not self._initialized:
             return []
-        return ["SafeNet 5110 (SIMULADO)"]
+        return ["SafeNet 5110 (SIMULATED)"]
 
     def connect_token(self) -> None:
-        """Simula conexión al token."""
-        logger.info("[DRY-RUN] Conectando al token simulado...")
+        """Simulates token connection."""
+        logger.info("[DRY-RUN] Connecting to simulated token...")
         time.sleep(0.3)
         self._connected = True
-        logger.info("[DRY-RUN] Token conectado")
+        logger.info("[DRY-RUN] Token connected")
 
     def authenticate(self, pin: str) -> None:
         """
-        Simula autenticación con PIN.
+        Simulates PIN authentication.
 
-        Acepta cualquier PIN de 4+ dígitos.
+        Accepts any PIN with 4+ digits.
         """
-        logger.info("[DRY-RUN] Autenticando con PIN...")
-        time.sleep(0.5)  # Simular verificación
+        logger.info("[DRY-RUN] Authenticating with PIN...")
+        time.sleep(0.5)  # Simulate verification
 
         if len(pin) < 4:
-            raise ValueError("[DRY-RUN] PIN debe tener al menos 4 dígitos")
+            raise ValueError("[DRY-RUN] PIN must be at least 4 digits")
 
         self._authenticated = True
-        logger.info("[DRY-RUN] Autenticación exitosa")
+        logger.info("[DRY-RUN] Authentication successful")
 
     def login(self, pin: str) -> None:
-        """Alias para authenticate."""
+        """Alias for authenticate."""
         self.authenticate(pin)
 
     def is_authenticated(self) -> bool:
-        """Verifica si está autenticado."""
+        """Checks if authenticated."""
         return self._authenticated
 
     def get_certificates(self) -> list[MockCertificate]:
-        """Retorna certificados simulados."""
+        """Returns simulated certificates."""
         if not self._authenticated:
             return []
 
         return [
-            create_mock_certificate("Juan Pérez (PRUEBA)"),
-            create_mock_certificate("María García (PRUEBA)"),
+            create_mock_certificate("Juan Pérez (TEST)"),
+            create_mock_certificate("María García (TEST)"),
         ]
 
     def close(self) -> None:
-        """Cierra la conexión simulada."""
-        logger.info("[DRY-RUN] Cerrando conexión con token...")
+        """Closes the simulated connection."""
+        logger.info("[DRY-RUN] Closing token connection...")
         self._authenticated = False
         self._connected = False
         self._initialized = False
@@ -142,7 +142,7 @@ class MockNSSHandler:
 
 @dataclass
 class MockBatchProgress:
-    """Progreso de firma en lote simulado (compatible con BatchProgress)."""
+    """Simulated batch signing progress (compatible with BatchProgress)."""
 
     current: int
     total: int
@@ -152,18 +152,18 @@ class MockBatchProgress:
 
     @property
     def completed(self) -> int:
-        """Archivos completados exitosamente (para compatibilidad con BatchProgress)."""
+        """Successfully completed files (for BatchProgress compatibility)."""
         return self.current if self.status == "success" else max(0, self.current - 1)
 
     @property
     def failed(self) -> int:
-        """Archivos fallidos (para compatibilidad con BatchProgress)."""
-        return 0  # En dry-run no hay fallos durante el progreso
+        """Failed files (for BatchProgress compatibility)."""
+        return 0  # In dry-run there are no failures during progress
 
 
 @dataclass
 class MockBatchResult:
-    """Resultado de firma en lote simulado."""
+    """Simulated batch signing result."""
 
     successful: int
     failed: int
@@ -171,23 +171,23 @@ class MockBatchResult:
     errors: dict[Path, str]
 
     def get_failed_files(self):
-        """Retorna archivos fallidos."""
+        """Returns failed files."""
         return list(self.errors.items())
 
 
 class MockBatchManager:
     """
-    Manager de firma en lote simulado.
+    Simulated batch signing manager.
 
-    Simula el proceso de firma copiando archivos
-    con sufijo _firmado sin modificar el contenido.
+    Simulates the signing process by copying files
+    with _signed suffix without modifying content.
     """
 
     def __init__(self, nss_handler=None, lta_handler=None):
-        """Inicializa el manager mock."""
+        """Initializes the mock manager."""
         self.nss_handler = nss_handler
         self.lta_handler = lta_handler
-        logger.info("[DRY-RUN] MockBatchManager creado")
+        logger.info("[DRY-RUN] MockBatchManager created")
 
     def sign_batch(
         self,
@@ -201,24 +201,24 @@ class MockBatchManager:
         progress_callback=None,
     ) -> MockBatchResult:
         """
-        Simula firma de archivos en lote.
+        Simulates batch file signing.
 
-        Copia cada PDF con sufijo _firmado simulando el proceso.
+        Copies each PDF with _signed suffix simulating the process.
 
         Args:
-            files: Lista de archivos (alias)
-            pdf_files: Lista de archivos
-            pin: PIN (ignorado en mock)
-            visible: Firma visible
-            page: Página para firma visible
-            appearance: Configuración de apariencia
-            cert_id: ID del certificado
-            progress_callback: Callback de progreso
+            files: List of files (alias)
+            pdf_files: List of files
+            pin: PIN (ignored in mock)
+            visible: Visible signature
+            page: Page for visible signature
+            appearance: Appearance configuration
+            cert_id: Certificate ID
+            progress_callback: Progress callback
 
         Returns:
-            Resultado de la firma simulada
+            Simulated signing result
         """
-        # Soportar ambos nombres de parámetro
+        # Support both parameter names
         file_list = files or pdf_files or []
 
         if not file_list:
@@ -229,46 +229,46 @@ class MockBatchManager:
         failed = 0
         errors = {}
 
-        logger.info(f"[DRY-RUN] Simulando firma de {total} archivo(s)...")
+        logger.info(f"[DRY-RUN] Simulating signing of {total} file(s)...")
 
         for i, pdf_path in enumerate(file_list):
             current_file = str(pdf_path)
 
-            # Notificar inicio
+            # Notify start
             if progress_callback:
                 progress = MockBatchProgress(
                     current=i + 1,
                     total=total,
                     current_file=current_file,
                     status="processing",
-                    message="Firmando...",
+                    message="Signing...",
                 )
                 progress_callback(progress)
 
-            # Simular tiempo de firma
+            # Simulate signing time
             time.sleep(0.5)
 
             try:
-                # Crear archivo "firmado" (copia con sufijo)
-                output_path = pdf_path.parent / f"{pdf_path.stem}_firmado{pdf_path.suffix}"
+                # Create "signed" file (copy with suffix)
+                output_path = pdf_path.parent / f"{pdf_path.stem}_signed{pdf_path.suffix}"
                 shutil.copy2(pdf_path, output_path)
 
-                logger.info(f"[DRY-RUN] Firmado: {pdf_path.name} → {output_path.name}")
+                logger.info(f"[DRY-RUN] Signed: {pdf_path.name} → {output_path.name}")
                 successful += 1
 
-                # Notificar éxito
+                # Notify success
                 if progress_callback:
                     progress = MockBatchProgress(
                         current=i + 1,
                         total=total,
                         current_file=current_file,
                         status="success",
-                        message="Firmado (simulado)",
+                        message="Signed (simulated)",
                     )
                     progress_callback(progress)
 
             except Exception as e:
-                logger.error(f"[DRY-RUN] Error copiando {pdf_path}: {e}")
+                logger.error(f"[DRY-RUN] Error copying {pdf_path}: {e}")
                 failed += 1
                 errors[pdf_path] = str(e)
 
@@ -282,7 +282,7 @@ class MockBatchManager:
                     )
                     progress_callback(progress)
 
-        logger.info(f"[DRY-RUN] Firma completada: {successful} éxito, {failed} fallidos")
+        logger.info(f"[DRY-RUN] Signing completed: {successful} success, {failed} failed")
 
         return MockBatchResult(
             successful=successful,
@@ -294,13 +294,13 @@ class MockBatchManager:
 
 def enable_dry_run_mode():
     """
-    Habilita el modo dry-run globalmente.
+    Enables dry-run mode globally.
 
-    Modifica el setting para que los componentes
-    usen implementaciones mock automáticamente.
+    Modifies the setting so that components
+    use mock implementations automatically.
     """
     import os
 
-    # Settings es inmutable, usamos variable de entorno
+    # Settings is immutable, use environment variable
     os.environ["PDFSIGNER_DRY_RUN"] = "true"
-    logger.warning("⚠️  MODO DRY-RUN ACTIVADO - Sin firma real")
+    logger.warning("⚠️  DRY-RUN MODE ACTIVATED - No real signing")
