@@ -13,6 +13,7 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk
 
 from pdfsigner.core.signer.batch_manager import BatchProgress, BatchResult
+from pdfsigner.i18n import _
 
 
 class ProgressDialog(Gtk.Dialog):
@@ -44,7 +45,7 @@ class ProgressDialog(Gtk.Dialog):
             file_names: List of file names to process
         """
         super().__init__(
-            title="Signing documents...",
+            title=_("Signing documents..."),
             transient_for=parent,
             modal=True,
         )
@@ -56,7 +57,7 @@ class ProgressDialog(Gtk.Dialog):
         self.set_deletable(False)
 
         # Botón cancelar
-        cancel_button = self.add_button("Cancel", Gtk.ResponseType.CANCEL)
+        cancel_button = self.add_button(_("Cancel"), Gtk.ResponseType.CANCEL)
         cancel_button.connect("clicked", self._on_cancel_clicked)
 
         # Contenido
@@ -68,7 +69,7 @@ class ProgressDialog(Gtk.Dialog):
         content.set_margin_end(12)
 
         # Label de estado actual
-        self.status_label = Gtk.Label(label="Preparing...")
+        self.status_label = Gtk.Label(label=_("Preparing..."))
         self.status_label.set_xalign(0)
         self.status_label.add_css_class("heading")
         content.append(self.status_label)
@@ -124,7 +125,7 @@ class ProgressDialog(Gtk.Dialog):
     def _on_cancel_clicked(self, button: Gtk.Button) -> None:
         """Handles click on cancel."""
         self._cancelled = True
-        self.status_label.set_label("Cancelling...")
+        self.status_label.set_label(_("Cancelling..."))
         button.set_sensitive(False)
 
     def is_cancelled(self) -> bool:
@@ -145,7 +146,7 @@ class ProgressDialog(Gtk.Dialog):
 
         # Actualizar estado
         if progress.current_file:
-            self.status_label.set_label(f"Firmando: {progress.current_file}")
+            self.status_label.set_label(_("Signing: {}").format(progress.current_file))
 
             # Actualizar icono del archivo actual
             if progress.current_file in self._file_rows:
@@ -154,7 +155,7 @@ class ProgressDialog(Gtk.Dialog):
                 if status_label:
                     status_label.set_label(self.ICON_CURRENT)
         else:
-            self.status_label.set_label("Completed")
+            self.status_label.set_label(_("Completed"))
 
         # En GTK4, los eventos se procesan automáticamente via GLib main loop
         # No es necesario llamar a events_pending/main_iteration
@@ -189,15 +190,19 @@ class ProgressDialog(Gtk.Dialog):
         """
         # Actualizar estado final
         if result.all_successful:
-            self.status_label.set_label(f"✓ {result.successful} file(s) signed successfully")
+            self.status_label.set_label(
+                _("✓ {} file(s) signed successfully").format(result.successful)
+            )
             self.status_label.add_css_class("success")
         else:
-            self.status_label.set_label(f"{result.successful} successful, {result.failed} failed")
+            self.status_label.set_label(
+                _("{} successful, {} failed").format(result.successful, result.failed)
+            )
             if result.failed > 0:
                 self.status_label.add_css_class("warning")
 
         # Cambiar botón a "Close"
-        self.get_widget_for_response(Gtk.ResponseType.CANCEL).set_label("Close")
+        self.get_widget_for_response(Gtk.ResponseType.CANCEL).set_label(_("Close"))
         self.get_widget_for_response(Gtk.ResponseType.CANCEL).set_sensitive(True)
 
         # Barra al 100%

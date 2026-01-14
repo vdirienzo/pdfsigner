@@ -17,6 +17,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, GLib
 
 from pdfsigner.core.validator.pdf_validator import PDFValidator
+from pdfsigner.i18n import _
 
 
 class ValidationHandler:
@@ -66,12 +67,12 @@ class ValidationHandler:
 
                 if sig_count > 0:
                     status = "signed" if validation.all_valid else "error"
-                    message = f"{sig_count} signature(s)"
+                    message = _("{}signature(s)").format(sig_count)
                     if not validation.all_valid:
                         all_valid = False
                 else:
                     status = "pending"
-                    message = "No signatures"
+                    message = _("No signatures")
 
                 GLib.idle_add(
                     self.window.file_list.update_file_status,
@@ -92,11 +93,11 @@ class ValidationHandler:
         # Mostrar resumen
         if total_signatures > 0:
             msg = (
-                f"✓ {total_signatures} signature(s) válida(s)"
+                _("✓ {}valid signature(s)").format(total_signatures)
                 if all_valid
-                else f"⚠ {total_signatures} signature(s), algunas inválidas"
+                else _("⚠ {}signature(s), some invalid").format(total_signatures)
             )
         else:
-            msg = "No signatures found"
+            msg = _("No signatures found")
 
         GLib.idle_add(self.window.show_toast, msg)

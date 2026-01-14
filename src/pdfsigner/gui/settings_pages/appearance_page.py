@@ -4,7 +4,10 @@ appearance_page.py - Appearance settings page
 Author: Homero Thompson del Lago del Terror
 
 Creates the appearance settings page with theme, accent color, and language.
+Auto-saves changes immediately when user modifies settings.
 """
+
+from pathlib import Path
 
 import gi
 
@@ -12,13 +15,12 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, Gtk
 
-from pdfsigner.i18n import SUPPORTED_LANGUAGES
+from pdfsigner.i18n import SUPPORTED_LANGUAGES, _
 
 # Global CSS provider for accent colors
 _accent_css_provider: Gtk.CssProvider | None = None
 
-# Theme options
-THEME_OPTIONS = ["System default", "Light", "Dark"]
+# Theme options (display names need translation at runtime)
 THEME_VALUES = ["system", "light", "dark"]
 
 # Accent color options (GNOME/Adwaita palette)
@@ -35,9 +37,49 @@ ACCENT_COLORS = {
 }
 
 
+def _save_appearance_setting(key: str, value: str) -> None:
+    """
+    Save a single appearance setting to config file.
+
+    Args:
+        key: Setting key (theme, accent_color, language)
+        value: Setting value
+    """
+    from loguru import logger
+
+    config_path = Path.home() / ".config" / "pdfsigner" / "config.toml"
+
+    try:
+        # Read existing config
+        if config_path.exists():
+            content = config_path.read_text()
+            lines = content.split("\n")
+        else:
+            config_path.parent.mkdir(parents=True, exist_ok=True)
+            lines = ["# PDFSigner - Configuration"]
+
+        # Find and update or append the setting
+        key_found = False
+        for i, line in enumerate(lines):
+            if line.strip().startswith(f"{key} ="):
+                lines[i] = f'{key} = "{value}"'
+                key_found = True
+                break
+
+        if not key_found:
+            lines.append(f'{key} = "{value}"')
+
+        # Write back
+        config_path.write_text("\n".join(lines))
+        logger.debug(f"Auto-saved {key} = {value}")
+
+    except Exception as e:
+        logger.error(f"Failed to auto-save setting {key}: {e}")
+
+
 def apply_accent_color(color_name: str) -> None:
     """
-    Apply accent color globally via CSS.
+    Apply accent color globally via CSS with high priority.
 
     Args:
         color_name: Name of the color from ACCENT_COLORS
@@ -46,53 +88,92 @@ def apply_accent_color(color_name: str) -> None:
 
     color_hex = ACCENT_COLORS.get(color_name, ACCENT_COLORS["blue"])
 
-    # Create CSS for accent color - target common GTK4/Adwaita widgets
+    # CSS with high priority targeting libadwaita widgets
     css = f"""
         @define-color accent_bg_color {color_hex};
         @define-color accent_fg_color white;
         @define-color accent_color {color_hex};
 
-        .suggested-action {{
-            background-color: {color_hex};
-            color: white;
+        /* Suggested action buttons */
+        .suggested-action,
+        button.suggested-action,
+        button.suggested-action.text-button,
+        button.suggested-action.flat {{
+            background-color: {color_hex} !important;
+            color: white !important;
         }}
 
-        .suggested-action:hover {{
-            background-color: shade({color_hex}, 1.1);
+        .suggested-action:hover,
+        button.suggested-action:hover {{
+            background-color: shade({color_hex}, 0.9) !important;
         }}
 
+        .suggested-action:active,
+        button.suggested-action:active {{
+            background-color: shade({color_hex}, 0.8) !important;
+        }}
+
+        /* Accent class */
         .accent {{
-            color: {color_hex};
+            color: {color_hex} !important;
         }}
 
-        selection {{
-            background-color: alpha({color_hex}, 0.3);
+        /* Switches */
+        switch:checked {{
+            background-color: {color_hex} !important;
         }}
 
         switch:checked slider {{
-            background-color: {color_hex};
+            background-color: white !important;
         }}
 
-        scale trough highlight {{
-            background-color: {color_hex};
-        }}
-
-        progressbar trough progress {{
-            background-color: {color_hex};
-        }}
-
+        /* Checkboxes and radios */
+        check:checked,
         checkbutton check:checked,
+        radio:checked,
         radiobutton radio:checked {{
-            background-color: {color_hex};
-            color: white;
+            background-color: {color_hex} !important;
+            color: white !important;
         }}
 
-        button.text-button.suggested-action {{
-            background-color: {color_hex};
+        /* Scale/slider */
+        scale trough highlight,
+        scale > trough > highlight {{
+            background-color: {color_hex} !important;
         }}
 
+        /* Progress bars */
+        progressbar > trough > progress,
+        progressbar trough progress {{
+            background-color: {color_hex} !important;
+        }}
+
+        /* Selection */
+        selection,
+        *:selected {{
+            background-color: alpha({color_hex}, 0.3) !important;
+        }}
+
+        /* Links */
+        link,
+        .link {{
+            color: {color_hex} !important;
+        }}
+
+        /* Navigation sidebar */
         .navigation-sidebar row:selected {{
-            background-color: alpha({color_hex}, 0.15);
+            background-color: alpha({color_hex}, 0.15) !important;
+        }}
+
+        /* Entry focus */
+        entry:focus,
+        .entry:focus {{
+            outline-color: {color_hex} !important;
+        }}
+
+        /* Spin buttons */
+        spinbutton:focus {{
+            outline-color: {color_hex} !important;
         }}
     """
 
@@ -104,12 +185,13 @@ def apply_accent_color(color_name: str) -> None:
     if _accent_css_provider is not None:
         Gtk.StyleContext.remove_provider_for_display(display, _accent_css_provider)
 
-    # Create and apply new provider
+    # Create and apply new provider with USER priority (highest)
     _accent_css_provider = Gtk.CssProvider()
     _accent_css_provider.load_from_data(css.encode())
 
+    # Use STYLE_PROVIDER_PRIORITY_USER (800) for highest priority
     Gtk.StyleContext.add_provider_for_display(
-        display, _accent_css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+        display, _accent_css_provider, Gtk.STYLE_PROVIDER_PRIORITY_USER
     )
 
 
@@ -142,20 +224,21 @@ def create_appearance_page(settings, dialog) -> Adw.PreferencesPage:
         Configured PreferencesPage
     """
     page = Adw.PreferencesPage()
-    page.set_title("Appearance")
+    page.set_title(_("Appearance"))
     page.set_icon_name("preferences-desktop-appearance-symbolic")
 
     # Group: Theme
     theme_group = Adw.PreferencesGroup()
-    theme_group.set_title("Theme")
-    theme_group.set_description("Application color scheme")
+    theme_group.set_title(_("Theme"))
+    theme_group.set_description(_("Application color scheme"))
 
     # Theme selector
     theme_row = Adw.ComboRow()
-    theme_row.set_title("Color scheme")
-    theme_row.set_subtitle("Choose light, dark, or follow system")
+    theme_row.set_title(_("Color scheme"))
+    theme_row.set_subtitle(_("Choose light, dark, or follow system"))
 
-    theme_list = Gtk.StringList.new(THEME_OPTIONS)
+    theme_options = [_("System default"), _("Light"), _("Dark")]
+    theme_list = Gtk.StringList.new(theme_options)
     theme_row.set_model(theme_list)
 
     # Set current selection
@@ -164,14 +247,14 @@ def create_appearance_page(settings, dialog) -> Adw.PreferencesPage:
     except ValueError:
         current_idx = 0
     theme_row.set_selected(current_idx)
-    theme_row.connect("notify::selected", lambda combo, param: _on_theme_changed(combo))
+    theme_row.connect("notify::selected", lambda combo, param: _on_theme_changed(combo, dialog))
 
     theme_group.add(theme_row)
 
     # Accent color selector
     accent_group = Adw.PreferencesGroup()
-    accent_group.set_title("Accent Color")
-    accent_group.set_description("Primary color for buttons and highlights")
+    accent_group.set_title(_("Accent Color"))
+    accent_group.set_description(_("Primary color for buttons and highlights"))
 
     color_flow = Gtk.FlowBox()
     color_flow.set_selection_mode(Gtk.SelectionMode.SINGLE)
@@ -206,15 +289,15 @@ def create_appearance_page(settings, dialog) -> Adw.PreferencesPage:
 
     # Group: Language
     lang_group = Adw.PreferencesGroup()
-    lang_group.set_title("Language")
-    lang_group.set_description("Interface language (restart required)")
+    lang_group.set_title(_("Language"))
+    lang_group.set_description(_("Interface language (restart required)"))
 
     lang_row = Adw.ComboRow()
-    lang_row.set_title("Language")
-    lang_row.set_subtitle("Requires application restart")
+    lang_row.set_title(_("Language"))
+    lang_row.set_subtitle(_("Requires application restart"))
 
     # Build language list
-    lang_names = ["System default"] + list(SUPPORTED_LANGUAGES.values())
+    lang_names = [_("System default")] + list(SUPPORTED_LANGUAGES.values())
     lang_codes = [""] + list(SUPPORTED_LANGUAGES.keys())
 
     lang_list = Gtk.StringList.new(lang_names)
@@ -231,32 +314,36 @@ def create_appearance_page(settings, dialog) -> Adw.PreferencesPage:
         current_idx = 0
     lang_row.set_selected(current_idx)
 
+    # Store lang_codes for callback
+    dialog.lang_codes = lang_codes
+    lang_row.connect("notify::selected", lambda combo, param: _on_language_changed(combo, dialog))
+
     lang_group.add(lang_row)
     page.add(lang_group)
 
     # Group: Accessibility
     a11y_group = Adw.PreferencesGroup()
-    a11y_group.set_title("Accessibility")
-    a11y_group.set_description("Options to improve accessibility")
+    a11y_group.set_title(_("Accessibility"))
+    a11y_group.set_description(_("Options to improve accessibility"))
 
     # High contrast mode
     high_contrast_row = Adw.SwitchRow()
-    high_contrast_row.set_title("High contrast")
-    high_contrast_row.set_subtitle("Increase contrast for better visibility")
+    high_contrast_row.set_title(_("High contrast"))
+    high_contrast_row.set_subtitle(_("Increase contrast for better visibility"))
     high_contrast_row.set_active(False)
     a11y_group.add(high_contrast_row)
 
     # Reduce motion
     reduce_motion_row = Adw.SwitchRow()
-    reduce_motion_row.set_title("Reduce motion")
-    reduce_motion_row.set_subtitle("Minimize animations")
+    reduce_motion_row.set_title(_("Reduce motion"))
+    reduce_motion_row.set_subtitle(_("Minimize animations"))
     reduce_motion_row.set_active(False)
     a11y_group.add(reduce_motion_row)
 
     # Large text
     large_text_row = Adw.SwitchRow()
-    large_text_row.set_title("Large text")
-    large_text_row.set_subtitle("Use larger font sizes")
+    large_text_row.set_title(_("Large text"))
+    large_text_row.set_subtitle(_("Use larger font sizes"))
     large_text_row.set_active(False)
     a11y_group.add(large_text_row)
 
@@ -265,7 +352,6 @@ def create_appearance_page(settings, dialog) -> Adw.PreferencesPage:
     # Store references for saving
     dialog.theme_row = theme_row
     dialog.lang_row = lang_row
-    dialog.lang_codes = lang_codes
     dialog.accent_color_flow = color_flow
     dialog.high_contrast_row = high_contrast_row
     dialog.reduce_motion_row = reduce_motion_row
@@ -309,20 +395,54 @@ def _create_color_button(color_name: str, color_hex: str) -> Gtk.Button:
     return btn
 
 
-def _on_theme_changed(combo: Adw.ComboRow) -> None:
-    """Applies theme change immediately."""
+def _on_theme_changed(combo: Adw.ComboRow, dialog) -> None:
+    """Applies theme change immediately and saves."""
     selected = combo.get_selected()
     theme = THEME_VALUES[selected]
+
+    # Apply immediately
     apply_theme(theme)
+
+    # Auto-save
+    _save_appearance_setting("theme", theme)
+
+    # Show toast
+    if hasattr(dialog, "add_toast"):
+        dialog.add_toast(Adw.Toast(title=_("Theme changed")))
 
 
 def _on_accent_color_selected(flow_box: Gtk.FlowBox, child: Gtk.FlowBoxChild, dialog) -> None:
-    """Handles accent color selection."""
+    """Handles accent color selection with auto-save."""
     btn = child.get_child()
     if hasattr(btn, "color_name"):
-        dialog.selected_accent_color = btn.color_name
+        color_name = btn.color_name
+        dialog.selected_accent_color = color_name
+
         # Apply immediately
-        apply_accent_color(btn.color_name)
+        apply_accent_color(color_name)
+
+        # Auto-save
+        _save_appearance_setting("accent_color", color_name)
+
+        # Show toast
+        if hasattr(dialog, "add_toast"):
+            dialog.add_toast(Adw.Toast(title=_("Accent color changed")))
+
+
+def _on_language_changed(combo: Adw.ComboRow, dialog) -> None:
+    """Handles language change with auto-save."""
+    selected = combo.get_selected()
+    lang_codes = getattr(dialog, "lang_codes", [""])
+
+    if selected < len(lang_codes):
+        lang = lang_codes[selected]
+
+        # Auto-save
+        _save_appearance_setting("language", lang)
+
+        # Show toast with restart message
+        if hasattr(dialog, "add_toast"):
+            dialog.add_toast(Adw.Toast(title=_("Language changed. Restart to apply.")))
 
 
 def get_selected_theme(dialog) -> str:

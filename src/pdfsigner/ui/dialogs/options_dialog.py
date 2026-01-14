@@ -16,6 +16,7 @@ from gi.repository import Gtk
 
 from pdfsigner.core.pdf_analyzer.position_finder import PositionPreference
 from pdfsigner.core.signer.pdf_signer import SignatureAppearance
+from pdfsigner.i18n import _
 
 
 class SignatureOptionsDialog(Gtk.Dialog):
@@ -43,7 +44,7 @@ class SignatureOptionsDialog(Gtk.Dialog):
             default_appearance: Default configuration
         """
         super().__init__(
-            title="Signature Options",
+            title=_("Signature Options"),
             transient_for=parent,
             modal=True,
         )
@@ -54,8 +55,8 @@ class SignatureOptionsDialog(Gtk.Dialog):
         self.set_default_size(450, 350)
 
         # Botones
-        self.add_button("Cancel", Gtk.ResponseType.CANCEL)
-        ok_button = self.add_button("Sign", Gtk.ResponseType.OK)
+        self.add_button(_("Cancel"), Gtk.ResponseType.CANCEL)
+        ok_button = self.add_button(_("Sign"), Gtk.ResponseType.OK)
         ok_button.add_css_class("suggested-action")
 
         # Contenido
@@ -67,15 +68,15 @@ class SignatureOptionsDialog(Gtk.Dialog):
         content.set_margin_end(18)
 
         # === Sección: Tipo de firma ===
-        type_frame = self._create_section("Signature Type")
+        type_frame = self._create_section(_("Signature Type"))
         type_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
 
         # Radio: Invisible
-        self.radio_invisible = Gtk.CheckButton(label="Invisible signature (metadata only)")
+        self.radio_invisible = Gtk.CheckButton(label=_("Invisible signature (metadata only)"))
         self.radio_invisible.set_active(not self.default_appearance.visible)
 
         # Radio: Visible
-        self.radio_visible = Gtk.CheckButton(label="Visible signature (stamp on document)")
+        self.radio_visible = Gtk.CheckButton(label=_("Visible signature (stamp on document)"))
         self.radio_visible.set_group(self.radio_invisible)
         self.radio_visible.set_active(self.default_appearance.visible)
         self.radio_visible.connect("toggled", self._on_visible_toggled)
@@ -86,22 +87,22 @@ class SignatureOptionsDialog(Gtk.Dialog):
         content.append(type_frame)
 
         # === Sección: Opciones de firma visible ===
-        self.visible_frame = self._create_section("Visible Signature Options")
+        self.visible_frame = self._create_section(_("Visible Signature Options"))
         visible_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
 
         # Selector de página
         page_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
 
         page_combo_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-        page_label = Gtk.Label(label="Page:")
+        page_label = Gtk.Label(label=_("Page:"))
         page_label.set_xalign(0)
         page_label.set_size_request(100, -1)
 
         self.page_combo = Gtk.ComboBoxText()
-        self.page_combo.append("last", "Last page")
-        self.page_combo.append("first", "First page")
-        self.page_combo.append("all", "All pages")
-        self.page_combo.append("custom", "Custom...")
+        self.page_combo.append("last", _("Last page"))
+        self.page_combo.append("first", _("First page"))
+        self.page_combo.append("all", _("All pages"))
+        self.page_combo.append("custom", _("Custom..."))
         self.page_combo.connect("changed", self._on_page_combo_changed)
 
         page_combo_box.append(page_label)
@@ -110,12 +111,12 @@ class SignatureOptionsDialog(Gtk.Dialog):
 
         # Custom page entry (initially hidden)
         self.custom_page_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-        custom_label = Gtk.Label(label="Pages:")
+        custom_label = Gtk.Label(label=_("Pages:"))
         custom_label.set_xalign(0)
         custom_label.set_size_request(100, -1)
 
         self.custom_page_entry = Gtk.Entry()
-        self.custom_page_entry.set_placeholder_text("e.g., 1,3,5 or 1-3 or 1-3,5,7")
+        self.custom_page_entry.set_placeholder_text(_("e.g., 1,3,5 or 1-3 or 1-3,5,7"))
         self.custom_page_entry.set_hexpand(True)
 
         self.custom_page_box.append(custom_label)
@@ -139,17 +140,17 @@ class SignatureOptionsDialog(Gtk.Dialog):
 
         # Selector de posición
         pos_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-        pos_label = Gtk.Label(label="Position:")
+        pos_label = Gtk.Label(label=_("Position:"))
         pos_label.set_xalign(0)
         pos_label.set_size_request(100, -1)
 
         self.position_combo = Gtk.ComboBoxText()
-        self.position_combo.append("auto", "Automatic (find free space)")
-        self.position_combo.append("bottom_right", "Bottom right")
-        self.position_combo.append("bottom_left", "Bottom left")
-        self.position_combo.append("bottom_center", "Bottom center")
-        self.position_combo.append("top_right", "Top right")
-        self.position_combo.append("top_left", "Top left")
+        self.position_combo.append("auto", _("Automatic (find free space)"))
+        self.position_combo.append("bottom_right", _("Bottom right"))
+        self.position_combo.append("bottom_left", _("Bottom left"))
+        self.position_combo.append("bottom_center", _("Bottom center"))
+        self.position_combo.append("top_right", _("Top right"))
+        self.position_combo.append("top_left", _("Top left"))
         self.position_combo.set_active_id(self.default_appearance.position_preference.value)
 
         pos_box.append(pos_label)

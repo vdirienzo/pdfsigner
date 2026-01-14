@@ -8,6 +8,8 @@ Provides user-friendly help information about how to use PDFSigner.
 
 import gi
 
+from pdfsigner.i18n import _
+
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk
@@ -25,7 +27,7 @@ class HelpDialog(Adw.Window):
         """Initializes the help dialog."""
         super().__init__(**kwargs)
 
-        self.set_title("Help - PDFSigner")
+        self.set_title(_("Help - PDFSigner"))
         self.set_default_size(600, 700)
         self.set_modal(True)
 
@@ -88,20 +90,22 @@ class HelpDialog(Adw.Window):
     def _create_intro_section(self) -> Gtk.Box:
         """Creates the introduction section."""
         return self._create_section(
-            "What is PDFSigner?",
-            "PDFSigner is an application for digitally signing PDF documents "
-            "using a cryptographic USB token (such as SafeNet 5110).\n\n"
-            "Digital signatures guarantee:\n"
-            "• Authenticity: Confirms who signed the document\n"
-            "• Integrity: Detects if the document was modified\n"
-            "• Non-repudiation: The signer cannot deny having signed",
+            _("What is PDFSigner?"),
+            _(
+                "PDFSigner is an application for digitally signing PDF documents "
+                "using a cryptographic USB token (such as SafeNet 5110).\n\n"
+                "Digital signatures guarantee:\n"
+                "• Authenticity: Confirms who signed the document\n"
+                "• Integrity: Detects if the document was modified\n"
+                "• Non-repudiation: The signer cannot deny having signed"
+            ),
         )
 
     def _create_requirements_section(self) -> Gtk.Box:
         """Creates the requirements section."""
         return self._create_section(
-            "Requirements",
-            "To sign documents you need:\n\n"
+            _("Requirements"),
+            _("To sign documents you need:\n\n"
             "1. Cryptographic USB Token\n"
             "   - SafeNet 5110 or other compatible token\n"
             "   - Must be connected to the computer\n\n"
@@ -113,14 +117,14 @@ class HelpDialog(Adw.Window):
             "   - Never share it with anyone!\n\n"
             "4. NSS Database configured\n"
             "   - Usually at ~/.nss\n"
-            "   - Configure in Preferences",
+            "   - Configure in Preferences"),
         )
 
     def _create_howto_section(self) -> Gtk.Box:
         """Creates the how-to section."""
         return self._create_section(
-            "How to sign a document?",
-            "Step 1: Add files\n"
+            _("How to sign a document?"),
+            _("Step 1: Add files\n"
             "   - Drag PDFs to the window, or\n"
             "   - Use the '+' button to select files\n\n"
             "Step 2: Configure options\n"
@@ -132,14 +136,14 @@ class HelpDialog(Adw.Window):
             "   - The PIN is used only for this session\n\n"
             "Step 4: Done!\n"
             "   - A new file is created: document_signed.pdf\n"
-            "   - The original is not modified",
+            "   - The original is not modified"),
         )
 
     def _create_options_section(self) -> Gtk.Box:
         """Creates the options explanation section."""
         return self._create_section(
-            "Signature Options",
-            "Visible vs invisible signature:\n\n"
+            _("Signature Options"),
+            _("Visible vs invisible signature:\n\n"
             "• VISIBLE signature:\n"
             "  - Shows a stamp/seal on the document\n"
             "  - Includes signer name and date\n"
@@ -157,14 +161,14 @@ class HelpDialog(Adw.Window):
             "  - Last page (default)\n"
             "  - First page\n"
             "  - All pages\n"
-            "  - Specific pages (e.g.: 1,3,5)",
+            "  - Specific pages (e.g.: 1,3,5)"),
         )
 
     def _create_validation_section(self) -> Gtk.Box:
         """Creates the validation section."""
         return self._create_section(
-            "Validate Signatures",
-            "To verify if a PDF is correctly signed:\n\n"
+            _("Validate Signatures"),
+            _("To verify if a PDF is correctly signed:\n\n"
             "1. Add the signed PDF to the list\n"
             "2. Click on 'Validate'\n"
             "3. Information will be shown about:\n"
@@ -175,14 +179,14 @@ class HelpDialog(Adw.Window):
             "You can also open the PDF in:\n"
             "• Adobe Reader: Signatures panel\n"
             "• Okular: Properties > Signatures\n"
-            "• Evince: File > Properties",
+            "• Evince: File > Properties"),
         )
 
     def _create_troubleshooting_section(self) -> Gtk.Box:
         """Creates the troubleshooting section."""
         return self._create_section(
-            "Common Problems",
-            "❌ 'Token not found'\n"
+            _("Common Problems"),
+            _("❌ 'Token not found'\n"
             "   → Verify the USB token is connected\n"
             "   → Check NSS configuration in Preferences\n\n"
             "❌ 'Incorrect PIN'\n"
@@ -197,18 +201,18 @@ class HelpDialog(Adw.Window):
             "   → Try 'Local time' in Preferences\n\n"
             "❌ Signature doesn't appear\n"
             "   → Open the PDF in Adobe Reader\n"
-            "   → Invisible signatures are valid but not visible",
+            "   → Invisible signatures are valid but not visible"),
         )
 
     def _create_about_section(self) -> Gtk.Box:
         """Creates the about/links section."""
         return self._create_section(
-            "About PDFSigner",
-            "PDFSigner is free and open source software.\n\n"
+            _("About PDFSigner"),
+            _("PDFSigner is free and open source software.\n\n"
             "Repository:\n"
             "   https://github.com/vdirienzo/pdfsigner\n\n"
             "Report issues:\n"
             "   https://github.com/vdirienzo/pdfsigner/issues\n\n"
             "Documentation and updates available on GitHub.\n\n"
-            "Built with Python, GTK4 and pyHanko.",
+            "Built with Python, GTK4 and pyHanko."),
         )

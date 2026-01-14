@@ -15,6 +15,7 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk
 
 from pdfsigner.core.validator.pdf_validator import PDFValidator
+from pdfsigner.i18n import _
 
 
 class FileRow(Gtk.Box):
@@ -71,7 +72,7 @@ class FileRow(Gtk.Box):
         # Botón quitar
         remove_button = Gtk.Button(icon_name="user-trash-symbolic")
         remove_button.add_css_class("flat")
-        remove_button.set_tooltip_text("Remove from list")
+        remove_button.set_tooltip_text(_("Remove from list"))
         remove_button.connect("clicked", self._on_remove_clicked)
         self.append(remove_button)
 
@@ -84,7 +85,7 @@ class FileRow(Gtk.Box):
             validator = PDFValidator()
             count = validator.get_signature_count(self.file_path)
             if count > 0:
-                self.signature_label.set_label(f"{count} signature(s)")
+                self.signature_label.set_label(_("{}signature(s)").format(count))
                 self.status_icon.set_label("✓")
                 self.status_icon.add_css_class("success")
         except Exception:
@@ -176,7 +177,7 @@ class FileListWidget(Gtk.ScrolledWindow):
         icon.add_css_class("dim-label")
         box.append(icon)
 
-        label = Gtk.Label(label="Drag PDF files here\nor use the + button to add them")
+        label = Gtk.Label(label=_("Drag PDF files here\nor use the + button to add them"))
         label.set_justify(Gtk.Justification.CENTER)
         label.add_css_class("dim-label")
         box.append(label)

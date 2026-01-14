@@ -18,6 +18,7 @@ from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 from pdfsigner.gui.file_list_widget import FileListWidget
 from pdfsigner.gui.settings_dialog import SettingsDialog
 from pdfsigner.gui.signing_handler import SigningHandler
+from pdfsigner.i18n import _
 
 
 class MainWindow(Adw.ApplicationWindow):
@@ -35,7 +36,7 @@ class MainWindow(Adw.ApplicationWindow):
         """Initializes the window."""
         super().__init__(**kwargs)
 
-        self.set_title("PDFSigner")
+        self.set_title(_("PDFSigner"))
         self.set_default_size(700, 500)
 
         self.signing_handler = SigningHandler(self)
@@ -57,13 +58,13 @@ class MainWindow(Adw.ApplicationWindow):
 
         # Quick settings button
         settings_button = Gtk.Button(icon_name="emblem-system-symbolic")
-        settings_button.set_tooltip_text("Settings")
+        settings_button.set_tooltip_text(_("Settings"))
         settings_button.connect("clicked", lambda b: self.show_settings())
         header.pack_end(settings_button)
 
         # Add files button
         add_button = Gtk.Button(icon_name="list-add-symbolic")
-        add_button.set_tooltip_text("Add files")
+        add_button.set_tooltip_text(_("Add files"))
         add_button.connect("clicked", lambda b: self.show_file_chooser())
         header.pack_start(add_button)
 
@@ -94,12 +95,12 @@ class MainWindow(Adw.ApplicationWindow):
         """Creates the main menu."""
         menu = Gio.Menu()
 
-        menu.append("Open files...", "app.open")
-        menu.append("Preferences", "app.preferences")
+        menu.append(_("Open files..."), "app.open")
+        menu.append(_("Preferences"), "app.preferences")
 
         section = Gio.Menu()
-        section.append("About", "app.about")
-        section.append("Quit", "app.quit")
+        section.append(_("About"), "app.about")
+        section.append(_("Quit"), "app.quit")
         menu.append_section(None, section)
 
         return menu
@@ -113,25 +114,25 @@ class MainWindow(Adw.ApplicationWindow):
         bar.set_margin_end(12)
 
         # File info
-        self.info_label = Gtk.Label(label="Drag PDF files here")
+        self.info_label = Gtk.Label(label=_("Drag PDF files here"))
         self.info_label.set_hexpand(True)
         self.info_label.set_xalign(0)
         self.info_label.add_css_class("dim-label")
         bar.append(self.info_label)
 
         # Clear button
-        clear_button = Gtk.Button(label="Clear")
+        clear_button = Gtk.Button(label=_("Clear"))
         clear_button.connect("clicked", self._on_clear_clicked)
         bar.append(clear_button)
 
         # Validate button
-        validate_button = Gtk.Button(label="Validate")
+        validate_button = Gtk.Button(label=_("Validate"))
         validate_button.add_css_class("suggested-action")
         validate_button.connect("clicked", self._on_validate_clicked)
         bar.append(validate_button)
 
         # Sign button
-        self.sign_button = Gtk.Button(label="Sign")
+        self.sign_button = Gtk.Button(label=_("Sign"))
         self.sign_button.add_css_class("suggested-action")
         self.sign_button.connect("clicked", self._on_sign_clicked)
         bar.append(self.sign_button)
@@ -174,15 +175,15 @@ class MainWindow(Adw.ApplicationWindow):
         self._update_info_label()
 
         if added > 0:
-            self.show_toast(f"{added} file(s) added")
+            self.show_toast(_("{}file(s) added").format(added))
 
     def _update_info_label(self) -> None:
         """Updates the info label."""
         count = self.file_list.get_file_count()
         if count == 0:
-            self.info_label.set_label("Drag PDF files here")
+            self.info_label.set_label(_("Drag PDF files here"))
         else:
-            self.info_label.set_label(f"{count} file(s) selected")
+            self.info_label.set_label(_("{}file(s) selected").format(count))
 
     def _on_clear_clicked(self, button: Gtk.Button) -> None:
         """Clears the file list."""
@@ -199,7 +200,7 @@ class MainWindow(Adw.ApplicationWindow):
         """Validates the selected files."""
         files = self.file_list.get_files()
         if not files:
-            self.show_toast("No files to validate")
+            self.show_toast(_("No files to validate"))
             return
 
         self.validation_handler.validate_files(files)
@@ -208,7 +209,7 @@ class MainWindow(Adw.ApplicationWindow):
         """Signs the selected files."""
         files = self.file_list.get_files()
         if not files:
-            self.show_toast("No files to sign")
+            self.show_toast(_("No files to sign"))
             return
 
         self.signing_handler.sign_files(files)
@@ -216,11 +217,11 @@ class MainWindow(Adw.ApplicationWindow):
     def show_file_chooser(self) -> None:
         """Shows file selection dialog."""
         dialog = Gtk.FileDialog()
-        dialog.set_title("Select PDFs")
+        dialog.set_title(_("Select PDFs"))
 
         # PDF filter
         filter_pdf = Gtk.FileFilter()
-        filter_pdf.set_name("PDF Files")
+        filter_pdf.set_name(_("PDF Files"))
         filter_pdf.add_mime_type("application/pdf")
 
         filters = Gio.ListStore.new(Gtk.FileFilter)

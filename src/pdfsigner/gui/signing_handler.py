@@ -22,6 +22,7 @@ from pdfsigner.exceptions import PDFSignerError, TokenError
 from pdfsigner.ui.dialogs.options_dialog import SignatureOptionsDialog
 from pdfsigner.ui.dialogs.pin_dialog import PinDialog
 from pdfsigner.ui.dialogs.progress_dialog import ProgressDialog
+from pdfsigner.i18n import _
 
 
 class SigningHandler:
@@ -103,7 +104,7 @@ class SigningHandler:
         dialog.destroy()
 
         if not pin:
-            self._show_error("PIN vacío", "Debe ingresar el PIN del token")
+            self._show_error(_("Empty PIN"), _("You must enter the token PIN"))
             return
 
         self._current_pin = pin
@@ -124,7 +125,7 @@ class SigningHandler:
                 nss = MockNSSHandler()
                 nss.initialize()
                 nss.login(pin)
-                GLib.idle_add(self.window.show_toast, "⚠️ Modo simulación (dry-run)")
+                GLib.idle_add(self.window.show_toast, _("⚠️ Simulation mode (dry-run)"))
             else:
                 from pdfsigner.core.token.nss_handler import NSSHandler
 
@@ -135,9 +136,9 @@ class SigningHandler:
             GLib.idle_add(self._start_signing, files)
 
         except TokenError as e:
-            GLib.idle_add(self._show_error, "Token error", str(e))
+            GLib.idle_add(self._show_error, _("Token error"), str(e))
         except Exception as e:
-            GLib.idle_add(self._show_error, "Error", str(e))
+            GLib.idle_add(self._show_error, _("Error"), str(e))
 
     def _start_signing(self, files: list[Path]) -> None:
         """Starts the signing process showing progress."""
@@ -203,9 +204,9 @@ class SigningHandler:
             GLib.idle_add(self._signing_complete, results, self.settings.dry_run)
 
         except PDFSignerError as e:
-            GLib.idle_add(self._show_error, "Signature error", str(e))
+            GLib.idle_add(self._show_error, _("Signature error"), str(e))
         except Exception as e:
-            GLib.idle_add(self._show_error, "Unexpected error", str(e))
+            GLib.idle_add(self._show_error, _("Unexpected error"), str(e))
         finally:
             self._current_pin = None
 
@@ -217,12 +218,12 @@ class SigningHandler:
             if progress.current_file:
                 file_path = Path(progress.current_file)
                 if progress.status == "success":
-                    self.window.file_list.update_file_status(file_path, "signed", "Signed")
+                    self.window.file_list.update_file_status(file_path, "signed", _("Signed"))
                 elif progress.status == "error":
-                    msg = getattr(progress, "message", None) or "Error"
+                    msg = getattr(progress, "message", None) or _("Error")
                     self.window.file_list.update_file_status(file_path, "error", msg)
                 else:
-                    self.window.file_list.update_file_status(file_path, "processing", "Signing...")
+                    self.window.file_list.update_file_status(file_path, "processing", _("Signing..."))
 
     def _signing_complete(self, results, dry_run: bool = False) -> None:
         """Callback when signing completes."""
@@ -238,13 +239,13 @@ class SigningHandler:
             failed = results.get("failed", 0)
         total = success + failed
 
-        prefix = "[SIMULATED] " if dry_run else ""
-        suffix = " (dry-run)" if dry_run else ""
+        prefix = _("[SIMULATED] ") if dry_run else ""
+        suffix = _(" (dry-run)") if dry_run else ""
 
         if failed == 0:
-            self.window.show_toast(f"✓ {prefix}{success} file(s) signed{suffix}")
+            self.window.show_toast(_("✓ {}{}file(s) signed{}").format(prefix, success, suffix))
         else:
-            self.window.show_toast(f"{prefix}Signed: {success}/{total} (Errors: {failed}){suffix}")
+            self.window.show_toast(_("{}Signed: {}/{} (Errors: {}){}").format(prefix, success, total, failed, suffix))
 
     def _show_error(self, title: str, message: str) -> None:
         """Shows an error dialog."""
@@ -257,5 +258,5 @@ class SigningHandler:
             heading=title,
             body=message,
         )
-        dialog.add_response("ok", "Accept")
+        dialog.add_response("ok", _("Accept"))
         dialog.present()

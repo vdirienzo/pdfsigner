@@ -24,6 +24,7 @@ from pdfsigner.gui.settings_pages import (
     get_selected_language,
     get_selected_theme,
 )
+from pdfsigner.i18n import _
 
 
 class SettingsDialog(Adw.PreferencesWindow):
@@ -41,7 +42,7 @@ class SettingsDialog(Adw.PreferencesWindow):
         """Initializes the dialog."""
         super().__init__(**kwargs)
 
-        self.set_title("Preferences")
+        self.set_title(_("Preferences"))
         self.set_default_size(600, 550)
         self.set_search_enabled(False)
 
@@ -107,4 +108,4 @@ class SettingsDialog(Adw.PreferencesWindow):
         reload_settings()
 
         # Show confirmation
-        self.add_toast(Adw.Toast(title="Settings saved"))
+        self.add_toast(Adw.Toast(title=_("Settings saved")))

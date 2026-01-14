@@ -17,6 +17,7 @@ from gi.repository import Adw, GLib, Gtk
 from loguru import logger
 
 from pdfsigner.core.setup import NSSChecker, NSSSetup, SetupResult
+from pdfsigner.i18n import _
 
 
 class NSSSetupWizard(Adw.Window):
@@ -43,7 +44,7 @@ class NSSSetupWizard(Adw.Window):
         """
         super().__init__(
             application=application,
-            title="PDFSigner Setup",
+            title=_("PDFSigner Setup"),
             default_width=500,
             default_height=400,
             modal=True,
@@ -92,12 +93,14 @@ class NSSSetupWizard(Adw.Window):
         """Build welcome/explanation page."""
         page = Adw.StatusPage()
         page.set_icon_name("dialog-information-symbolic")
-        page.set_title("Initial Setup Required")
+        page.set_title(_("Initial Setup Required"))
         page.set_description(
-            "PDFSigner needs to create a security database to communicate "
-            "with your USB token.\n\n"
-            "This is a one-time setup that takes a few seconds. "
-            "Your token will be detected automatically when connected."
+            _(
+                "PDFSigner needs to create a security database to communicate "
+                "with your USB token.\n\n"
+                "This is a one-time setup that takes a few seconds. "
+                "Your token will be detected automatically when connected."
+            )
         )
 
         # Buttons
@@ -107,11 +110,11 @@ class NSSSetupWizard(Adw.Window):
             halign=Gtk.Align.CENTER,
         )
 
-        cancel_btn = Gtk.Button(label="Cancel")
+        cancel_btn = Gtk.Button(label=_("Cancel"))
         cancel_btn.connect("clicked", self._on_cancel_clicked)
         button_box.append(cancel_btn)
 
-        setup_btn = Gtk.Button(label="Set Up")
+        setup_btn = Gtk.Button(label=_("Set Up"))
         setup_btn.add_css_class("suggested-action")
         setup_btn.connect("clicked", self._on_setup_clicked)
         button_box.append(setup_btn)
@@ -122,8 +125,8 @@ class NSSSetupWizard(Adw.Window):
     def _build_progress_page(self) -> None:
         """Build progress/spinner page."""
         page = Adw.StatusPage()
-        page.set_title("Creating Security Database...")
-        page.set_description("Please wait while we configure NSS.")
+        page.set_title(_("Creating Security Database..."))
+        page.set_description(_("Please wait while we configure NSS."))
 
         # Spinner
         spinner = Gtk.Spinner()
@@ -137,14 +140,16 @@ class NSSSetupWizard(Adw.Window):
         """Build success page."""
         page = Adw.StatusPage()
         page.set_icon_name("emblem-ok-symbolic")
-        page.set_title("Setup Complete")
+        page.set_title(_("Setup Complete"))
         page.set_description(
-            "Security database created successfully!\n\n"
-            "Connect your USB token and PDFSigner will detect it automatically."
+            _(
+                "Security database created successfully!\n\n"
+                "Connect your USB token and PDFSigner will detect it automatically."
+            )
         )
 
         # Start button
-        start_btn = Gtk.Button(label="Start PDFSigner")
+        start_btn = Gtk.Button(label=_("Start PDFSigner"))
         start_btn.add_css_class("suggested-action")
         start_btn.set_halign(Gtk.Align.CENTER)
         start_btn.connect("clicked", self._on_start_clicked)
@@ -156,7 +161,7 @@ class NSSSetupWizard(Adw.Window):
         """Build error page with retry option."""
         page = Adw.StatusPage()
         page.set_icon_name("dialog-error-symbolic")
-        page.set_title("Setup Failed")
+        page.set_title(_("Setup Failed"))
 
         # Error message label (will be updated)
         self.error_label = Gtk.Label()
@@ -172,11 +177,11 @@ class NSSSetupWizard(Adw.Window):
             margin_top=12,
         )
 
-        quit_btn = Gtk.Button(label="Quit")
+        quit_btn = Gtk.Button(label=_("Quit"))
         quit_btn.connect("clicked", self._on_quit_clicked)
         button_box.append(quit_btn)
 
-        retry_btn = Gtk.Button(label="Retry")
+        retry_btn = Gtk.Button(label=_("Retry"))
         retry_btn.add_css_class("suggested-action")
         retry_btn.connect("clicked", self._on_retry_clicked)
         button_box.append(retry_btn)
@@ -264,12 +269,14 @@ class NSSSetupWizard(Adw.Window):
         # Update page title based on error type
         error_page = self.stack.get_child_by_name("error")
         if result.error_type == "not_found":
-            error_page.set_description("NSS tools are not installed on your system.")
+            error_page.set_description(_("NSS tools are not installed on your system."))
         elif result.error_type == "permission":
-            error_page.set_description("Could not create the security database due to permissions.")
+            error_page.set_description(
+                _("Could not create the security database due to permissions.")
+            )
         elif result.error_type == "timeout":
-            error_page.set_description("The setup process timed out. Please try again.")
+            error_page.set_description(_("The setup process timed out. Please try again."))
         else:
-            error_page.set_description("An unexpected error occurred during setup.")
+            error_page.set_description(_("An unexpected error occurred during setup."))
 
         self.stack.set_visible_child_name("error")

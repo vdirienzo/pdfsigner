@@ -12,6 +12,8 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk
 
+from pdfsigner.i18n import _
+
 
 def create_advanced_page(settings, dialog, on_save_clicked) -> Adw.PreferencesPage:
     """
@@ -26,24 +28,24 @@ def create_advanced_page(settings, dialog, on_save_clicked) -> Adw.PreferencesPa
         Configured PreferencesPage
     """
     page = Adw.PreferencesPage()
-    page.set_title("Advanced")
+    page.set_title(_("Advanced"))
     page.set_icon_name("applications-system-symbolic")
 
     # Grupo: PIN Cache
     pin_group = Adw.PreferencesGroup()
-    pin_group.set_title("PIN Cache")
-    pin_group.set_description("Cache PIN during batch signing")
+    pin_group.set_title(_("PIN Cache"))
+    pin_group.set_description(_("Cache PIN during batch signing"))
 
     # Habilitar cache
     pin_cache_switch = Adw.SwitchRow()
-    pin_cache_switch.set_title("Enable PIN cache")
-    pin_cache_switch.set_subtitle("More convenient but less secure")
+    pin_cache_switch.set_title(_("Enable PIN cache"))
+    pin_cache_switch.set_subtitle(_("More convenient but less secure"))
     pin_cache_switch.set_active(settings.pin_cache_enabled)
     pin_group.add(pin_cache_switch)
 
     # Timeout
     pin_timeout_spin = Adw.SpinRow.new_with_range(60, 3600, 60)
-    pin_timeout_spin.set_title("Timeout (seconds)")
+    pin_timeout_spin.set_title(_("Timeout (seconds)"))
     pin_timeout_spin.set_value(settings.pin_cache_timeout_seconds)
     pin_group.add(pin_timeout_spin)
 
@@ -51,12 +53,12 @@ def create_advanced_page(settings, dialog, on_save_clicked) -> Adw.PreferencesPa
 
     # Grupo: Logging
     log_group = Adw.PreferencesGroup()
-    log_group.set_title("Logging")
+    log_group.set_title(_("Logging"))
 
     # Nivel de log
     log_level_combo = Adw.ComboRow()
-    log_level_combo.set_title("Log level")
-    levels = Gtk.StringList.new(["DEBUG", "INFO", "WARNING", "ERROR"])
+    log_level_combo.set_title(_("Log level"))
+    levels = Gtk.StringList.new([_("DEBUG"), _("INFO"), _("WARNING"), _("ERROR")])
     log_level_combo.set_model(levels)
 
     level_index = {"DEBUG": 0, "INFO": 1, "WARNING": 2, "ERROR": 3}
@@ -69,7 +71,7 @@ def create_advanced_page(settings, dialog, on_save_clicked) -> Adw.PreferencesPa
     actions_group = Adw.PreferencesGroup()
 
     # Botón guardar
-    save_button = Gtk.Button(label="Save settings")
+    save_button = Gtk.Button(label=_("Save settings"))
     save_button.add_css_class("suggested-action")
     save_button.connect("clicked", on_save_clicked)
     actions_group.add(save_button)

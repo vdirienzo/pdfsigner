@@ -12,6 +12,8 @@ import gi
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk
 
+from pdfsigner.i18n import _
+
 
 class PinDialog(Gtk.Dialog):
     """
@@ -26,8 +28,8 @@ class PinDialog(Gtk.Dialog):
     def __init__(
         self,
         parent: Gtk.Window | None = None,
-        title: str = "Enter Token PIN",
-        message: str = "Enter the PIN of your USB token to sign:",
+        title: str = _("Enter Token PIN"),
+        message: str = _("Enter the PIN of your USB token to sign:"),
         attempts_remaining: int | None = None,
     ):
         """
@@ -48,8 +50,8 @@ class PinDialog(Gtk.Dialog):
         self.set_default_size(400, 150)
 
         # Configurar botones
-        self.add_button("Cancel", Gtk.ResponseType.CANCEL)
-        ok_button = self.add_button("Accept", Gtk.ResponseType.OK)
+        self.add_button(_("Cancel"), Gtk.ResponseType.CANCEL)
+        ok_button = self.add_button(_("Accept"), Gtk.ResponseType.OK)
         ok_button.add_css_class("suggested-action")
 
         # Área de contenido
@@ -68,7 +70,7 @@ class PinDialog(Gtk.Dialog):
 
         # Mensaje de intentos restantes
         if attempts_remaining is not None:
-            attempts_label = Gtk.Label(label=f"Intentos restantes: {attempts_remaining}")
+            attempts_label = Gtk.Label(label=_("Attempts remaining: {}").format(attempts_remaining))
             attempts_label.add_css_class("warning" if attempts_remaining <= 2 else "dim-label")
             attempts_label.set_xalign(0)
             content.append(attempts_label)
@@ -129,7 +131,7 @@ class PinDialog(Gtk.Dialog):
 
 def ask_pin(
     parent: Gtk.Window | None = None,
-    message: str = "Enter the PIN of your USB token:",
+    message: str = _("Enter the PIN of your USB token:"),
     attempts_remaining: int | None = None,
 ) -> str | None:
     """

@@ -16,6 +16,7 @@ from pdfsigner.core.validator.pdf_validator import (
     SignatureStatus,
     ValidationResult,
 )
+from pdfsigner.i18n import _
 
 
 class ValidationResultDialog(Gtk.Dialog):
@@ -39,7 +40,7 @@ class ValidationResultDialog(Gtk.Dialog):
             result: Validation result
         """
         super().__init__(
-            title="Signature Validation",
+            title=_("Signature Validation"),
             transient_for=parent,
             modal=True,
         )
@@ -47,7 +48,7 @@ class ValidationResultDialog(Gtk.Dialog):
         self.result = result
 
         self.set_default_size(600, 450)
-        self.add_button("Close", Gtk.ResponseType.CLOSE)
+        self.add_button(_("Close"), Gtk.ResponseType.CLOSE)
 
         # Contenido
         content = self.get_content_area()
@@ -73,8 +74,8 @@ class ValidationResultDialog(Gtk.Dialog):
         icon.add_css_class("title-1")
         content.append(icon)
 
-        error_msg = result.error if result else "Unknown error"
-        label = Gtk.Label(label=f"Error al validar el documento:\n{error_msg}")
+        error_msg = result.error if result else _("Unknown error")
+        label = Gtk.Label(label=_("Error validating document:\n{}").format(error_msg))
         label.set_wrap(True)
         content.append(label)
 
@@ -84,7 +85,7 @@ class ValidationResultDialog(Gtk.Dialog):
         icon.add_css_class("title-1")
         content.append(icon)
 
-        label = Gtk.Label(label="This document has no digital signatures.")
+        label = Gtk.Label(label=_("This document has no digital signatures."))
         label.add_css_class("title-2")
         content.append(label)
 
@@ -95,12 +96,12 @@ class ValidationResultDialog(Gtk.Dialog):
 
         if result.all_valid:
             icon = Gtk.Label(label="✅")
-            status_text = f"Todas las firmas son válidas ({result.signature_count})"
+            status_text = _("All signatures are valid ({})").format(result.signature_count)
             status_class = "success"
         else:
             icon = Gtk.Label(label="⚠️")
             valid_count = sum(1 for s in result.signatures if s.status == SignatureStatus.VALID)
-            status_text = f"{valid_count}/{result.signature_count} firmas válidas"
+            status_text = _("{}/{} valid signatures").format(valid_count, result.signature_count)
             status_class = "warning"
 
         icon.add_css_class("title-1")
@@ -130,7 +131,7 @@ class ValidationResultDialog(Gtk.Dialog):
         content.append(scrolled)
 
         # Info del archivo
-        file_label = Gtk.Label(label=f"Archivo: {result.file_path.name}")
+        file_label = Gtk.Label(label=_("File: {}").format(result.file_path.name))
         file_label.set_xalign(0)
         file_label.add_css_class("dim-label")
         content.append(file_label)
@@ -190,16 +191,16 @@ class ValidationResultDialog(Gtk.Dialog):
         details_box.append(status_label)
 
         # Emisor
-        issuer_label = Gtk.Label(label=f"Emisor: {sig.certificate_issuer}")
+        issuer_label = Gtk.Label(label=_("Issuer: {}").format(sig.certificate_issuer))
         issuer_label.set_xalign(0)
         issuer_label.add_css_class("dim-label")
         details_box.append(issuer_label)
 
         # Cobertura
         if sig.covers_whole_document:
-            coverage = "Covers entire document"
+            coverage = _("Covers entire document")
         else:
-            coverage = "Covers partial revision"
+            coverage = _("Covers partial revision")
         coverage_label = Gtk.Label(label=coverage)
         coverage_label.set_xalign(0)
         coverage_label.add_css_class("dim-label")

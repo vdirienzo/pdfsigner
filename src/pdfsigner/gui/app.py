@@ -16,6 +16,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, Gio, Gtk
 
 from pdfsigner.gui.main_window import MainWindow
+from pdfsigner.i18n import _
 
 # Path to the application icon
 ICON_PATH = Path(__file__).parent.parent / "ui" / "icon" / "icon.png"
@@ -171,8 +172,8 @@ class PDFSignerApp(Adw.Application):
             application_name="PDFSigner",
             application_icon=APP_ID,
             developer_name="Homero Thompson del Lago del Terror",
-            version="0.1.0",
-            comments="Digital signature of PDFs with SafeNet 5110 USB token",
+            version="0.6.0",
+            comments=_("Digital signature of PDFs with USB cryptographic tokens"),
             website="https://github.com/vdirienzo/pdfsigner",
             license_type=Gtk.License.MIT_X11,
             developers=["Homero Thompson del Lago del Terror"],

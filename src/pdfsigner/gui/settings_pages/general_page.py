@@ -14,6 +14,8 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gio, GLib, Gtk
 
+from pdfsigner.i18n import _
+
 from .tsa_presets import TSA_PRESET_NAMES, TSA_PRESETS
 
 
@@ -29,18 +31,18 @@ def create_general_page(settings, dialog) -> Adw.PreferencesPage:
         Configured PreferencesPage
     """
     page = Adw.PreferencesPage()
-    page.set_title("General")
+    page.set_title(_("General"))
     page.set_icon_name("preferences-system-symbolic")
 
     # Grupo: NSS/Token
     nss_group = Adw.PreferencesGroup()
-    nss_group.set_title("USB Token")
-    nss_group.set_description("NSS database configuration")
+    nss_group.set_title(_("USB Token"))
+    nss_group.set_description(_("NSS database configuration"))
 
     # NSS Path - ActionRow with entry and browse button
     nss_path_row = Adw.ActionRow()
-    nss_path_row.set_title("NSS Database Path")
-    nss_path_row.set_subtitle("Path to NSS database directory")
+    nss_path_row.set_title(_("NSS Database Path"))
+    nss_path_row.set_subtitle(_("Path to NSS database directory"))
 
     # Entry for typing path
     nss_path_entry = Gtk.Entry()
@@ -53,7 +55,7 @@ def create_general_page(settings, dialog) -> Adw.PreferencesPage:
     browse_button = Gtk.Button()
     browse_button.set_icon_name("folder-open-symbolic")
     browse_button.set_valign(Gtk.Align.CENTER)
-    browse_button.set_tooltip_text("Browse for NSS database folder")
+    browse_button.set_tooltip_text(_("Browse for NSS database folder"))
     browse_button.connect(
         "clicked", lambda btn: _on_browse_nss_clicked(btn, nss_path_entry, dialog)
     )
@@ -64,13 +66,13 @@ def create_general_page(settings, dialog) -> Adw.PreferencesPage:
 
     # Grupo: TSA
     tsa_group = Adw.PreferencesGroup()
-    tsa_group.set_title("Timestamp Server (TSA)")
-    tsa_group.set_description("Timestamp source for signatures")
+    tsa_group.set_title(_("Timestamp Server (TSA)"))
+    tsa_group.set_description(_("Timestamp source for signatures"))
 
     # TSA presets
     presets_row = Adw.ComboRow()
-    presets_row.set_title("Timestamp source")
-    presets_row.set_subtitle("Local time or external TSA server")
+    presets_row.set_title(_("Timestamp source"))
+    presets_row.set_subtitle(_("Local time or external TSA server"))
 
     presets = Gtk.StringList.new(TSA_PRESET_NAMES)
     presets_row.set_model(presets)
@@ -83,7 +85,7 @@ def create_general_page(settings, dialog) -> Adw.PreferencesPage:
 
     # TSA URL (only visible when Custom is selected)
     tsa_url_row = Adw.EntryRow()
-    tsa_url_row.set_title("TSA URL")
+    tsa_url_row.set_title(_("TSA URL"))
     tsa_url_row.set_text(settings.tsa_url or "")
     tsa_url_row.set_show_apply_button(True)
     tsa_url_row.connect("apply", lambda row: None)  # Saved on "Save" button
@@ -96,13 +98,13 @@ def create_general_page(settings, dialog) -> Adw.PreferencesPage:
 
     # Credenciales TSA
     tsa_user_row = Adw.EntryRow()
-    tsa_user_row.set_title("TSA Username (optional)")
+    tsa_user_row.set_title(_("TSA Username (optional)"))
     tsa_user_row.set_text(settings.tsa_username or "")
     tsa_user_row.set_show_apply_button(True)
     tsa_group.add(tsa_user_row)
 
     tsa_pass_row = Adw.PasswordEntryRow()
-    tsa_pass_row.set_title("TSA Password (optional)")
+    tsa_pass_row.set_title(_("TSA Password (optional)"))
     tsa_pass_row.set_text(settings.tsa_password or "")
     tsa_pass_row.set_show_apply_button(True)
     tsa_group.add(tsa_pass_row)
@@ -122,7 +124,7 @@ def create_general_page(settings, dialog) -> Adw.PreferencesPage:
 def _on_browse_nss_clicked(button: Gtk.Button, entry: Gtk.Entry, dialog) -> None:
     """Opens file dialog to select NSS database folder."""
     file_dialog = Gtk.FileDialog()
-    file_dialog.set_title("Select NSS Database Folder")
+    file_dialog.set_title(_("Select NSS Database Folder"))
 
     # Start from current path if valid
     current_path = Path(entry.get_text())

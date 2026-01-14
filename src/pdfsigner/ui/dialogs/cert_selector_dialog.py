@@ -13,6 +13,7 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk
 
 from pdfsigner.core.token.cert_selector import ValidCertificate
+from pdfsigner.i18n import _
 
 
 class CertificateSelectorDialog(Gtk.Dialog):
@@ -36,7 +37,7 @@ class CertificateSelectorDialog(Gtk.Dialog):
             certificates: List of available certificates
         """
         super().__init__(
-            title="Select Certificate",
+            title=_("Select Certificate"),
             transient_for=parent,
             modal=True,
         )
@@ -47,8 +48,8 @@ class CertificateSelectorDialog(Gtk.Dialog):
         self.set_default_size(550, 400)
 
         # Botones
-        self.add_button("Cancel", Gtk.ResponseType.CANCEL)
-        self._ok_button = self.add_button("Use Certificate", Gtk.ResponseType.OK)
+        self.add_button(_("Cancel"), Gtk.ResponseType.CANCEL)
+        self._ok_button = self.add_button(_("Use Certificate"), Gtk.ResponseType.OK)
         self._ok_button.add_css_class("suggested-action")
         self._ok_button.set_sensitive(False)
 
@@ -61,7 +62,7 @@ class CertificateSelectorDialog(Gtk.Dialog):
         content.set_margin_end(12)
 
         # Mensaje
-        msg_label = Gtk.Label(label="Select the certificate to sign:")
+        msg_label = Gtk.Label(label=_("Select the certificate to sign:"))
         msg_label.set_xalign(0)
         content.append(msg_label)
 
@@ -85,7 +86,7 @@ class CertificateSelectorDialog(Gtk.Dialog):
 
         # Info del certificado seleccionado
         self.info_frame = Gtk.Frame()
-        self.info_frame.set_label("Certificate Details")
+        self.info_frame.set_label(_("Certificate Details"))
         self.info_label = Gtk.Label()
         self.info_label.set_wrap(True)
         self.info_label.set_xalign(0)
@@ -116,7 +117,7 @@ class CertificateSelectorDialog(Gtk.Dialog):
         # Icono de estado
         if cert.is_expiring_soon:
             icon = Gtk.Label(label="⚠️")
-            icon.set_tooltip_text(f"Expira en {cert.days_until_expiry} días")
+            icon.set_tooltip_text(_("Expires in {} days").format(cert.days_until_expiry))
         else:
             icon = Gtk.Label(label="🔐")
         icon.set_size_request(24, -1)
@@ -134,7 +135,7 @@ class CertificateSelectorDialog(Gtk.Dialog):
         # Emisor (extraer CN)
         issuer = cert.info.issuer
         issuer_cn = issuer.split(",")[0].replace("CN=", "") if "CN=" in issuer else issuer
-        issuer_label = Gtk.Label(label=f"Emisor: {issuer_cn}")
+        issuer_label = Gtk.Label(label=_("Issuer: {}").format(issuer_cn))
         issuer_label.set_xalign(0)
         issuer_label.add_css_class("dim-label")
         info_box.append(issuer_label)
@@ -142,7 +143,7 @@ class CertificateSelectorDialog(Gtk.Dialog):
         box.append(info_box)
 
         # Días restantes
-        days_label = Gtk.Label(label=f"{cert.days_until_expiry} días")
+        days_label = Gtk.Label(label=_("{} days").format(cert.days_until_expiry))
         if cert.is_expiring_soon:
             days_label.add_css_class("warning")
         else:
@@ -165,12 +166,18 @@ class CertificateSelectorDialog(Gtk.Dialog):
 
         # Mostrar detalles
         cert = self._selected_cert
-        info_text = (
-            f"Nombre: {cert.display_name}\n"
-            f"Serial: {cert.info.serial_number}\n"
-            f"Válido desde: {cert.info.not_before}\n"
-            f"Válido hasta: {cert.info.not_after}\n"
-            f"Días restantes: {cert.days_until_expiry}"
+        info_text = _(
+            "Name: {name}\n"
+            "Serial: {serial}\n"
+            "Valid from: {not_before}\n"
+            "Valid until: {not_after}\n"
+            "Days remaining: {days}"
+        ).format(
+            name=cert.display_name,
+            serial=cert.info.serial_number,
+            not_before=cert.info.not_before,
+            not_after=cert.info.not_after,
+            days=cert.days_until_expiry,
         )
         self.info_label.set_label(info_text)
 
