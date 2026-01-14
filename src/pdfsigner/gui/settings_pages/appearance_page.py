@@ -3,7 +3,7 @@ appearance_page.py - Appearance settings page
 
 Author: Homero Thompson del Lago del Terror
 
-Creates the appearance settings page with theme, accent color, and language.
+Creates the appearance settings page with theme and language.
 Auto-saves changes immediately when user modifies settings.
 """
 
@@ -13,28 +13,12 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gdk, Gtk
+from gi.repository import Adw, Gtk
 
 from pdfsigner.i18n import SUPPORTED_LANGUAGES, _
 
-# Global CSS provider for accent colors
-_accent_css_provider: Gtk.CssProvider | None = None
-
 # Theme options (display names need translation at runtime)
 THEME_VALUES = ["system", "light", "dark"]
-
-# Accent color options (GNOME/Adwaita palette)
-ACCENT_COLORS = {
-    "blue": "#3584e4",
-    "teal": "#2190a4",
-    "green": "#3a944a",
-    "yellow": "#c88800",
-    "orange": "#ed5b00",
-    "red": "#e62d42",
-    "pink": "#d56199",
-    "purple": "#9141ac",
-    "slate": "#6f8396",
-}
 
 
 def _save_appearance_setting(key: str, value: str) -> None:
@@ -42,7 +26,7 @@ def _save_appearance_setting(key: str, value: str) -> None:
     Save a single appearance setting to config file.
 
     Args:
-        key: Setting key (theme, accent_color, language)
+        key: Setting key (theme, language)
         value: Setting value
     """
     from loguru import logger
@@ -75,124 +59,6 @@ def _save_appearance_setting(key: str, value: str) -> None:
 
     except Exception as e:
         logger.error(f"Failed to auto-save setting {key}: {e}")
-
-
-def apply_accent_color(color_name: str) -> None:
-    """
-    Apply accent color globally via CSS with high priority.
-
-    Args:
-        color_name: Name of the color from ACCENT_COLORS
-    """
-    global _accent_css_provider
-
-    color_hex = ACCENT_COLORS.get(color_name, ACCENT_COLORS["blue"])
-
-    # CSS with high priority targeting libadwaita widgets
-    css = f"""
-        @define-color accent_bg_color {color_hex};
-        @define-color accent_fg_color white;
-        @define-color accent_color {color_hex};
-
-        /* Suggested action buttons */
-        .suggested-action,
-        button.suggested-action,
-        button.suggested-action.text-button,
-        button.suggested-action.flat {{
-            background-color: {color_hex} !important;
-            color: white !important;
-        }}
-
-        .suggested-action:hover,
-        button.suggested-action:hover {{
-            background-color: shade({color_hex}, 0.9) !important;
-        }}
-
-        .suggested-action:active,
-        button.suggested-action:active {{
-            background-color: shade({color_hex}, 0.8) !important;
-        }}
-
-        /* Accent class */
-        .accent {{
-            color: {color_hex} !important;
-        }}
-
-        /* Switches */
-        switch:checked {{
-            background-color: {color_hex} !important;
-        }}
-
-        switch:checked slider {{
-            background-color: white !important;
-        }}
-
-        /* Checkboxes and radios */
-        check:checked,
-        checkbutton check:checked,
-        radio:checked,
-        radiobutton radio:checked {{
-            background-color: {color_hex} !important;
-            color: white !important;
-        }}
-
-        /* Scale/slider */
-        scale trough highlight,
-        scale > trough > highlight {{
-            background-color: {color_hex} !important;
-        }}
-
-        /* Progress bars */
-        progressbar > trough > progress,
-        progressbar trough progress {{
-            background-color: {color_hex} !important;
-        }}
-
-        /* Selection */
-        selection,
-        *:selected {{
-            background-color: alpha({color_hex}, 0.3) !important;
-        }}
-
-        /* Links */
-        link,
-        .link {{
-            color: {color_hex} !important;
-        }}
-
-        /* Navigation sidebar */
-        .navigation-sidebar row:selected {{
-            background-color: alpha({color_hex}, 0.15) !important;
-        }}
-
-        /* Entry focus */
-        entry:focus,
-        .entry:focus {{
-            outline-color: {color_hex} !important;
-        }}
-
-        /* Spin buttons */
-        spinbutton:focus {{
-            outline-color: {color_hex} !important;
-        }}
-    """
-
-    display = Gdk.Display.get_default()
-    if display is None:
-        return
-
-    # Remove old provider if exists
-    if _accent_css_provider is not None:
-        Gtk.StyleContext.remove_provider_for_display(display, _accent_css_provider)
-
-    # Create and apply new provider with USER priority (highest)
-    _accent_css_provider = Gtk.CssProvider()
-    _accent_css_provider.load_from_data(css.encode())
-
-    # Use STYLE_PROVIDER_PRIORITY_USER (800) for highest priority
-    Gtk.StyleContext.add_provider_for_display(
-        display, _accent_css_provider, Gtk.STYLE_PROVIDER_PRIORITY_USER
-    )
 
 
 def apply_theme(theme: str) -> None:
@@ -250,42 +116,7 @@ def create_appearance_page(settings, dialog) -> Adw.PreferencesPage:
     theme_row.connect("notify::selected", lambda combo, param: _on_theme_changed(combo, dialog))
 
     theme_group.add(theme_row)
-
-    # Accent color selector
-    accent_group = Adw.PreferencesGroup()
-    accent_group.set_title(_("Accent Color"))
-    accent_group.set_description(_("Primary color for buttons and highlights"))
-
-    color_flow = Gtk.FlowBox()
-    color_flow.set_selection_mode(Gtk.SelectionMode.SINGLE)
-    color_flow.set_max_children_per_line(9)
-    color_flow.set_min_children_per_line(5)
-    color_flow.set_column_spacing(8)
-    color_flow.set_row_spacing(8)
-    color_flow.set_margin_top(12)
-    color_flow.set_margin_bottom(12)
-    color_flow.set_halign(Gtk.Align.CENTER)
-
-    # Create color buttons
-    current_accent = settings.accent_color
-    for i, (color_name, color_hex) in enumerate(ACCENT_COLORS.items()):
-        color_btn = _create_color_button(color_name, color_hex)
-        color_flow.insert(color_btn, -1)
-
-        # Select current color
-        if color_name == current_accent:
-            color_flow.select_child(color_flow.get_child_at_index(i))
-
-    color_flow.connect(
-        "child-activated", lambda fb, child: _on_accent_color_selected(fb, child, dialog)
-    )
-
-    accent_row = Adw.ActionRow()
-    accent_row.set_child(color_flow)
-    accent_group.add(accent_row)
-
     page.add(theme_group)
-    page.add(accent_group)
 
     # Group: Language
     lang_group = Adw.PreferencesGroup()
@@ -352,47 +183,11 @@ def create_appearance_page(settings, dialog) -> Adw.PreferencesPage:
     # Store references for saving
     dialog.theme_row = theme_row
     dialog.lang_row = lang_row
-    dialog.accent_color_flow = color_flow
     dialog.high_contrast_row = high_contrast_row
     dialog.reduce_motion_row = reduce_motion_row
     dialog.large_text_row = large_text_row
 
     return page
-
-
-def _create_color_button(color_name: str, color_hex: str) -> Gtk.Button:
-    """Creates a circular color button."""
-    btn = Gtk.Button()
-    btn.set_size_request(36, 36)
-    btn.add_css_class("circular")
-    btn.set_tooltip_text(color_name.title())
-
-    # Set background color via CSS
-    css_provider = Gtk.CssProvider()
-    css = f"""
-        button {{
-            background-color: {color_hex};
-            min-width: 36px;
-            min-height: 36px;
-            border-radius: 18px;
-            border: 2px solid alpha(white, 0.1);
-        }}
-        button:hover {{
-            border: 2px solid alpha(white, 0.3);
-        }}
-        button:checked, button:active {{
-            border: 3px solid white;
-        }}
-    """
-    css_provider.load_from_data(css.encode())
-
-    style_context = btn.get_style_context()
-    style_context.add_provider(css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION)
-
-    # Store color name for retrieval
-    btn.color_name = color_name
-
-    return btn
 
 
 def _on_theme_changed(combo: Adw.ComboRow, dialog) -> None:
@@ -409,24 +204,6 @@ def _on_theme_changed(combo: Adw.ComboRow, dialog) -> None:
     # Show toast
     if hasattr(dialog, "add_toast"):
         dialog.add_toast(Adw.Toast(title=_("Theme changed")))
-
-
-def _on_accent_color_selected(flow_box: Gtk.FlowBox, child: Gtk.FlowBoxChild, dialog) -> None:
-    """Handles accent color selection with auto-save."""
-    btn = child.get_child()
-    if hasattr(btn, "color_name"):
-        color_name = btn.color_name
-        dialog.selected_accent_color = color_name
-
-        # Apply immediately
-        apply_accent_color(color_name)
-
-        # Auto-save
-        _save_appearance_setting("accent_color", color_name)
-
-        # Show toast
-        if hasattr(dialog, "add_toast"):
-            dialog.add_toast(Adw.Toast(title=_("Accent color changed")))
 
 
 def _on_language_changed(combo: Adw.ComboRow, dialog) -> None:
@@ -457,10 +234,3 @@ def get_selected_language(dialog) -> str:
     if hasattr(dialog, "lang_row") and hasattr(dialog, "lang_codes"):
         return dialog.lang_codes[dialog.lang_row.get_selected()]
     return ""
-
-
-def get_selected_accent_color(dialog) -> str:
-    """Gets the selected accent color."""
-    if hasattr(dialog, "selected_accent_color"):
-        return dialog.selected_accent_color
-    return "blue"

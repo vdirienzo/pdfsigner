@@ -125,7 +125,7 @@ class PDFSignerApp(Adw.Application):
         from loguru import logger
 
         from pdfsigner.config.settings import get_settings
-        from pdfsigner.gui.settings_pages import apply_accent_color, apply_theme
+        from pdfsigner.gui.settings_pages import apply_theme
         from pdfsigner.i18n import set_language
 
         try:
@@ -134,10 +134,6 @@ class PDFSignerApp(Adw.Application):
             # Apply theme
             apply_theme(settings.theme)
             logger.debug(f"Applied theme: {settings.theme}")
-
-            # Apply accent color
-            apply_accent_color(settings.accent_color)
-            logger.debug(f"Applied accent color: {settings.accent_color}")
 
             # Apply language (if set)
             if settings.language:

@@ -20,7 +20,6 @@ from pdfsigner.gui.settings_pages import (
     create_appearance_page,
     create_general_page,
     create_signature_page,
-    get_selected_accent_color,
     get_selected_language,
     get_selected_theme,
 )
@@ -47,7 +46,6 @@ class SettingsDialog(Adw.PreferencesWindow):
         self.set_search_enabled(False)
 
         self.settings = get_settings()
-        self.selected_accent_color = self.settings.accent_color
 
         # Create pages using extracted modules
         general_page = create_general_page(self.settings, self)
@@ -99,7 +97,6 @@ class SettingsDialog(Adw.PreferencesWindow):
         lines.append("")
         lines.append("# Appearance")
         lines.append(f'theme = "{get_selected_theme(self)}"')
-        lines.append(f'accent_color = "{get_selected_accent_color(self)}"')
         lines.append(f'language = "{get_selected_language(self)}"')
 
         config_path.write_text("\n".join(lines))
