@@ -162,15 +162,34 @@ log_level = "INFO"
 
 ## Nautilus Extension Architecture
 
-The extension is a **thin launcher** that:
-1. Detects PDF files in selection
-2. Shows "Sign digitally" menu item
-3. Launches GUI app via `subprocess.Popen`
-4. Passes file paths as arguments
+The extension is a **thin launcher** that supports two modes:
 
-This avoids GTK4 dialog complexity and reuses the working GUI.
+### GUI Mode (default)
+- Menu shows: "Sign digitally"
+- Launches full PDFSigner application
+- User configures all options in GUI
 
-**Wrapper location:** `~/.local/share/nautilus-python/extensions/pdfsigner_nautilus.py`
+### Quick Mode
+- Menu shows: "Sign digitally (quick)"
+- Shows only PIN dialog
+- Signs with preconfigured options from config.toml
+- Faster for repetitive signing tasks
+
+### Configuration
+Set mode in `~/.config/pdfsigner/config.toml`:
+```toml
+nautilus_mode = "gui"           # or "quick"
+nautilus_visible_stamp = false  # quick mode: add visible stamp?
+nautilus_stamp_position = "bottom_right"
+nautilus_stamp_page = "last"
+nautilus_show_name = true
+nautilus_show_date = true
+```
+
+### Files
+- **Extension:** `src/pdfsigner/nautilus_extension/sign_extension.py`
+- **Quick sign:** `src/pdfsigner/nautilus_extension/quick_sign.py`
+- **Wrapper:** `~/.local/share/nautilus-python/extensions/pdfsigner_nautilus.py`
 
 ---
 

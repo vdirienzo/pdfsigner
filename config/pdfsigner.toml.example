@@ -108,3 +108,58 @@ log_level = "INFO"
 
 # Logs directory
 # log_dir = "~/.local/share/pdfsigner/logs"
+
+# ═══════════════════════════════════════════════════════════════
+# Nautilus Integration
+# ═══════════════════════════════════════════════════════════════
+# Configure behavior when right-clicking PDFs in Nautilus
+#
+# Mode: "gui" or "quick"
+#   - gui:   Opens the full PDFSigner application (default)
+#   - quick: Signs directly with preconfigured options (only asks for PIN)
+#
+nautilus_mode = "gui"
+
+# ┌─────────────────────────────────────────────────────────────┐
+# │  Quick Mode Settings (only used when nautilus_mode = "quick") │
+# └─────────────────────────────────────────────────────────────┘
+#
+# Add visible stamp to signed documents
+nautilus_visible_stamp = false
+
+# Stamp position (only if nautilus_visible_stamp = true)
+# Options: "bottom_right", "bottom_left", "top_right", "top_left",
+#          "bottom_center", "top_center"
+nautilus_stamp_position = "bottom_right"
+
+# Page for stamp: "last", "first", or "all"
+nautilus_stamp_page = "last"
+
+# Show signer name in stamp (from certificate CN)
+nautilus_show_name = true
+
+# Show signature date in stamp
+nautilus_show_date = true
+
+# ┌─────────────────────────────────────────────────────────────┐
+# │  Quick Mode Examples                                         │
+# └─────────────────────────────────────────────────────────────┘
+#
+# Example 1: Invisible signature (fastest)
+#   nautilus_mode = "quick"
+#   nautilus_visible_stamp = false
+#
+# Example 2: Visible signature bottom-right
+#   nautilus_mode = "quick"
+#   nautilus_visible_stamp = true
+#   nautilus_stamp_position = "bottom_right"
+#   nautilus_stamp_page = "last"
+#
+# Example 3: Always open GUI for full control
+#   nautilus_mode = "gui"
+
+# ═══════════════════════════════════════════════════════════════
+# Dry Run Mode (Development/Testing)
+# ═══════════════════════════════════════════════════════════════
+# Enable to test without real USB token
+# dry_run = false

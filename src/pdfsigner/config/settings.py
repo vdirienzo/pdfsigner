@@ -105,6 +105,35 @@ class Settings(BaseSettings):
         description="Simulation mode without real token",
     )
 
+    # --- Nautilus Integration ---
+    nautilus_mode: Literal["gui", "quick"] = Field(
+        default="gui",
+        description="Nautilus mode: 'gui' opens app, 'quick' signs directly",
+    )
+    nautilus_visible_stamp: bool = Field(
+        default=False,
+        description="Add visible stamp in quick mode",
+    )
+    nautilus_stamp_position: Literal[
+        "bottom_right", "bottom_left", "top_right", "top_left",
+        "bottom_center", "top_center"
+    ] = Field(
+        default="bottom_right",
+        description="Stamp position for quick mode",
+    )
+    nautilus_stamp_page: Literal["last", "first", "all"] = Field(
+        default="last",
+        description="Page for stamp in quick mode",
+    )
+    nautilus_show_name: bool = Field(
+        default=True,
+        description="Show signer name in stamp",
+    )
+    nautilus_show_date: bool = Field(
+        default=True,
+        description="Show date in stamp",
+    )
+
     @field_validator("nss_db_path")
     @classmethod
     def validate_nss_path(cls, v: Path) -> Path:
