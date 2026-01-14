@@ -107,9 +107,9 @@ jobs:
             python3-setuptools \
             python3-build \
             python3-pip \
-            python3-pil \
             dpkg-dev \
             fakeroot
+          pip install pillow  # For icon generation
 
       - name: Generate icons
         run: |
@@ -155,8 +155,9 @@ jobs:
       - name: Install Flatpak
         run: |
           sudo apt-get update
-          sudo apt-get install -y flatpak flatpak-builder python3-pil
+          sudo apt-get install -y flatpak flatpak-builder
           sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          pip install pillow  # For icon generation
 
       - name: Install GNOME runtime
         run: |
