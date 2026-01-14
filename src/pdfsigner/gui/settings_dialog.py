@@ -13,7 +13,7 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gtk
+from gi.repository import Adw, Gio, GLib, Gtk
 
 from pdfsigner.config.settings import get_settings, reload_settings
 
@@ -53,12 +53,26 @@ class SettingsDialog(Adw.PreferencesWindow):
         nss_group.set_title("USB Token")
         nss_group.set_description("NSS database configuration")
 
-        # NSS Path
-        self.nss_path_row = Adw.EntryRow()
+        # NSS Path - ActionRow with entry and browse button
+        self.nss_path_row = Adw.ActionRow()
         self.nss_path_row.set_title("NSS Database Path")
-        self.nss_path_row.set_text(str(self.settings.nss_db_path))
-        self.nss_path_row.set_show_apply_button(True)
-        self.nss_path_row.connect("apply", self._on_setting_changed)
+        self.nss_path_row.set_subtitle("Path to NSS database directory")
+
+        # Entry for typing path
+        self.nss_path_entry = Gtk.Entry()
+        self.nss_path_entry.set_text(str(self.settings.nss_db_path))
+        self.nss_path_entry.set_hexpand(True)
+        self.nss_path_entry.set_valign(Gtk.Align.CENTER)
+        self.nss_path_row.add_suffix(self.nss_path_entry)
+
+        # Browse button
+        browse_button = Gtk.Button()
+        browse_button.set_icon_name("folder-open-symbolic")
+        browse_button.set_valign(Gtk.Align.CENTER)
+        browse_button.set_tooltip_text("Browse for NSS database folder")
+        browse_button.connect("clicked", self._on_browse_nss_clicked)
+        self.nss_path_row.add_suffix(browse_button)
+
         nss_group.add(self.nss_path_row)
 
         page.add(nss_group)
@@ -66,34 +80,42 @@ class SettingsDialog(Adw.PreferencesWindow):
         # Grupo: TSA
         tsa_group = Adw.PreferencesGroup()
         tsa_group.set_title("Timestamp Server (TSA)")
-        tsa_group.set_description("Required for PAdES-LTV signatures with legal validity")
+        tsa_group.set_description("Timestamp source for signatures")
 
-        # TSA URL
+        # TSA presets (moved before URL for better UX)
+        presets_row = Adw.ComboRow()
+        presets_row.set_title("Timestamp source")
+        presets_row.set_subtitle("Local time or external TSA server")
+
+        presets = Gtk.StringList.new(
+            [
+                "Local time (no TSA)",
+                "FreeTSA (freetsa.org)",
+                "DigiCert",
+                "Sectigo",
+                "GlobalSign",
+                "Custom URL",
+            ]
+        )
+        presets_row.set_model(presets)
+
+        # Set default based on current TSA URL
+        if not self.settings.tsa_url:
+            presets_row.set_selected(0)  # Local time
+        else:
+            presets_row.set_selected(5)  # Custom
+
+        presets_row.connect("notify::selected", self._on_tsa_preset_selected)
+        tsa_group.add(presets_row)
+        self.tsa_presets_row = presets_row
+
+        # TSA URL (only visible when Custom is selected)
         self.tsa_url_row = Adw.EntryRow()
         self.tsa_url_row.set_title("TSA URL")
         self.tsa_url_row.set_text(self.settings.tsa_url or "")
         self.tsa_url_row.set_show_apply_button(True)
         self.tsa_url_row.connect("apply", self._on_setting_changed)
         tsa_group.add(self.tsa_url_row)
-
-        # TSA presets
-        presets_row = Adw.ComboRow()
-        presets_row.set_title("Preconfigured TSAs")
-        presets_row.set_subtitle("Select a free public TSA")
-
-        presets = Gtk.StringList.new(
-            [
-                "Custom",
-                "FreeTSA (freetsa.org)",
-                "DigiCert",
-                "Sectigo",
-                "GlobalSign",
-            ]
-        )
-        presets_row.set_model(presets)
-        presets_row.connect("notify::selected", self._on_tsa_preset_selected)
-        tsa_group.add(presets_row)
-        self.tsa_presets_row = presets_row
 
         # Credenciales TSA
         self.tsa_user_row = Adw.EntryRow()
@@ -224,18 +246,48 @@ class SettingsDialog(Adw.PreferencesWindow):
         page.add(actions_group)
         self.add(page)
 
+    def _on_browse_nss_clicked(self, button: Gtk.Button) -> None:
+        """Opens file dialog to select NSS database folder."""
+        dialog = Gtk.FileDialog()
+        dialog.set_title("Select NSS Database Folder")
+
+        # Start from current path if valid
+        current_path = Path(self.nss_path_entry.get_text())
+        if current_path.exists():
+            dialog.set_initial_folder(Gio.File.new_for_path(str(current_path)))
+
+        dialog.select_folder(self, None, self._on_folder_selected)
+
+    def _on_folder_selected(self, dialog: Gtk.FileDialog, result) -> None:
+        """Handles folder selection result."""
+        try:
+            folder = dialog.select_folder_finish(result)
+            if folder:
+                self.nss_path_entry.set_text(folder.get_path())
+        except GLib.Error:
+            pass  # User cancelled
+
     def _on_tsa_preset_selected(self, combo, param) -> None:
-        """Handles preconfigured TSA selection."""
+        """Handles timestamp source selection."""
         presets = {
-            0: "",  # Personalizado
+            0: "",  # Local time (no TSA)
             1: "https://freetsa.org/tsr",
             2: "http://timestamp.digicert.com",
             3: "http://timestamp.sectigo.com",
             4: "http://timestamp.globalsign.com/tsa/r6advanced1",
+            5: "",  # Custom URL - keep current
         }
 
         selected = combo.get_selected()
-        if selected > 0:
+
+        if selected == 0:
+            # Local time - clear URL
+            self.tsa_url_row.set_text("")
+        elif selected == 5:
+            # Custom - don't change URL, user will type it
+            pass
+        else:
+            # Preset TSA
             url = presets.get(selected, "")
             self.tsa_url_row.set_text(url)
 
@@ -248,10 +300,10 @@ class SettingsDialog(Adw.PreferencesWindow):
         config_path = Path.home() / ".config" / "pdfsigner" / "config.toml"
         config_path.parent.mkdir(parents=True, exist_ok=True)
 
-        # Construir TOML
+        # Build TOML configuration
         lines = [
-            "# PDFSigner - Configuración",
-            f'nss_db_path = "{self.nss_path_row.get_text()}"',
+            "# PDFSigner - Configuration",
+            f'nss_db_path = "{self.nss_path_entry.get_text()}"',
             f'tsa_url = "{self.tsa_url_row.get_text()}"',
         ]
 
