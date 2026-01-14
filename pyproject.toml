@@ -29,7 +29,6 @@ dev = [
 [project.scripts]
 pdfsigner = "pdfsigner.main:main"
 pdfsigner-gui = "pdfsigner.gui.app:run_gui"
-pdfsigner-quick-sign = "pdfsigner.nautilus_extension.quick_sign:main"
 
 [build-system]
 requires = ["hatchling"]
