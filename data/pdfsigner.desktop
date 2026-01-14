@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=PDFSigner
+Comment=Digital PDF signing with SafeNet 5110 USB token
+Exec=INSTALL_PATH/pdfsigner-launcher.sh %F
+Icon=com.pdfsigner.app
+Terminal=false
+Type=Application
+Categories=Office;Utility;
+MimeType=application/pdf;
+Keywords=pdf;sign;signature;digital;token;certificate;
+StartupNotify=true
+StartupWMClass=com.pdfsigner.app

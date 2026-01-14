@@ -121,5 +121,6 @@ class PDFSignerApp(Adw.Application):
 
 def run_gui() -> int:
     """Entry point for the GUI."""
+    Adw.init()
     app = PDFSignerApp()
     return app.run(sys.argv)

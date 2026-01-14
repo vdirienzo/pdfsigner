@@ -357,6 +357,51 @@ setup_config() {
 }
 
 # ============================================================================
+# Install desktop integration
+# ============================================================================
+
+install_desktop() {
+    log_step "Installing desktop integration..."
+
+    local DESKTOP_DIR="$HOME/.local/share/applications"
+    local ICON_DIR="$HOME/.local/share/icons/hicolor/256x256/apps"
+
+    mkdir -p "$DESKTOP_DIR"
+    mkdir -p "$ICON_DIR"
+
+    # Install icon
+    if [ -f "data/com.pdfsigner.app.png" ]; then
+        cp "data/com.pdfsigner.app.png" "$ICON_DIR/"
+        log_success "Icon installed"
+    fi
+
+    # Install desktop file (replace INSTALL_PATH with actual path)
+    if [ -f "data/pdfsigner.desktop" ]; then
+        sed "s|INSTALL_PATH|$PROJECT_DIR|g" "data/pdfsigner.desktop" > "$DESKTOP_DIR/pdfsigner.desktop"
+        chmod +x "$DESKTOP_DIR/pdfsigner.desktop"
+        log_success "Desktop entry installed"
+    fi
+
+    # Make launcher executable
+    if [ -f "pdfsigner-launcher.sh" ]; then
+        chmod +x "pdfsigner-launcher.sh"
+        log_success "Launcher script configured"
+    fi
+
+    # Update desktop database
+    if command_exists update-desktop-database; then
+        update-desktop-database "$DESKTOP_DIR" 2>/dev/null || true
+    fi
+
+    # Update icon cache
+    if command_exists gtk-update-icon-cache; then
+        gtk-update-icon-cache -f "$HOME/.local/share/icons/hicolor" 2>/dev/null || true
+    fi
+
+    log_info "You can now find 'PDFSigner' in your application menu"
+}
+
+# ============================================================================
 # Verify installation
 # ============================================================================
 
@@ -432,24 +477,29 @@ main() {
 
     PROJECT_DIR="$(pwd)"
 
-    echo -e "${CYAN}Step 1/4: System dependencies${NC}"
+    echo -e "${CYAN}Step 1/5: System dependencies${NC}"
     echo "─────────────────────────────────────────────"
     install_system_deps
     echo
 
-    echo -e "${CYAN}Step 2/4: uv installation${NC}"
+    echo -e "${CYAN}Step 2/5: uv installation${NC}"
     echo "─────────────────────────────────────────────"
     install_uv
     echo
 
-    echo -e "${CYAN}Step 3/4: Python virtual environment${NC}"
+    echo -e "${CYAN}Step 3/5: Python virtual environment${NC}"
     echo "─────────────────────────────────────────────"
     setup_venv
     echo
 
-    echo -e "${CYAN}Step 4/4: Configuration${NC}"
+    echo -e "${CYAN}Step 4/5: Configuration${NC}"
     echo "─────────────────────────────────────────────"
     setup_config
+    echo
+
+    echo -e "${CYAN}Step 5/5: Desktop integration${NC}"
+    echo "─────────────────────────────────────────────"
+    install_desktop
     echo
 
     # Verify
