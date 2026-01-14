@@ -8,6 +8,8 @@ Modular settings pages for the PDFSigner preferences dialog.
 
 from .advanced_page import create_advanced_page
 from .appearance_page import (
+    apply_accent_color,
+    apply_theme,
     create_appearance_page,
     get_selected_accent_color,
     get_selected_language,
@@ -25,6 +27,8 @@ __all__ = [
     "get_selected_theme",
     "get_selected_language",
     "get_selected_accent_color",
+    "apply_theme",
+    "apply_accent_color",
     "TSA_PRESETS",
     "TSA_PRESET_NAMES",
 ]

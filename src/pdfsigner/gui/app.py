@@ -74,6 +74,9 @@ class PDFSignerApp(Adw.Application):
         """Initialization on application startup."""
         Adw.Application.do_startup(self)
 
+        # Load and apply appearance settings
+        self._apply_saved_appearance()
+
     def do_activate(self) -> None:
         """Activates the application."""
         # Check NSS configuration on first activation
@@ -115,6 +118,33 @@ class PDFSignerApp(Adw.Application):
 
         wizard = NSSSetupWizard(application=self)
         wizard.present()
+
+    def _apply_saved_appearance(self) -> None:
+        """Load and apply saved appearance settings on startup."""
+        from loguru import logger
+
+        from pdfsigner.config.settings import get_settings
+        from pdfsigner.gui.settings_pages import apply_accent_color, apply_theme
+        from pdfsigner.i18n import set_language
+
+        try:
+            settings = get_settings()
+
+            # Apply theme
+            apply_theme(settings.theme)
+            logger.debug(f"Applied theme: {settings.theme}")
+
+            # Apply accent color
+            apply_accent_color(settings.accent_color)
+            logger.debug(f"Applied accent color: {settings.accent_color}")
+
+            # Apply language (if set)
+            if settings.language:
+                set_language(settings.language)
+                logger.debug(f"Applied language: {settings.language}")
+
+        except Exception as e:
+            logger.warning(f"Could not apply appearance settings: {e}")
 
     def do_open(self, files: list, n_files: int, hint: str) -> None:
         """Handles files opened from the system."""

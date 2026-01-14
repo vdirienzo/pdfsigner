@@ -10,9 +10,12 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gtk
+from gi.repository import Adw, Gdk, Gtk
 
 from pdfsigner.i18n import SUPPORTED_LANGUAGES
+
+# Global CSS provider for accent colors
+_accent_css_provider: Gtk.CssProvider | None = None
 
 # Theme options
 THEME_OPTIONS = ["System default", "Light", "Dark"]
@@ -30,6 +33,101 @@ ACCENT_COLORS = {
     "purple": "#9141ac",
     "slate": "#6f8396",
 }
+
+
+def apply_accent_color(color_name: str) -> None:
+    """
+    Apply accent color globally via CSS.
+
+    Args:
+        color_name: Name of the color from ACCENT_COLORS
+    """
+    global _accent_css_provider
+
+    color_hex = ACCENT_COLORS.get(color_name, ACCENT_COLORS["blue"])
+
+    # Create CSS for accent color - target common GTK4/Adwaita widgets
+    css = f"""
+        @define-color accent_bg_color {color_hex};
+        @define-color accent_fg_color white;
+        @define-color accent_color {color_hex};
+
+        .suggested-action {{
+            background-color: {color_hex};
+            color: white;
+        }}
+
+        .suggested-action:hover {{
+            background-color: shade({color_hex}, 1.1);
+        }}
+
+        .accent {{
+            color: {color_hex};
+        }}
+
+        selection {{
+            background-color: alpha({color_hex}, 0.3);
+        }}
+
+        switch:checked slider {{
+            background-color: {color_hex};
+        }}
+
+        scale trough highlight {{
+            background-color: {color_hex};
+        }}
+
+        progressbar trough progress {{
+            background-color: {color_hex};
+        }}
+
+        checkbutton check:checked,
+        radiobutton radio:checked {{
+            background-color: {color_hex};
+            color: white;
+        }}
+
+        button.text-button.suggested-action {{
+            background-color: {color_hex};
+        }}
+
+        .navigation-sidebar row:selected {{
+            background-color: alpha({color_hex}, 0.15);
+        }}
+    """
+
+    display = Gdk.Display.get_default()
+    if display is None:
+        return
+
+    # Remove old provider if exists
+    if _accent_css_provider is not None:
+        Gtk.StyleContext.remove_provider_for_display(display, _accent_css_provider)
+
+    # Create and apply new provider
+    _accent_css_provider = Gtk.CssProvider()
+    _accent_css_provider.load_from_data(css.encode())
+
+    Gtk.StyleContext.add_provider_for_display(
+        display, _accent_css_provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+    )
+
+
+def apply_theme(theme: str) -> None:
+    """
+    Apply theme setting.
+
+    Args:
+        theme: Theme value (system, light, dark)
+    """
+    style_manager = Adw.StyleManager.get_default()
+
+    if theme == "light":
+        style_manager.set_color_scheme(Adw.ColorScheme.FORCE_LIGHT)
+    elif theme == "dark":
+        style_manager.set_color_scheme(Adw.ColorScheme.FORCE_DARK)
+    else:
+        style_manager.set_color_scheme(Adw.ColorScheme.DEFAULT)
 
 
 def create_appearance_page(settings, dialog) -> Adw.PreferencesPage:
@@ -109,11 +207,11 @@ def create_appearance_page(settings, dialog) -> Adw.PreferencesPage:
     # Group: Language
     lang_group = Adw.PreferencesGroup()
     lang_group.set_title("Language")
-    lang_group.set_description("Interface language")
+    lang_group.set_description("Interface language (restart required)")
 
     lang_row = Adw.ComboRow()
     lang_row.set_title("Language")
-    lang_row.set_subtitle("Restart required to apply")
+    lang_row.set_subtitle("Requires application restart")
 
     # Build language list
     lang_names = ["System default"] + list(SUPPORTED_LANGUAGES.values())
@@ -215,15 +313,7 @@ def _on_theme_changed(combo: Adw.ComboRow) -> None:
     """Applies theme change immediately."""
     selected = combo.get_selected()
     theme = THEME_VALUES[selected]
-
-    style_manager = Adw.StyleManager.get_default()
-
-    if theme == "light":
-        style_manager.set_color_scheme(Adw.ColorScheme.FORCE_LIGHT)
-    elif theme == "dark":
-        style_manager.set_color_scheme(Adw.ColorScheme.FORCE_DARK)
-    else:
-        style_manager.set_color_scheme(Adw.ColorScheme.DEFAULT)
+    apply_theme(theme)
 
 
 def _on_accent_color_selected(flow_box: Gtk.FlowBox, child: Gtk.FlowBoxChild, dialog) -> None:
@@ -231,6 +321,8 @@ def _on_accent_color_selected(flow_box: Gtk.FlowBox, child: Gtk.FlowBoxChild, di
     btn = child.get_child()
     if hasattr(btn, "color_name"):
         dialog.selected_accent_color = btn.color_name
+        # Apply immediately
+        apply_accent_color(btn.color_name)
 
 
 def get_selected_theme(dialog) -> str:
