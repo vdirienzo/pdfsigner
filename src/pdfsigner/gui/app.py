@@ -13,10 +13,13 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gio, Gtk
+from gi.repository import Adw, Gdk, Gio, Gtk  # noqa: F401
 
 from pdfsigner.gui.main_window import MainWindow
 from pdfsigner.i18n import _
+
+# Path to custom CSS
+CSS_PATH = Path(__file__).parent / "styles.css"
 
 # Path to the application icon
 ICON_PATH = Path(__file__).parent.parent / "ui" / "icon" / "icon.png"
@@ -75,8 +78,25 @@ class PDFSignerApp(Adw.Application):
         """Initialization on application startup."""
         Adw.Application.do_startup(self)
 
+        # Load custom CSS
+        self._load_css()
+
         # Load and apply appearance settings
         self._apply_saved_appearance()
+
+    def _load_css(self) -> None:
+        """Load custom CSS styles."""
+        if not CSS_PATH.exists():
+            return
+
+        css_provider = Gtk.CssProvider()
+        css_provider.load_from_path(str(CSS_PATH))
+
+        Gtk.StyleContext.add_provider_for_display(
+            Gdk.Display.get_default(),
+            css_provider,
+            Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION,
+        )
 
     def do_activate(self) -> None:
         """Activates the application."""

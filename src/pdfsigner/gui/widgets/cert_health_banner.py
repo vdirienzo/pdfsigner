@@ -5,12 +5,14 @@ Author: Homero Thompson del Lago del Terror
 
 GTK4 widget that displays certificate health status with
 color-coded expiry warnings. Compact by default, expandable for details.
+Includes CSS animations and toast notifications.
 """
 
 import gi
 
 gi.require_version("Gtk", "4.0")
-from gi.repository import Gtk
+gi.require_version("Adw", "1")
+from gi.repository import Adw, GLib, Gtk
 
 from pdfsigner.core.certificate.health_status import CertificateHealth, HealthLevel
 from pdfsigner.i18n import _
@@ -22,6 +24,7 @@ class CertHealthBanner(Gtk.Box):
 
     Compact by default showing only icon + name + status.
     Click to expand for full details.
+    Shows toast notifications for warnings/alerts.
     """
 
     def __init__(self):
@@ -30,8 +33,11 @@ class CertHealthBanner(Gtk.Box):
 
         self._health: CertificateHealth | None = None
         self._expanded = False
+        self._toast_shown = False
 
+        # Base CSS class
         self.add_css_class("card")
+        self.add_css_class("cert-health-banner")
         self.set_margin_start(12)
         self.set_margin_end(12)
         self.set_margin_top(8)
@@ -77,6 +83,7 @@ class CertHealthBanner(Gtk.Box):
 
         # === EXPANDED VIEW (hidden by default) ===
         self._details_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
+        self._details_box.add_css_class("cert-details-box")
         self._details_box.set_margin_start(36)
         self._details_box.set_margin_end(12)
         self._details_box.set_margin_bottom(10)
@@ -113,11 +120,6 @@ class CertHealthBanner(Gtk.Box):
 
         self.append(self._details_box)
 
-        # No certificate message
-        self._no_cert_label = Gtk.Label(label=_("No certificate loaded"))
-        self._no_cert_label.add_css_class("dim-label")
-        self._no_cert_label.set_visible(False)
-
     def set_health(self, health: CertificateHealth | None) -> None:
         """
         Update the banner with certificate health info.
@@ -133,6 +135,11 @@ class CertHealthBanner(Gtk.Box):
 
         self._show_certificate(health)
 
+        # Show toast for warnings (only once per session)
+        if not self._toast_shown:
+            self._show_status_toast(health)
+            self._toast_shown = True
+
     def _show_no_certificate(self) -> None:
         """Show the 'no certificate' state."""
         self._status_icon.set_label("🔐")
@@ -141,18 +148,31 @@ class CertHealthBanner(Gtk.Box):
         self._expand_btn.set_visible(False)
 
         # Remove all status classes
-        for level in HealthLevel:
-            self.remove_css_class(f"cert-status-{level.value}")
+        self._clear_status_classes()
 
     def _show_certificate(self, health: CertificateHealth) -> None:
         """Show certificate information."""
         self._expand_btn.set_visible(True)
 
+        # Add fade-in animation
+        self.add_css_class("cert-fade-in")
+        GLib.timeout_add(500, self._remove_fade_class)
+
         # Update icon based on health level
         self._status_icon.set_label(health.status_icon)
 
+        # Add pulse animation for critical states
+        if health.health_level in (HealthLevel.CRITICAL, HealthLevel.EXPIRED):
+            self._status_icon.add_css_class("cert-icon-pulse")
+        else:
+            self._status_icon.remove_css_class("cert-icon-pulse")
+
         # Compact label: "John Doe • Expires in 45 days"
         self._compact_label.set_label(f"{health.subject_cn}  •  {health.status_text}")
+
+        # Add text color class
+        self._clear_text_classes()
+        self._compact_label.add_css_class(f"cert-text-{health.health_level.value}")
 
         # Details
         self._issuer_label.set_label(f"🏢 {_('Issued by')}: {health.issuer_cn}")
@@ -166,10 +186,68 @@ class CertHealthBanner(Gtk.Box):
         progress_pct = int(health.lifetime_progress * 100)
         self._progress_label.set_label(f"{progress_pct}% {_('used')}")
 
+        # Progress bar color
+        self._clear_progress_classes()
+        self._progress_bar.add_css_class(f"cert-progress-{health.health_level.value}")
+
         # Update banner background color class
+        self._clear_status_classes()
+        self.add_css_class(health.css_class)
+
+    def _show_status_toast(self, health: CertificateHealth) -> None:
+        """Show toast notification based on health level."""
+        window = self.get_root()
+        if not hasattr(window, "toast_overlay"):
+            return
+
+        # Determine toast message and priority
+        toast_msg = None
+        timeout = 3
+
+        if health.health_level == HealthLevel.EXPIRED:
+            toast_msg = f"⚠️ {_('Certificate has expired!')}"
+            timeout = 5
+        elif health.health_level == HealthLevel.CRITICAL:
+            toast_msg = f"🚨 {_('Certificate expires in')} {health.days_remaining} {_('days!')}"
+            timeout = 5
+        elif health.health_level == HealthLevel.ALERT:
+            toast_msg = f"🔶 {_('Certificate expires in')} {health.days_remaining} {_('days')}"
+            timeout = 4
+        elif health.health_level == HealthLevel.WARNING:
+            toast_msg = f"⚠️ {_('Certificate expires in')} {health.days_remaining} {_('days')}"
+            timeout = 3
+
+        if toast_msg:
+            # Schedule toast to show after window is ready
+            GLib.timeout_add(500, self._add_toast, window, toast_msg, timeout)
+
+    def _add_toast(self, window, message: str, timeout: int) -> bool:
+        """Add toast to window's toast overlay."""
+        if hasattr(window, "toast_overlay"):
+            toast = Adw.Toast(title=message)
+            toast.set_timeout(timeout)
+            window.toast_overlay.add_toast(toast)
+        return False  # Don't repeat
+
+    def _clear_status_classes(self) -> None:
+        """Remove all status background classes."""
         for level in HealthLevel:
             self.remove_css_class(f"cert-status-{level.value}")
-        self.add_css_class(health.css_class)
+
+    def _clear_text_classes(self) -> None:
+        """Remove all text color classes."""
+        for level in HealthLevel:
+            self._compact_label.remove_css_class(f"cert-text-{level.value}")
+
+    def _clear_progress_classes(self) -> None:
+        """Remove all progress bar color classes."""
+        for level in HealthLevel:
+            self._progress_bar.remove_css_class(f"cert-progress-{level.value}")
+
+    def _remove_fade_class(self) -> bool:
+        """Remove fade-in class after animation."""
+        self.remove_css_class("cert-fade-in")
+        return False  # Don't repeat
 
     def _on_expand_clicked(self, button: Gtk.Button) -> None:
         """Toggle expanded/collapsed state."""
@@ -179,12 +257,21 @@ class CertHealthBanner(Gtk.Box):
         if self._expanded:
             button.set_icon_name("pan-up-symbolic")
             button.set_tooltip_text(_("Hide details"))
+            self.add_css_class("expanded")
+            self._details_box.add_css_class("expanded")
+            self._details_box.remove_css_class("collapsed")
         else:
             button.set_icon_name("pan-down-symbolic")
             button.set_tooltip_text(_("Show details"))
+            self.remove_css_class("expanded")
+            self._details_box.remove_css_class("expanded")
+            self._details_box.add_css_class("collapsed")
 
     def _on_refresh_clicked(self, button: Gtk.Button) -> None:
         """Handle refresh button click."""
+        # Reset toast shown flag to allow new toast
+        self._toast_shown = False
+
         # Get main window and refresh
         window = self.get_root()
         if hasattr(window, "refresh_certificate_status"):

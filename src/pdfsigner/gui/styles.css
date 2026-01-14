@@ -1,0 +1,185 @@
+/*
+ * styles.css - PDFSigner custom styles and animations
+ *
+ * Author: Homero Thompson del Lago del Terror
+ *
+ * Certificate health banner styles with color-coded
+ * status levels and smooth animations.
+ */
+
+/* ===========================================
+   Certificate Health Status Colors
+   =========================================== */
+
+/* OK - Green (>60 days) */
+.cert-status-ok {
+    background-color: alpha(@success_bg_color, 0.15);
+    border-left: 4px solid @success_color;
+}
+
+/* WARNING - Yellow (31-60 days) */
+.cert-status-warning {
+    background-color: alpha(@warning_bg_color, 0.15);
+    border-left: 4px solid @warning_color;
+}
+
+/* ALERT - Orange (8-30 days) */
+.cert-status-alert {
+    background-color: alpha(#F97316, 0.15);
+    border-left: 4px solid #F97316;
+}
+
+/* CRITICAL - Red (<7 days) */
+.cert-status-critical {
+    background-color: alpha(@error_bg_color, 0.2);
+    border-left: 4px solid @error_color;
+    animation: pulse-critical 2s ease-in-out infinite;
+}
+
+/* EXPIRED - Dark Red */
+.cert-status-expired {
+    background-color: alpha(#991B1B, 0.25);
+    border-left: 4px solid #991B1B;
+    animation: pulse-expired 1.5s ease-in-out infinite;
+}
+
+/* ===========================================
+   Pulse Animations for Critical States
+   =========================================== */
+
+@keyframes pulse-critical {
+    0%, 100% {
+        background-color: alpha(@error_bg_color, 0.15);
+    }
+    50% {
+        background-color: alpha(@error_bg_color, 0.30);
+    }
+}
+
+@keyframes pulse-expired {
+    0%, 100% {
+        background-color: alpha(#991B1B, 0.20);
+    }
+    50% {
+        background-color: alpha(#991B1B, 0.40);
+    }
+}
+
+/* ===========================================
+   Banner Container Styles
+   =========================================== */
+
+.cert-health-banner {
+    transition: all 300ms ease-in-out;
+    border-radius: 8px;
+    margin: 8px 12px 4px 12px;
+}
+
+.cert-health-banner.expanded {
+    margin-bottom: 8px;
+}
+
+/* ===========================================
+   Progress Bar Styles
+   =========================================== */
+
+.cert-progress-ok progress {
+    background-color: @success_color;
+}
+
+.cert-progress-warning progress {
+    background-color: @warning_color;
+}
+
+.cert-progress-alert progress {
+    background-color: #F97316;
+}
+
+.cert-progress-critical progress {
+    background-color: @error_color;
+}
+
+.cert-progress-expired progress {
+    background-color: #991B1B;
+}
+
+/* ===========================================
+   Status Text Colors
+   =========================================== */
+
+.cert-text-ok {
+    color: @success_color;
+    font-weight: 600;
+}
+
+.cert-text-warning {
+    color: @warning_color;
+    font-weight: 600;
+}
+
+.cert-text-alert {
+    color: #F97316;
+    font-weight: 600;
+}
+
+.cert-text-critical {
+    color: @error_color;
+    font-weight: bold;
+}
+
+.cert-text-expired {
+    color: #991B1B;
+    font-weight: bold;
+}
+
+/* ===========================================
+   Expand/Collapse Animation
+   =========================================== */
+
+.cert-details-box {
+    transition: opacity 200ms ease-out;
+}
+
+.cert-details-box.collapsed {
+    opacity: 0;
+}
+
+.cert-details-box.expanded {
+    opacity: 1;
+}
+
+/* ===========================================
+   Icon Animations
+   =========================================== */
+
+.cert-icon-pulse {
+    animation: icon-pulse 2s ease-in-out infinite;
+}
+
+@keyframes icon-pulse {
+    0%, 100% {
+        opacity: 1;
+    }
+    50% {
+        opacity: 0.6;
+    }
+}
+
+/* ===========================================
+   Fade-in Animation for Banner Load
+   =========================================== */
+
+.cert-fade-in {
+    animation: fade-in 400ms ease-out;
+}
+
+@keyframes fade-in {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
