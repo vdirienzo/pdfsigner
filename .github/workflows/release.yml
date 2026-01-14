@@ -107,6 +107,8 @@ jobs:
             python3-setuptools \
             python3-build \
             python3-pip \
+            python3-hatchling \
+            pybuild-plugin-pyproject \
             dpkg-dev \
             fakeroot
           pip install pillow  # For icon generation
