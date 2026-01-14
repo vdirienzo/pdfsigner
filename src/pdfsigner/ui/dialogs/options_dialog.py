@@ -90,7 +90,9 @@ class SignatureOptionsDialog(Gtk.Dialog):
         visible_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
 
         # Selector de página
-        page_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        page_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+
+        page_combo_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         page_label = Gtk.Label(label="Page:")
         page_label.set_xalign(0)
         page_label.set_size_request(100, -1)
@@ -98,16 +100,41 @@ class SignatureOptionsDialog(Gtk.Dialog):
         self.page_combo = Gtk.ComboBoxText()
         self.page_combo.append("last", "Last page")
         self.page_combo.append("first", "First page")
-        for i in range(1, min(total_pages + 1, 100)):
-            self.page_combo.append(str(i - 1), f"Página {i}")
-        self.page_combo.set_active_id(
-            str(self.default_appearance.page)
-            if isinstance(self.default_appearance.page, int)
-            else self.default_appearance.page
-        )
+        self.page_combo.append("all", "All pages")
+        self.page_combo.append("custom", "Custom...")
+        self.page_combo.connect("changed", self._on_page_combo_changed)
 
-        page_box.append(page_label)
-        page_box.append(self.page_combo)
+        page_combo_box.append(page_label)
+        page_combo_box.append(self.page_combo)
+        page_box.append(page_combo_box)
+
+        # Custom page entry (initially hidden)
+        self.custom_page_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
+        custom_label = Gtk.Label(label="Pages:")
+        custom_label.set_xalign(0)
+        custom_label.set_size_request(100, -1)
+
+        self.custom_page_entry = Gtk.Entry()
+        self.custom_page_entry.set_placeholder_text("e.g., 1,3,5 or 1-3 or 1-3,5,7")
+        self.custom_page_entry.set_hexpand(True)
+
+        self.custom_page_box.append(custom_label)
+        self.custom_page_box.append(self.custom_page_entry)
+        self.custom_page_box.set_visible(False)
+        page_box.append(self.custom_page_box)
+
+        # Set default selection
+        default_page = self.default_appearance.page
+        if default_page in ("last", "first", "all"):
+            self.page_combo.set_active_id(default_page)
+        elif isinstance(default_page, str) and any(c in default_page for c in ",-"):
+            # Custom range
+            self.page_combo.set_active_id("custom")
+            self.custom_page_entry.set_text(default_page)
+            self.custom_page_box.set_visible(True)
+        else:
+            self.page_combo.set_active_id("last")
+
         visible_box.append(page_box)
 
         # Selector de posición
@@ -145,18 +172,26 @@ class SignatureOptionsDialog(Gtk.Dialog):
         """Shows/hides visible signature options."""
         self.visible_frame.set_sensitive(button.get_active())
 
+    def _on_page_combo_changed(self, combo: Gtk.ComboBoxText) -> None:
+        """Shows/hides custom page entry based on selection."""
+        is_custom = combo.get_active_id() == "custom"
+        self.custom_page_box.set_visible(is_custom)
+        if is_custom:
+            self.custom_page_entry.grab_focus()
+
     def get_appearance(self) -> SignatureAppearance:
         """Gets the selected configuration."""
         visible = self.radio_visible.get_active()
 
-        # Página
-        page_id = self.page_combo.get_active_id()
-        if page_id in ("last", "first"):
-            page = page_id
+        # Page selection: "last", "first", "all", or custom range
+        page_id = self.page_combo.get_active_id() or "last"
+        if page_id == "custom":
+            # Get custom page range from entry
+            page = self.custom_page_entry.get_text().strip() or "last"
         else:
-            page = int(page_id)
+            page = page_id
 
-        # Posición
+        # Position preference
         pos_id = self.position_combo.get_active_id()
         position = PositionPreference(pos_id)
 
