@@ -875,26 +875,27 @@ uv run safety check
 
 ### Test Coverage
 
-**503 tests passing** with **~55% overall coverage**
+**520 tests passing** with **~60% overall coverage**
 
-| Module | Coverage |
-|--------|----------|
-| `lta_handler.py` | **100%** |
-| `health_status.py` | **100%** |
-| `exceptions.py` | 100% |
-| `stamp_simulator.py` | 100% |
-| `pin_cache.py` | 98% |
-| `batch_manager.py` | 97% |
-| `signature_field.py` | **97%** |
-| `main.py` | 96% |
-| `position_finder.py` | 92% |
-| `settings.py` | 91% |
-| `multi_signer.py` | **90%** |
-| `pdf_signer.py` | **83%** |
-| `content_analyzer.py` | **97%** |
-| `pdf_validator.py` | **96%** |
+| Module | Coverage | Notes |
+|--------|----------|-------|
+| `lta_handler.py` | **100%** | TSA timestamping |
+| `health_status.py` | **100%** | Certificate expiry |
+| `exceptions.py` | **100%** | Custom exceptions |
+| `settings.py` | **100%** | Configuration |
+| `position_finder.py` | **100%** | Signature positioning |
+| `multi_signer.py` | **100%** | Multiple signatures |
+| `pin_cache.py` | 98% | PIN caching |
+| `qr_generator.py` | 98% | QR code generation |
+| `batch_manager.py` | 97% | Batch operations |
+| `signature_field.py` | 97% | Field specs |
+| `content_analyzer.py` | 97% | PDF analysis |
+| `pdf_validator.py` | 96% | Signature validation |
+| `main.py` | 96% | Entry point |
+| `stamp_simulator.py` | 95% | Dry-run stamps |
+| `pdf_signer.py` | 74% | Core signing (covered by E2E) |
 
-**E2E Tests:** 16 tests for dry-run sign + validate flow in `test_e2e_signing_flow.py`.
+**E2E Tests:** 16 integration tests for complete dry-run sign → validate flow.
 
 **GUI Tests:** 26 tests for `SigningHandler` and `ValidationHandler` using GTK mocks (no display required).
 
@@ -942,12 +943,15 @@ MIT License - See [LICENSE](LICENSE)
 ### [0.9.1] - 2026-01-14
 
 #### Added
-- **Test coverage boost** - 503 total tests (was 393)
+- **Test coverage boost** - 520 total tests (was 393)
   - 16 E2E tests for dry-run sign → validate flow
   - 32 tests for certificate health status logic
   - 13 tests for file list widget business logic
   - 13 tests for content_analyzer.py (78% → 97%)
   - 22 tests for pdf_validator.py (73% → 96%)
+  - 5 tests for settings.py (94% → 100%)
+  - 6 tests for position_finder.py (92% → 100%)
+  - 6 tests for multi_signer.py (90% → 100%)
 
 ### [0.9.0] - 2026-01-14
 

@@ -126,3 +126,103 @@ class TestGetSettings:
 
         # Should be the same instance (mocked)
         assert settings1.nss_db_path == settings2.nss_db_path
+
+
+class TestImagePathValidator:
+    """Tests for signature_image_path validator."""
+
+    def test_validate_image_path_nonexistent_raises_error(self, temp_dir: Path):
+        """Test validator raises ValueError when image file doesn't exist."""
+        nss_dir = temp_dir / ".nss"
+        nss_dir.mkdir()
+
+        # Create a non-existent image path
+        nonexistent_image = temp_dir / "missing_image.png"
+
+        # Should raise ValueError
+        import pytest
+
+        with pytest.raises(ValueError, match="Signature image does not exist"):
+            Settings(
+                nss_db_path=nss_dir,
+                signature_image_path=nonexistent_image,
+            )
+
+    def test_validate_image_path_existing_file_succeeds(self, temp_dir: Path):
+        """Test validator accepts existing image file."""
+        nss_dir = temp_dir / ".nss"
+        nss_dir.mkdir()
+
+        # Create an actual image file
+        image_path = temp_dir / "signature.png"
+        image_path.write_text("fake image content")
+
+        # Should not raise
+        settings = Settings(
+            nss_db_path=nss_dir,
+            signature_image_path=image_path,
+        )
+
+        assert settings.signature_image_path == image_path
+
+    def test_validate_image_path_none_succeeds(self, temp_dir: Path):
+        """Test validator accepts None value."""
+        nss_dir = temp_dir / ".nss"
+        nss_dir.mkdir()
+
+        # Should not raise when None
+        settings = Settings(
+            nss_db_path=nss_dir,
+            signature_image_path=None,
+        )
+
+        assert settings.signature_image_path is None
+
+
+class TestReloadSettings:
+    """Tests for reload_settings function."""
+
+    def test_reload_settings_returns_new_instance(self, temp_dir: Path, monkeypatch):
+        """Test reload_settings creates and returns a new Settings instance."""
+        from pdfsigner.config.settings import reload_settings
+
+        # Mock the TOML file location
+        config_dir = temp_dir / ".config" / "pdfsigner"
+        config_dir.mkdir(parents=True)
+        config_file = config_dir / "config.toml"
+        config_file.write_text('[pdfsigner]\nnss_db_path = "/tmp/.nss"\n')
+
+        # Mock TOML_CONFIG_PATH
+        import pdfsigner.config.settings as settings_module
+
+        monkeypatch.setattr(settings_module, "TOML_CONFIG_PATH", config_file)
+
+        # Call reload_settings
+        settings = reload_settings()
+
+        # Should return a Settings instance
+        assert isinstance(settings, Settings)
+
+    def test_reload_settings_resets_singleton(self, monkeypatch):
+        """Test reload_settings resets the global singleton."""
+        import pdfsigner.config.settings as settings_module
+        from pdfsigner.config.settings import get_settings, reload_settings
+
+        # Reset global state
+        monkeypatch.setattr(settings_module, "_settings", None)
+
+        # Get initial settings
+        settings1 = get_settings()
+        initial_id = id(settings1)
+
+        # Reload settings - should create a new instance
+        settings2 = reload_settings()
+        new_id = id(settings2)
+
+        # Should be different instances (different object IDs)
+        assert new_id != initial_id
+        assert isinstance(settings2, Settings)
+
+        # After reload, get_settings() should return the reloaded instance
+        settings3 = get_settings()
+        assert id(settings3) == new_id

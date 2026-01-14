@@ -40,7 +40,7 @@
 | Linting | Ruff |
 | Type Check | mypy |
 | Security | Bandit, Safety |
-| Testing | pytest (503 tests) |
+| Testing | pytest (520 tests) |
 
 ---
 
