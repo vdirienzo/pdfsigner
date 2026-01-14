@@ -2,7 +2,7 @@
 
 > **Purpose:** This file helps Claude (or any AI assistant) understand the project context quickly.
 > **Last Updated:** 2026-01-14
-> **Version:** 0.9.0
+> **Version:** 0.9.1
 > **Author:** Homero Thompson del Lago del Terror
 
 ---
@@ -96,7 +96,7 @@ pdfsigner/
 │   ├── install.sh              # Multi-distro installer
 │   └── uninstall.sh            # Uninstaller
 ├── tests/
-│   ├── unit/                   # Unit tests (487 tests including GUI)
+│   ├── unit/                   # Unit tests (520 tests including GUI)
 │   │   ├── conftest_gui.py    # GTK mocks for GUI testing
 │   │   ├── test_signing_handler.py  # 16 GUI tests
 │   │   └── test_validation_handler.py  # 10 GUI tests
@@ -376,7 +376,21 @@ git push origin v0.8.3
 
 ---
 
-## Recent Changes (v0.9.0)
+## Recent Changes (v0.9.1)
+
+- **Test coverage boost** - 520 total tests (was 393)
+  - 5 modules now at 100% coverage: `settings.py`, `position_finder.py`, `multi_signer.py`, `lta_handler.py`, `health_status.py`
+  - `content_analyzer.py`: 78% → 97%
+  - `pdf_validator.py`: 73% → 96%
+  - 16 E2E tests for dry-run sign → validate flow
+  - 32 tests for certificate health status logic
+- **Coverage configuration** - Excludes GUI/UI code from coverage reporting
+  - Configured in `pyproject.toml` `[tool.coverage]` sections
+  - Core coverage now reports 87% (realistic for testable code)
+  - Excludes: `gui/*`, `ui/*`, `cli/*`, `i18n/*`
+- **Overall core coverage: ~87%**
+
+### Previous (v0.9.0)
 
 - **Certificate Health Dashboard Complete** - GitHub Issue #6 fully implemented
   - Collapsible banner: compact by default, expandable for details
@@ -386,11 +400,6 @@ git push origin v0.8.3
   - New files: `gui/styles.css` (custom CSS), `gui/widgets/cert_health_banner.py`
   - Health levels: OK (>60 days), WARNING (31-60), ALERT (8-30), CRITICAL (1-7), EXPIRED (≤0)
 - **Custom CSS system** - `styles.css` loaded at app startup via `Gtk.CssProvider`
-- **Test coverage boost** - 472 tests (was 393)
-  - New E2E tests: `test_e2e_signing_flow.py` (16 tests for dry-run sign + validate)
-  - New cert health tests: 32 tests for `HealthLevel` and `CertificateHealth`
-  - Extended file_list_widget tests: 29 tests (was 13)
-  - All integration tests passing (TSA, validation, batch signing)
 
 ### Previous (v0.8.9)
 
