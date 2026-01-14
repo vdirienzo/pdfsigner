@@ -1,7 +1,7 @@
 # PDFSigner - Project Memory
 
 > **Purpose:** This file helps Claude (or any AI assistant) understand the project context quickly.
-> **Last Updated:** 2026-01-13
+> **Last Updated:** 2026-01-14
 > **Author:** Homero Thompson del Lago del Terror
 
 ---
@@ -32,6 +32,10 @@
 | Token/Crypto | NSS + python-pkcs11 |
 | Config | pydantic-settings |
 | Logging | loguru |
+| Linting | Ruff |
+| Type Check | mypy |
+| Security | Bandit, Safety |
+| CI/CD | GitHub Actions |
 
 ---
 
@@ -39,22 +43,31 @@
 
 ```
 pdfsigner/
+├── .github/
+│   └── workflows/
+│       └── ci.yml              # CI/CD pipeline (lint, security, test, build)
 ├── src/pdfsigner/
-│   ├── cli/                 # CLI commands (sign.py, validate.py, etc.)
-│   ├── config/              # Settings from ~/.config/pdfsigner/config.toml
+│   ├── cli/                    # CLI commands (sign.py, validate.py, etc.)
+│   ├── config/                 # Settings from ~/.config/pdfsigner/config.toml
 │   ├── core/
-│   │   ├── mock/            # Dry-run simulation (MockBatchManager, stamp_simulator)
-│   │   ├── pdf_analyzer/    # Content analysis, position finding
-│   │   ├── signer/          # PAdES signing (pdf_signer, batch_manager, lta_handler)
-│   │   ├── token/           # NSS/PKCS#11 (nss_handler, cert_selector, pin_cache)
-│   │   └── validator/       # Signature validation
-│   ├── gui/                 # GTK4 standalone app (app.py, main_window.py, signing_handler.py)
-│   └── ui/dialogs/          # Reusable dialogs (options, pin, progress, help)
-├── scripts/
-│   ├── install.sh           # Multi-distro installer
-│   └── uninstall.sh         # Uninstaller
+│   │   ├── mock/               # Dry-run simulation (MockBatchManager, stamp_simulator)
+│   │   ├── pdf_analyzer/       # Content analysis, position finding
+│   │   ├── signer/             # PAdES signing (pdf_signer, batch_manager, lta_handler)
+│   │   ├── token/              # NSS/PKCS#11 (nss_handler, cert_selector, pin_cache)
+│   │   └── validator/          # Signature validation
+│   ├── gui/                    # GTK4 standalone app (app.py, main_window.py)
+│   └── ui/dialogs/             # Reusable dialogs (options, pin, progress, help)
 ├── tests/
-└── config/                  # Example config files
+│   ├── unit/                   # Unit tests (170+ tests)
+│   └── integration/            # Integration tests (TSA, etc.)
+├── scripts/
+│   ├── install.sh              # Multi-distro installer
+│   └── uninstall.sh            # Uninstaller
+├── config/                     # Example config files
+├── .pre-commit-config.yaml     # Pre-commit hooks (ruff, mypy, bandit)
+├── CONTRIBUTING.md             # Contribution guidelines
+├── LICENSE                     # MIT License
+└── README.md
 ```
 
 ---
@@ -94,6 +107,12 @@ Uses pyHanko's `TextStampStyle` with placeholders:
 - `%(signer)s` - Certificate CN (signer name)
 - `%(ts)s` - Timestamp
 
+### TSA (Timestamp Authority)
+- **Default TSA:** `https://freetsa.org/tsr` (free, no auth required)
+- **Protocol:** RFC 3161 (handled by pyHanko's HTTPTimeStamper)
+- **Algorithm:** SHA-256
+- **Important:** Use `timeout` parameter (not `https_timeout`) in HTTPTimeStamper
+
 ### Output Files
 - Suffix: `_signed` (changed from `_firmado`)
 - Example: `document.pdf` → `document_signed.pdf`
@@ -112,7 +131,7 @@ Uses pyHanko's `TextStampStyle` with placeholders:
 Key settings:
 ```toml
 nss_db_path = "/home/user/.nss"
-tsa_url = "http://timestamp.server.com"
+tsa_url = "https://freetsa.org/tsr"
 dry_run = false
 output_suffix = "_signed"
 log_level = "INFO"
@@ -127,11 +146,69 @@ log_level = "INFO"
 uv run pytest -v
 
 # With coverage
-uv run pytest --cov=src
+uv run pytest --cov=src --cov-report=term-missing
+
+# Unit tests only
+uv run pytest tests/unit/ -v
+
+# Integration tests (requires internet for TSA)
+uv run pytest tests/integration/ -v
 
 # Specific test
 uv run pytest tests/unit/test_position_finder.py -v
 ```
+
+### Current Coverage
+- **179 tests passing**
+- **33% overall coverage**
+- Key modules: exceptions (100%), stamp_simulator (100%), pin_cache (98%), batch_manager (97%)
+
+---
+
+## Development Workflow
+
+### Code Quality
+```bash
+# Lint and format
+uv run ruff check --fix .
+uv run ruff format .
+
+# Type checking
+uv run mypy src/
+
+# Security scan
+uv run bandit -r src/
+uv run safety check
+```
+
+### Pre-commit Hooks
+```bash
+# Install hooks (one time)
+uv run pre-commit install
+
+# Run manually
+uv run pre-commit run --all-files
+```
+
+### CI/CD Pipeline
+GitHub Actions runs on push/PR to `main` and `dev`:
+1. **Lint** - Ruff check and format
+2. **Security** - Bandit and Safety
+3. **Test** - pytest with coverage
+4. **Build** - Package build
+
+---
+
+## Important Files
+
+| File | Purpose |
+|------|---------|
+| `lta_handler.py` | TSA timestamp integration (HTTPTimeStamper) |
+| `pdf_signer.py` | Main PDF signing logic with pyHanko |
+| `batch_manager.py` | Batch signing orchestration |
+| `nss_handler.py` | NSS/PKCS#11 token communication |
+| `position_finder.py` | Smart signature position calculation |
+| `stamp_simulator.py` | Dry-run stamp simulation |
 
 ---
 
@@ -162,3 +239,16 @@ uv run pytest tests/unit/test_position_finder.py -v
 | Dry-run not working | Set `dry_run = true` in config or use `--dry-run` flag |
 | Config not loading | Check TOML syntax in `~/.config/pdfsigner/config.toml` |
 | GUI won't start | Verify GTK4 and libadwaita are installed |
+| TSA timeout | Check internet connection, try alternate TSA URL |
+| HTTPTimeStamper error | Use `timeout` param, not `https_timeout` |
+
+---
+
+## Recent Changes (v0.3.1)
+
+- Fixed TSA HTTPTimeStamper API (correct parameter: `timeout`)
+- Added TSA integration tests verifying FreeTSA works
+- Added CI/CD pipeline with GitHub Actions
+- Added pre-commit hooks (ruff, mypy, bandit)
+- Added MIT LICENSE and CONTRIBUTING.md
+- Expanded test suite to 179 tests (33% coverage)
