@@ -272,8 +272,15 @@ GitHub Actions runs on push/PR to `main` and `dev`:
 
 ---
 
-## Recent Changes (v0.4.0)
+## Recent Changes (v0.5.0)
 
+- **NSS Setup Wizard** - First-run wizard auto-configures NSS database
+- **Izenpe TSA added** - Basque Country timestamp server
+- **210 tests** (31 new for NSS setup)
+- Default TSA: local time (no external TSA required)
+- Removed help button from UI
+
+### Previous (v0.4.0)
 - **Multi-token PKCS#11 support** - Auto-detection of SafeNet, YubiKey, Nitrokey, OpenSC, Feitian, SoftHSM, nCipher
 - Improved library search with multiple paths per vendor
 - Better error messages listing all supported tokens

@@ -38,6 +38,7 @@ class PDFSignerApp(Adw.Application):
         )
 
         self.window = None
+        self._nss_configured: bool | None = None  # None = not checked yet
 
         # Actions
         self.create_actions()
@@ -75,11 +76,45 @@ class PDFSignerApp(Adw.Application):
 
     def do_activate(self) -> None:
         """Activates the application."""
+        # Check NSS configuration on first activation
+        if self._nss_configured is None:
+            if not self._check_nss():
+                self._show_nss_wizard()
+                return
+
         if not self.window:
             self.window = MainWindow(application=self)
             self.window.set_icon_name(APP_ID)
 
         self.window.present()
+
+    def _check_nss(self) -> bool:
+        """
+        Check if NSS database is configured.
+
+        Returns:
+            True if NSS is configured, False otherwise
+        """
+        from loguru import logger
+
+        from pdfsigner.core.setup import NSSChecker
+
+        checker = NSSChecker()
+        self._nss_configured = checker.is_configured()
+
+        if self._nss_configured:
+            logger.debug("NSS database is configured")
+        else:
+            logger.info("NSS database not configured, showing setup wizard")
+
+        return self._nss_configured
+
+    def _show_nss_wizard(self) -> None:
+        """Show NSS setup wizard for first-time configuration."""
+        from pdfsigner.ui.dialogs.nss_wizard import NSSSetupWizard
+
+        wizard = NSSSetupWizard(application=self)
+        wizard.present()
 
     def do_open(self, files: list, n_files: int, hint: str) -> None:
         """Handles files opened from the system."""

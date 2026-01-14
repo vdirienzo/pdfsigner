@@ -96,7 +96,7 @@ class TestNSSHandler:
             with pytest.raises(TokenNotFoundError) as exc_info:
                 handler._find_pkcs11_lib()
 
-            assert "PKCS#11 library not found" in str(exc_info.value)
+            assert "No PKCS#11 library found" in str(exc_info.value)
 
     def test_find_pkcs11_lib_safenet_found(self, handler_with_mock_settings):
         """Test finding SafeNet library."""

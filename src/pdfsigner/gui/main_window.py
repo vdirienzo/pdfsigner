@@ -55,12 +55,6 @@ class MainWindow(Adw.ApplicationWindow):
         menu_button.set_menu_model(self._create_menu())
         header.pack_end(menu_button)
 
-        # Help button
-        help_button = Gtk.Button(icon_name="help-about-symbolic")
-        help_button.set_tooltip_text("Help")
-        help_button.connect("clicked", lambda b: self.show_help())
-        header.pack_end(help_button)
-
         # Quick settings button
         settings_button = Gtk.Button(icon_name="emblem-system-symbolic")
         settings_button.set_tooltip_text("Settings")
@@ -255,10 +249,3 @@ class MainWindow(Adw.ApplicationWindow):
         toast = Adw.Toast(title=message)
         toast.set_timeout(3)
         self.toast_overlay.add_toast(toast)
-
-    def show_help(self) -> None:
-        """Shows the help dialog."""
-        from pdfsigner.gui.help_dialog import HelpDialog
-
-        dialog = HelpDialog(transient_for=self)
-        dialog.present()

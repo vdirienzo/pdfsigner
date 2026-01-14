@@ -768,6 +768,20 @@ MIT License - See [LICENSE](LICENSE)
 
 ## 📝 Changelog
 
+### [0.5.0] - 2026-01-14
+
+#### Added
+- **NSS Setup Wizard** - First-run wizard for automatic NSS database configuration
+  - Auto-creates NSS database using certutil
+  - Multi-page wizard with progress indicator
+  - Distro-specific install instructions for missing tools
+- **Izenpe TSA** - Added Basque Country timestamp server (tsa.izenpe.com)
+- **31 new unit tests** for NSS setup modules (210 tests total)
+
+#### Changed
+- **Default TSA** - Now uses local time by default (no TSA required)
+- **Simplified UI** - Removed help button from header
+
 ### [0.4.0] - 2026-01-14
 
 #### Added

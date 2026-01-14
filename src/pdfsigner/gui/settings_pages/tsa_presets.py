@@ -13,7 +13,8 @@ TSA_PRESETS = {
     2: "http://timestamp.digicert.com",
     3: "http://timestamp.sectigo.com",
     4: "http://timestamp.globalsign.com/tsa/r6advanced1",
-    5: "",  # Custom URL - keep current
+    5: "http://tsa.izenpe.com",
+    6: "",  # Custom URL - keep current
 }
 
 # Preset names for display
@@ -23,5 +24,6 @@ TSA_PRESET_NAMES = [
     "DigiCert",
     "Sectigo",
     "GlobalSign",
+    "Izenpe (Basque Country)",
     "Custom URL",
 ]
