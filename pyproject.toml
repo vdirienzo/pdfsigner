@@ -1,6 +1,6 @@
 [project]
 name = "pdfsigner"
-version = "0.8.9"
+version = "0.9.0"
 description = "Digital PDF signing application with SafeNet 5110 USB token"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -40,6 +40,9 @@ build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/pdfsigner"]
+
+[tool.hatch.build.targets.wheel.force-include]
+"src/pdfsigner/gui/styles.css" = "pdfsigner/gui/styles.css"
 
 [tool.ruff]
 target-version = "py312"

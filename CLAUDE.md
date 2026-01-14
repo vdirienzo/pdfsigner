@@ -2,7 +2,7 @@
 
 > **Purpose:** This file helps Claude (or any AI assistant) understand the project context quickly.
 > **Last Updated:** 2026-01-14
-> **Version:** 0.8.9
+> **Version:** 0.9.0
 > **Author:** Homero Thompson del Lago del Terror
 
 ---
@@ -19,7 +19,7 @@
 - Visible signature with smart positioning
 - **QR verification code** - Optional QR in visible signatures (hash, signer, timestamp)
 - **Signature viewer** - Display existing signatures when adding files (signer, timestamp, validity)
-- **Certificate health dashboard** - Color-coded banner showing certificate expiry status (Issue #6)
+- **Certificate health dashboard** - Collapsible banner with CSS animations and toast notifications (Issue #6)
 - Batch signing with PIN cache
 - **Multi-token PKCS#11 support**
 
@@ -374,13 +374,21 @@ git push origin v0.8.3
 
 ---
 
-## Recent Changes (v0.8.9)
+## Recent Changes (v0.9.0)
 
-- **Certificate Health Dashboard** - GitHub Issue #6 implemented
-  - Color-coded banner in main window showing certificate expiry status
+- **Certificate Health Dashboard Complete** - GitHub Issue #6 fully implemented
+  - Collapsible banner: compact by default, expandable for details
+  - CSS animations: fade-in, pulse for critical/expired states
+  - Toast notifications for expiry warnings (WARNING/ALERT/CRITICAL/EXPIRED)
+  - Color-coded backgrounds, text, and progress bars
+  - New files: `gui/styles.css` (custom CSS), `gui/widgets/cert_health_banner.py`
   - Health levels: OK (>60 days), WARNING (31-60), ALERT (8-30), CRITICAL (1-7), EXPIRED (≤0)
-  - Shows: status icon, subject CN, issuer CN, expiry date, days remaining, progress bar
-  - New modules: `core/certificate/health_status.py`, `gui/widgets/cert_health_banner.py`
+- **Custom CSS system** - `styles.css` loaded at app startup via `Gtk.CssProvider`
+
+### Previous (v0.8.9)
+
+- **Certificate Health Dashboard** - Initial implementation (Issue #6)
+  - Core modules: `core/certificate/health_status.py`
   - 41 new tests for health status logic
 - **Total tests: 393** (was 360)
 

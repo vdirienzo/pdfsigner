@@ -928,6 +928,25 @@ MIT License - See [LICENSE](LICENSE)
 
 ## 📝 Changelog
 
+### [0.9.0] - 2026-01-14
+
+#### Added
+- **Certificate Health Dashboard Complete** (GitHub Issue #6)
+  - Collapsible banner: compact by default, expandable for details
+  - CSS animations: fade-in, pulse for critical/expired states
+  - Toast notifications for expiry warnings
+  - Color-coded backgrounds, text, and progress bars
+- **Custom CSS system** - `styles.css` loaded at app startup
+
+### [0.8.9] - 2026-01-14
+
+#### Added
+- **Certificate Health Dashboard** - Initial implementation (Issue #6)
+  - Color-coded banner showing certificate expiry status
+  - Health levels: OK, WARNING, ALERT, CRITICAL, EXPIRED
+  - 41 new tests for health status logic
+  - Total tests: 393
+
 ### [0.8.8] - 2026-01-14
 
 #### Fixed
