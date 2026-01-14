@@ -699,7 +699,7 @@ uv run safety check
 
 ### Test Coverage
 
-**170 tests passing** with **31% overall coverage**
+**179 tests passing** with **33% overall coverage**
 
 | Module | Coverage |
 |--------|----------|
@@ -713,6 +713,7 @@ uv run safety check
 | `content_analyzer.py` | 78% |
 | `pdf_signer.py` | 72% |
 | `pdf_validator.py` | 70% |
+| `lta_handler.py` | 43% |
 
 **Note:** GUI modules have 0% coverage as they require GTK4 display for testing.
 
@@ -751,6 +752,15 @@ MIT License - See [LICENSE](LICENSE)
 ---
 
 ## 📝 Changelog
+
+### [0.3.1] - 2026-01-13
+
+#### Fixed
+- **TSA timestamp integration** - Corrected HTTPTimeStamper API usage (`timeout` parameter)
+- **FreeTSA verified working** - Real timestamp requests tested and confirmed
+
+#### Added
+- **TSA integration tests** - 9 tests verifying FreeTSA connectivity and timestamp requests
 
 ### [0.3.0] - 2026-01-13
 
