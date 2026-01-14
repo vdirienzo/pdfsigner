@@ -1,17 +1,17 @@
 # PDFSigner
 
-**Digital PDF Signing with SafeNet 5110 USB Token**
+**Digital PDF Signing with USB Cryptographic Tokens**
 
 [![Python 3.12+](https://img.shields.io/badge/python-3.12+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![GTK4](https://img.shields.io/badge/GTK-4.0-green.svg)](https://gtk.org/)
 
-PDFSigner is a tool for digitally signing PDF documents using cryptographic USB tokens (SafeNet 5110) with legally valid PAdES-LTV signatures.
+PDFSigner is a tool for digitally signing PDF documents using PKCS#11 cryptographic USB tokens with legally valid PAdES-LTV signatures.
 
 ## ✨ Features
 
 - **PAdES-LTV Signature** - Long Term Validation with TSA timestamp
-- **SafeNet 5110 Token** - Full support via NSS/PKCS#11
+- **Multi-Token Support** - SafeNet, YubiKey, Nitrokey, OpenSC, and more via PKCS#11
 - **GTK4 GUI** - Modern graphical interface with drag & drop
 - **Complete CLI** - For scripts and automation
 - **Dry-Run Mode** - Simulate signing without token for testing
@@ -74,17 +74,32 @@ Before installing PDFSigner, you need:
 
 | Requirement | Description |
 |-------------|-------------|
-| **USB Token** | SafeNet 5110 (eToken) or PKCS#11 compatible |
+| **USB Token** | Any PKCS#11 compatible token (see supported list below) |
 | **Certificate** | Digital signing certificate installed on the token |
 | **Linux** | Debian 12+, Ubuntu 22.04+, Fedora 38+, Arch, openSUSE |
-| **Drivers** | SafeNet Authentication Client |
+| **Drivers** | Token-specific PKCS#11 driver |
 | **NSS Database** | NSS database with registered PKCS#11 module |
+
+### Supported Tokens
+
+PDFSigner auto-detects PKCS#11 libraries in priority order:
+
+| Token | Library | Use Case |
+|-------|---------|----------|
+| **SafeNet/Thales eToken** | `libeToken.so` | Enterprise signing (5110, 5300) |
+| **Luna HSM** | `libCryptoki2_64.so` | High-security HSM |
+| **YubiKey** | `libykcs11.so` | PIV mode signing |
+| **Nitrokey** | `libnethsm.so` | Open-source security |
+| **OpenSC** | `opensc-pkcs11.so` | Generic smart cards |
+| **Feitian ePass** | `libcastle.so`, `libftsafe-p11.so` | ePass tokens |
+| **SoftHSM** | `libsofthsm2.so` | Testing/development |
+| **nCipher/Entrust** | `libcknfast.so` | Enterprise HSM |
 
 ### Verify your environment
 
 ```bash
 # Do you have the token connected?
-lsusb | grep -i "safenet\|gemalto\|thales"
+lsusb | grep -i "safenet\|gemalto\|thales\|yubico\|nitrokey\|feitian"
 
 # Expected output (example):
 # Bus 001 Device 003: ID 0529:0620 Aladdin Knowledge Systems Token JC
@@ -752,6 +767,22 @@ MIT License - See [LICENSE](LICENSE)
 ---
 
 ## 📝 Changelog
+
+### [0.4.0] - 2026-01-14
+
+#### Added
+- **Multi-token PKCS#11 support** - Auto-detection of multiple token types:
+  - SafeNet/Thales eToken (5110, 5300, Luna HSM)
+  - YubiKey (PIV mode)
+  - Nitrokey Pro/HSM
+  - OpenSC (generic smart cards)
+  - Feitian ePass
+  - SoftHSM (for testing)
+  - nCipher/Entrust HSM
+
+#### Changed
+- **Improved library detection** - Searches multiple paths per token vendor
+- **Better error messages** - Lists all supported tokens when none found
 
 ### [0.3.1] - 2026-01-13
 

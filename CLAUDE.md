@@ -8,7 +8,7 @@
 
 ## Project Overview
 
-**PDFSigner** is a digital PDF signing application for Linux/GNOME that uses a SafeNet 5110 USB token via NSS (Network Security Services).
+**PDFSigner** is a digital PDF signing application for Linux/GNOME that supports multiple USB cryptographic tokens via PKCS#11/NSS.
 
 ### Key Features
 - PAdES-LTV signatures with TSA timestamp
@@ -17,6 +17,7 @@
 - Dry-run mode for testing without real token
 - Visible signature with smart positioning
 - Batch signing with PIN cache
+- **Multi-token PKCS#11 support**
 
 ---
 
@@ -36,6 +37,26 @@
 | Type Check | mypy |
 | Security | Bandit, Safety |
 | CI/CD | GitHub Actions |
+
+---
+
+## Supported Tokens (PKCS#11)
+
+Auto-detected in priority order by `nss_handler.py`:
+
+| Priority | Token | Library File | Notes |
+|----------|-------|--------------|-------|
+| 1 | SafeNet/Thales | `libeToken.so` | eToken 5110, 5300 |
+| 1 | Luna HSM | `libCryptoki2_64.so` | Enterprise HSM |
+| 2 | YubiKey | `libykcs11.so` | PIV mode only |
+| 3 | Nitrokey | `libnethsm.so` | Pro/HSM models |
+| 4 | OpenSC | `opensc-pkcs11.so` | Generic smart cards |
+| 5 | Feitian | `libcastle.so` | ePass tokens |
+| 6 | SoftHSM | `libsofthsm2.so` | Testing only |
+| 7 | nCipher | `libcknfast.so` | Enterprise HSM |
+| 8 | NSS | `libsoftokn3.so` | Fallback |
+
+**Adding new tokens:** Edit `PKCS11_LIB_PATHS` constants in `src/pdfsigner/core/token/nss_handler.py`
 
 ---
 
@@ -206,9 +227,15 @@ GitHub Actions runs on push/PR to `main` and `dev`:
 | `lta_handler.py` | TSA timestamp integration (HTTPTimeStamper) |
 | `pdf_signer.py` | Main PDF signing logic with pyHanko |
 | `batch_manager.py` | Batch signing orchestration |
-| `nss_handler.py` | NSS/PKCS#11 token communication |
+| `nss_handler.py` | **NSS/PKCS#11 token communication** (multi-token support) |
 | `position_finder.py` | Smart signature position calculation |
 | `stamp_simulator.py` | Dry-run stamp simulation |
+
+### nss_handler.py Key Details
+- Contains `PKCS11_LIB_PATHS` constants for each token vendor
+- `_find_pkcs11_lib()` searches libraries in priority order
+- First found library is used
+- Logs which token type was detected
 
 ---
 
@@ -236,6 +263,7 @@ GitHub Actions runs on push/PR to `main` and `dev`:
 | Problem | Solution |
 |---------|----------|
 | Token not detected | Check NSS DB path, run `certutil -L -d ~/.nss` |
+| No PKCS#11 library | Install token driver, check `nss_handler.py` for supported paths |
 | Dry-run not working | Set `dry_run = true` in config or use `--dry-run` flag |
 | Config not loading | Check TOML syntax in `~/.config/pdfsigner/config.toml` |
 | GUI won't start | Verify GTK4 and libadwaita are installed |
@@ -244,8 +272,13 @@ GitHub Actions runs on push/PR to `main` and `dev`:
 
 ---
 
-## Recent Changes (v0.3.1)
+## Recent Changes (v0.4.0)
 
+- **Multi-token PKCS#11 support** - Auto-detection of SafeNet, YubiKey, Nitrokey, OpenSC, Feitian, SoftHSM, nCipher
+- Improved library search with multiple paths per vendor
+- Better error messages listing all supported tokens
+
+### Previous (v0.3.1)
 - Fixed TSA HTTPTimeStamper API (correct parameter: `timeout`)
 - Added TSA integration tests verifying FreeTSA works
 - Added CI/CD pipeline with GitHub Actions

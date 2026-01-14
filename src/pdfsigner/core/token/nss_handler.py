@@ -3,8 +3,19 @@ nss_handler.py - NSS/PKCS#11 connection handler
 
 Author: Homero Thompson del Lago del Terror
 
-Manages communication with the SafeNet 5110 USB token
+Manages communication with USB cryptographic tokens
 through the NSS database using python-pkcs11.
+
+Supported tokens:
+- SafeNet/Thales eToken 5110, 5300
+- Gemalto tokens
+- YubiKey (PIV mode)
+- Nitrokey Pro/HSM
+- OpenSC compatible tokens
+- Feitian ePass
+- Luna HSM
+- SoftHSM (for testing)
+- Any PKCS#11 compatible token
 """
 
 from dataclasses import dataclass
@@ -42,22 +53,76 @@ class NSSHandler:
     """
     NSS/PKCS#11 connection handler.
 
-    Manages communication with USB token through NSS.
+    Manages communication with USB cryptographic tokens through NSS.
+    Compatible with any PKCS#11 compliant token.
     """
 
-    # Common NSS library paths
+    # ==========================================================================
+    # PKCS#11 Library Paths - Ordered by priority (first found is used)
+    # ==========================================================================
+
+    # SafeNet/Thales eToken (5110, 5300, etc.)
+    SAFENET_LIB_PATHS = [
+        "/usr/lib/libeToken.so",
+        "/usr/lib/x86_64-linux-gnu/libeToken.so",
+        "/usr/lib64/libeToken.so",
+        "/opt/safenet/lunaclient/lib/libCryptoki2_64.so",  # Luna HSM
+        "/usr/safenet/lunaclient/lib/libCryptoki2_64.so",
+    ]
+
+    # YubiKey (PIV mode)
+    YUBIKEY_LIB_PATHS = [
+        "/usr/lib/x86_64-linux-gnu/libykcs11.so",
+        "/usr/lib/libykcs11.so",
+        "/usr/lib64/libykcs11.so",
+        "/usr/local/lib/libykcs11.so",
+    ]
+
+    # Nitrokey Pro/HSM
+    NITROKEY_LIB_PATHS = [
+        "/usr/lib/x86_64-linux-gnu/libnethsm.so",
+        "/usr/lib/libnethsm.so",
+        "/usr/lib/x86_64-linux-gnu/libnitrokey.so",
+        "/usr/lib/libnitrokey.so",
+    ]
+
+    # OpenSC (generic smart cards)
+    OPENSC_LIB_PATHS = [
+        "/usr/lib/x86_64-linux-gnu/opensc-pkcs11.so",
+        "/usr/lib/opensc-pkcs11.so",
+        "/usr/lib64/opensc-pkcs11.so",
+        "/usr/lib/x86_64-linux-gnu/pkcs11/opensc-pkcs11.so",
+    ]
+
+    # Feitian ePass
+    FEITIAN_LIB_PATHS = [
+        "/usr/lib/libcastle.so",
+        "/usr/lib/x86_64-linux-gnu/libcastle.so",
+        "/usr/lib/libftsafe-p11.so",
+    ]
+
+    # SoftHSM (software HSM for testing)
+    SOFTHSM_LIB_PATHS = [
+        "/usr/lib/softhsm/libsofthsm2.so",
+        "/usr/lib/x86_64-linux-gnu/softhsm/libsofthsm2.so",
+        "/usr/local/lib/softhsm/libsofthsm2.so",
+        "/usr/lib64/softhsm/libsofthsm2.so",
+    ]
+
+    # nCipher/Entrust HSM
+    NCIPHER_LIB_PATHS = [
+        "/opt/nfast/toolkits/pkcs11/libcknfast.so",
+        "/usr/lib/libcknfast.so",
+    ]
+
+    # Generic NSS libraries (fallback)
     NSS_LIB_PATHS = [
         "/usr/lib/x86_64-linux-gnu/libnssckbi.so",
         "/usr/lib/x86_64-linux-gnu/libsoftokn3.so",
         "/usr/lib/libnssckbi.so",
         "/usr/lib/libsoftokn3.so",
-    ]
-
-    # SafeNet module path (if installed)
-    SAFENET_LIB_PATHS = [
-        "/usr/lib/libeToken.so",
-        "/usr/lib/x86_64-linux-gnu/libeToken.so",
-        "/opt/safenet/lunaclient/lib/libCryptoki2_64.so",
+        "/usr/lib64/libnssckbi.so",
+        "/usr/lib64/libsoftokn3.so",
     ]
 
     def __init__(self, nss_db_path: Path | None = None):
@@ -77,26 +142,44 @@ class NSSHandler:
         """
         Find available PKCS#11 library.
 
+        Searches for libraries in priority order:
+        1. SafeNet/Thales (eToken, Luna)
+        2. YubiKey
+        3. Nitrokey
+        4. OpenSC (generic smart cards)
+        5. Feitian
+        6. SoftHSM (testing)
+        7. nCipher
+        8. Generic NSS (fallback)
+
         Returns:
             Path to found library
 
         Raises:
-            TokenNotFoundError: If library not found
+            TokenNotFoundError: If no library found
         """
-        # First try SafeNet
-        for path in self.SAFENET_LIB_PATHS:
-            if Path(path).exists():
-                logger.debug(f"Using SafeNet library: {path}")
-                return path
+        # Define search order with descriptive names
+        lib_groups = [
+            ("SafeNet/Thales", self.SAFENET_LIB_PATHS),
+            ("YubiKey", self.YUBIKEY_LIB_PATHS),
+            ("Nitrokey", self.NITROKEY_LIB_PATHS),
+            ("OpenSC", self.OPENSC_LIB_PATHS),
+            ("Feitian", self.FEITIAN_LIB_PATHS),
+            ("SoftHSM", self.SOFTHSM_LIB_PATHS),
+            ("nCipher", self.NCIPHER_LIB_PATHS),
+            ("NSS", self.NSS_LIB_PATHS),
+        ]
 
-        # Then NSS
-        for path in self.NSS_LIB_PATHS:
-            if Path(path).exists():
-                logger.debug(f"Using NSS library: {path}")
-                return path
+        for token_name, paths in lib_groups:
+            for path in paths:
+                if Path(path).exists():
+                    logger.info(f"Found {token_name} PKCS#11 library: {path}")
+                    return path
 
         raise TokenNotFoundError(
-            "PKCS#11 library not found (NSS or SafeNet). Verify that token driver is installed."
+            "No PKCS#11 library found. Supported tokens: SafeNet, YubiKey, "
+            "Nitrokey, OpenSC, Feitian, SoftHSM, nCipher. "
+            "Verify that your token driver is installed."
         )
 
     def initialize(self) -> None:
