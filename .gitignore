@@ -26,7 +26,7 @@ logs/
 
 # Test PDFs (local testing)
 test*.pdf
-*_firmado.pdf
+*_signed.pdf
 
 # Environment and secrets
 .env

@@ -189,14 +189,10 @@ class ProgressDialog(Gtk.Dialog):
         """
         # Actualizar estado final
         if result.all_successful:
-            self.status_label.set_label(
-                f"✓ {result.successful} file(s) firmado(s) correctamente"
-            )
+            self.status_label.set_label(f"✓ {result.successful} file(s) signed successfully")
             self.status_label.add_css_class("success")
         else:
-            self.status_label.set_label(
-                f"{result.successful} exitoso(s), {result.failed} fallido(s)"
-            )
+            self.status_label.set_label(f"{result.successful} successful, {result.failed} failed")
             if result.failed > 0:
                 self.status_label.add_css_class("warning")
 

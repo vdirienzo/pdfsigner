@@ -73,7 +73,7 @@ class Settings(BaseSettings):
 
     # --- Output ---
     output_suffix: str = Field(
-        default="_firmado",
+        default="_signed",
         description="Suffix for signed files",
     )
 

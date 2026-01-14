@@ -238,15 +238,13 @@ class SigningHandler:
             failed = results.get("failed", 0)
         total = success + failed
 
-        prefix = "[SIMULADO] " if dry_run else ""
+        prefix = "[SIMULATED] " if dry_run else ""
         suffix = " (dry-run)" if dry_run else ""
 
         if failed == 0:
-            self.window.show_toast(f"✓ {prefix}{success} file(s) firmado(s){suffix}")
+            self.window.show_toast(f"✓ {prefix}{success} file(s) signed{suffix}")
         else:
-            self.window.show_toast(
-                f"{prefix}Firmados: {success}/{total} (Errores: {failed}){suffix}"
-            )
+            self.window.show_toast(f"{prefix}Signed: {success}/{total} (Errors: {failed}){suffix}")
 
     def _show_error(self, title: str, message: str) -> None:
         """Shows an error dialog."""

@@ -88,8 +88,8 @@ default_page = "last"
 # Output
 # ═══════════════════════════════════════════════════════════════
 # Suffix for signed files
-# Example: document.pdf → document_firmado.pdf
-output_suffix = "_firmado"
+# Example: document.pdf → document_signed.pdf
+output_suffix = "_signed"
 
 # ═══════════════════════════════════════════════════════════════
 # PIN Cache

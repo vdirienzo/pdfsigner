@@ -65,7 +65,7 @@ def _sign_dry_run(args: argparse.Namespace, pdf_files: list[Path]) -> int:
     print("\n" + "=" * 60)
     print("⚠️  DRY-RUN MODE - SIMULATION WITHOUT REAL TOKEN")
     print("=" * 60)
-    print("Files will be copied with _firmado suffix")
+    print("Files will be copied with _signed suffix")
     print("but will NOT contain real digital signature.\n")
 
     logger.info("[DRY-RUN] Simulating token connection...")
@@ -108,7 +108,7 @@ def _sign_dry_run(args: argparse.Namespace, pdf_files: list[Path]) -> int:
 
     print("\n" + "-" * 60)
     if result.all_successful:
-        print(f"✓ [DRY-RUN] {result.successful} file(s) copied with _firmado suffix")
+        print(f"✓ [DRY-RUN] {result.successful} file(s) copied with _signed suffix")
         print("\n⚠️  Note: Files are NOT actually signed.")
         print("   Copies were created to simulate the process.")
         return 0

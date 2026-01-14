@@ -558,7 +558,7 @@ main() {
     echo
     echo -e "  5. ${YELLOW}Probar CLI:${NC}"
     echo -e "     uv run pdfsigner sign archivo.pdf"
-    echo -e "     uv run pdfsigner validate archivo_firmado.pdf"
+    echo -e "     uv run pdfsigner validate document_signed.pdf"
     echo
     echo -e "${CYAN}Para desinstalar:${NC} ./scripts/uninstall.sh"
     echo

@@ -261,7 +261,7 @@ class PDFSignerExtension(GObject.GObject, Nautilus.MenuProvider):
 
             # Notificar éxito
             if result.all_successful:
-                self._show_notification(f"✓ {result.successful} archivo(s) firmado(s)")
+                self._show_notification(f"✓ {result.successful} file(s) signed")
 
         except Exception as e:
             logger.exception("Error en workflow de firma")
