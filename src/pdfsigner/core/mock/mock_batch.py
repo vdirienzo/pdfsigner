@@ -4,15 +4,16 @@ mock_batch.py - Mock batch signing manager for dry-run mode
 Author: Homero Thompson del Lago del Terror
 
 Simulates batch signing with visual stamp simulation.
+Uses stamp_simulator for visual stamp generation.
 """
 
 import time
 from dataclasses import dataclass
-from datetime import datetime
 from pathlib import Path
 
-import fitz  # PyMuPDF
 from loguru import logger
+
+from pdfsigner.core.mock.stamp_simulator import add_stamp_to_pdf
 
 
 @dataclass
@@ -50,89 +51,6 @@ class MockBatchResult:
         return list(self.errors.items())
 
 
-def _parse_page_spec(page_spec: str | int, total_pages: int) -> list[int]:
-    """
-    Parses page specification into list of page numbers.
-
-    Args:
-        page_spec: Page specification ("last", "all", int, or "1,2,3")
-        total_pages: Total number of pages in document
-
-    Returns:
-        List of 0-indexed page numbers
-    """
-    if isinstance(page_spec, int):
-        return [min(page_spec, total_pages - 1)]
-
-    if page_spec == "last":
-        return [total_pages - 1]
-
-    if page_spec == "all":
-        return list(range(total_pages))
-
-    # Parse comma-separated list
-    try:
-        pages = [int(p.strip()) - 1 for p in str(page_spec).split(",")]
-        return [p for p in pages if 0 <= p < total_pages]
-    except ValueError:
-        logger.warning(f"[DRY-RUN] Invalid page spec: {page_spec}, using last page")
-        return [total_pages - 1]
-
-
-def _add_stamp_to_pdf(
-    input_path: Path,
-    output_path: Path,
-    page_spec: str | int = "last",
-    visible: bool = True,
-) -> None:
-    """
-    Adds visual stamp to PDF in dry-run mode.
-
-    Args:
-        input_path: Input PDF path
-        output_path: Output PDF path
-        page_spec: Page specification
-        visible: Whether to add visible stamp
-    """
-    if not visible:
-        # Just copy if no visible signature
-        import shutil
-
-        shutil.copy2(input_path, output_path)
-        logger.info("[DRY-RUN] Invisible signature - copied without stamp")
-        return
-
-    doc = fitz.open(input_path)
-    stamp_text = f"SIGNATURE (SIMULATED)\n{datetime.now().strftime('%Y-%m-%d %H:%M')}"
-
-    pages_to_stamp = _parse_page_spec(page_spec, len(doc))
-
-    for page_num in pages_to_stamp:
-        if page_num < len(doc):
-            page = doc[page_num]
-            # Add stamp rectangle at bottom right
-            rect = fitz.Rect(
-                page.rect.width - 150,
-                page.rect.height - 60,
-                page.rect.width - 10,
-                page.rect.height - 10,
-            )
-            # Draw blue border
-            page.draw_rect(rect, color=(0, 0, 0.5), width=1)
-            # Insert text
-            page.insert_textbox(
-                rect,
-                stamp_text,
-                fontsize=8,
-                align=fitz.TEXT_ALIGN_CENTER,
-                color=(0, 0, 0.5),
-            )
-
-    doc.save(output_path)
-    doc.close()
-    logger.info(f"[DRY-RUN] Added visual stamp to {len(pages_to_stamp)} page(s): {pages_to_stamp}")
-
-
 class MockBatchManager:
     """
     Simulated batch signing manager.
@@ -154,6 +72,7 @@ class MockBatchManager:
         pin: str | None = None,
         visible: bool = False,
         page: str | int = "last",
+        position: str = "bottom_right",
         appearance=None,
         cert_id: bytes | None = None,
         progress_callback=None,
@@ -169,7 +88,8 @@ class MockBatchManager:
             pin: PIN (ignored in mock)
             visible: Visible signature
             page: Page for visible signature
-            appearance: Appearance configuration
+            position: Position preference (bottom_right, top_left, etc.)
+            appearance: Appearance configuration (overrides visible/page/position)
             cert_id: Certificate ID
             progress_callback: Progress callback
 
@@ -182,6 +102,14 @@ class MockBatchManager:
         if not file_list:
             return MockBatchResult(successful=0, failed=0, all_successful=True, errors={})
 
+        # Extract settings from appearance if provided
+        if appearance is not None:
+            visible = getattr(appearance, "visible", visible)
+            page = getattr(appearance, "page", page)
+            pos_pref = getattr(appearance, "position_preference", None)
+            if pos_pref is not None:
+                position = pos_pref.value if hasattr(pos_pref, "value") else str(pos_pref)
+
         total = len(file_list)
         successful = 0
         failed = 0
@@ -189,7 +117,7 @@ class MockBatchManager:
 
         logger.info(f"[DRY-RUN] Simulating signing of {total} file(s)...")
         if visible:
-            logger.info(f"[DRY-RUN] Visible signatures on page: {page}")
+            logger.info(f"[DRY-RUN] Visible signatures on page: {page}, position: {position}")
 
         for i, pdf_path in enumerate(file_list):
             current_file = str(pdf_path)
@@ -211,7 +139,13 @@ class MockBatchManager:
             try:
                 # Create "signed" file with stamp
                 output_path = pdf_path.parent / f"{pdf_path.stem}_signed{pdf_path.suffix}"
-                _add_stamp_to_pdf(pdf_path, output_path, page_spec=page, visible=visible)
+                add_stamp_to_pdf(
+                    pdf_path,
+                    output_path,
+                    page_spec=page,
+                    visible=visible,
+                    position=position,
+                )
 
                 logger.info(f"[DRY-RUN] Signed: {pdf_path.name} → {output_path.name}")
                 successful += 1
