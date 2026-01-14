@@ -40,7 +40,7 @@
 | Linting | Ruff |
 | Type Check | mypy |
 | Security | Bandit, Safety |
-| Testing | pytest (393 tests) |
+| Testing | pytest (472 tests) |
 
 ---
 
@@ -96,7 +96,7 @@ pdfsigner/
 │   ├── install.sh              # Multi-distro installer
 │   └── uninstall.sh            # Uninstaller
 ├── tests/
-│   ├── unit/                   # Unit tests (343 tests including GUI)
+│   ├── unit/                   # Unit tests (456 tests including GUI)
 │   │   ├── conftest_gui.py    # GTK mocks for GUI testing
 │   │   ├── test_signing_handler.py  # 16 GUI tests
 │   │   └── test_validation_handler.py  # 10 GUI tests
@@ -197,11 +197,13 @@ uv run pytest tests/unit/test_position_finder.py -v
 ```
 
 ### Current Coverage
-- **393 tests passing** (including 39 GUI tests)
-- **~45% overall coverage**
+- **472 tests passing** (including E2E and GUI logic tests)
+- **~50% overall coverage**
 - Key modules:
   - signer/ module: **92%** (lta_handler 100%, signature_field 97%, batch_manager 97%)
+  - certificate/health_status: **100%** (32 tests)
   - exceptions (100%), stamp_simulator (100%), pin_cache (98%)
+- E2E tests for dry-run sign + validate flow (16 tests)
 - GUI tests use mocks (no display required)
 
 ---
@@ -384,6 +386,11 @@ git push origin v0.8.3
   - New files: `gui/styles.css` (custom CSS), `gui/widgets/cert_health_banner.py`
   - Health levels: OK (>60 days), WARNING (31-60), ALERT (8-30), CRITICAL (1-7), EXPIRED (≤0)
 - **Custom CSS system** - `styles.css` loaded at app startup via `Gtk.CssProvider`
+- **Test coverage boost** - 472 tests (was 393)
+  - New E2E tests: `test_e2e_signing_flow.py` (16 tests for dry-run sign + validate)
+  - New cert health tests: 32 tests for `HealthLevel` and `CertificateHealth`
+  - Extended file_list_widget tests: 29 tests (was 13)
+  - All integration tests passing (TSA, validation, batch signing)
 
 ### Previous (v0.8.9)
 

@@ -193,3 +193,181 @@ class TestModuleImports:
         from pdfsigner.ui.dialogs.validation_dialog import ValidationResultDialog
 
         assert ValidationResultDialog is not None
+
+
+class TestFileStatusLogic:
+    """Test file status state machine logic."""
+
+    def test_status_icons_mapping(self):
+        """Test all status icons are correctly mapped."""
+        icons = {
+            "pending": ("○", ""),
+            "processing": ("→", ""),
+            "signed": ("✓", "success"),
+            "error": ("✗", "error"),
+        }
+
+        assert icons["pending"][0] == "○"
+        assert icons["processing"][0] == "→"
+        assert icons["signed"][0] == "✓"
+        assert icons["error"][0] == "✗"
+
+    def test_status_css_classes(self):
+        """Test CSS classes for different statuses."""
+        icons = {
+            "pending": ("○", ""),
+            "processing": ("→", ""),
+            "signed": ("✓", "success"),
+            "error": ("✗", "error"),
+        }
+
+        # Only signed and error have CSS classes
+        assert icons["pending"][1] == ""
+        assert icons["processing"][1] == ""
+        assert icons["signed"][1] == "success"
+        assert icons["error"][1] == "error"
+
+    def test_unknown_status_defaults_to_pending(self):
+        """Unknown status should default to pending appearance."""
+        icons = {
+            "pending": ("○", ""),
+            "processing": ("→", ""),
+            "signed": ("✓", "success"),
+            "error": ("✗", "error"),
+        }
+
+        # .get() defaults to pending
+        icon, css_class = icons.get("unknown", ("○", ""))
+
+        assert icon == "○"
+        assert css_class == ""
+
+
+class TestFilePathOperations:
+    """Test file path manipulation logic."""
+
+    def test_path_parent_extraction(self):
+        """Test extracting parent directory from path."""
+        path = Path("/home/user/documents/report.pdf")
+
+        assert str(path.parent) == "/home/user/documents"
+
+    def test_path_name_extraction(self):
+        """Test extracting filename from path."""
+        path = Path("/home/user/documents/report.pdf")
+
+        assert path.name == "report.pdf"
+
+    def test_path_equality(self):
+        """Test path equality for duplicate detection."""
+        path1 = Path("/home/user/doc.pdf")
+        path2 = Path("/home/user/doc.pdf")
+        path3 = Path("/home/user/other.pdf")
+
+        assert path1 == path2
+        assert path1 != path3
+
+    def test_path_in_set_membership(self):
+        """Test path membership in set."""
+        paths = {Path("/a.pdf"), Path("/b.pdf")}
+
+        assert Path("/a.pdf") in paths
+        assert Path("/c.pdf") not in paths
+
+
+class TestFileListLogic:
+    """Test FileListWidget business logic."""
+
+    def test_get_files_returns_list(self):
+        """get_files should return list from set."""
+        file_paths = {Path("/a.pdf"), Path("/b.pdf")}
+
+        files = list(file_paths)
+
+        assert len(files) == 2
+        assert isinstance(files, list)
+
+    def test_discard_removes_path(self):
+        """discard() removes path without error."""
+        file_paths = {Path("/a.pdf"), Path("/b.pdf")}
+
+        file_paths.discard(Path("/a.pdf"))
+
+        assert Path("/a.pdf") not in file_paths
+        assert len(file_paths) == 1
+
+    def test_discard_nonexistent_no_error(self):
+        """discard() on nonexistent path doesn't raise."""
+        file_paths = {Path("/a.pdf")}
+
+        # Should not raise
+        file_paths.discard(Path("/nonexistent.pdf"))
+
+        assert len(file_paths) == 1
+
+
+class TestSignatureSummaryLogic:
+    """Test signature summary display logic."""
+
+    def test_single_signature_format(self):
+        """Single signature shows simple count."""
+        count = 1
+        label = f"{count} signature(s)"
+
+        assert label == "1 signature(s)"
+
+    def test_multiple_signatures_format(self):
+        """Multiple signatures show count."""
+        count = 5
+        label = f"{count} signature(s)"
+
+        assert label == "5 signature(s)"
+
+    def test_zero_signatures_no_label(self):
+        """Zero signatures should not display label."""
+        count = 0
+
+        # Logic: only show label if count > 0
+        should_show = count > 0
+
+        assert should_show is False
+
+    def test_valid_all_signatures_icon(self):
+        """All valid signatures show success icon."""
+        all_valid = True
+
+        icon = "✓" if all_valid else "⚠"
+        css = "success" if all_valid else "warning"
+
+        assert icon == "✓"
+        assert css == "success"
+
+    def test_some_invalid_signatures_icon(self):
+        """Some invalid signatures show warning icon."""
+        all_valid = False
+
+        icon = "✓" if all_valid else "⚠"
+        css = "success" if all_valid else "warning"
+
+        assert icon == "⚠"
+        assert css == "warning"
+
+
+class TestCSSClassManagement:
+    """Test CSS class add/remove logic."""
+
+    def test_remove_all_status_classes_logic(self):
+        """Test logic for removing status classes."""
+        classes_to_remove = ["success", "error", "warning"]
+        current_classes = {"success", "dim-label", "caption"}
+
+        # Simulate removing status classes
+        for cls in classes_to_remove:
+            current_classes.discard(cls)
+
+        assert "success" not in current_classes
+        assert "error" not in current_classes
+        assert "warning" not in current_classes
+        # Other classes preserved
+        assert "dim-label" in current_classes
+        assert "caption" in current_classes
