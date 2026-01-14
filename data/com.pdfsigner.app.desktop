@@ -7,16 +7,12 @@ Comment=Sign PDF documents with USB cryptographic tokens
 Exec=pdfsigner-gui %F
 Icon=com.pdfsigner.app
 Terminal=false
-Categories=Office;Utility;Graphics;
+Categories=Office;
 MimeType=application/pdf;
 Keywords=pdf;sign;signature;certificate;token;pkcs11;
 StartupNotify=true
+Actions=validate;
 
 [Desktop Action validate]
 Name=Validate Signatures
 Exec=pdfsigner validate %F
-
-[Desktop Action cli]
-Name=Open Terminal
-Exec=pdfsigner --help
-Terminal=true

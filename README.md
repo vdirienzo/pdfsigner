@@ -63,8 +63,9 @@ PDFSigner is a tool for digitally signing PDF documents using PKCS#11 cryptograp
 6. [Configuration](#️-configuration)
 7. [Usage](#️-usage)
 8. [Dry-Run Mode (Testing)](#-dry-run-mode-testing)
-9. [Troubleshooting](#-troubleshooting)
-10. [Development](#-development)
+9. [Building & Distribution](#-building--distribution)
+10. [Troubleshooting](#-troubleshooting)
+11. [Development](#-development)
 
 ---
 
@@ -608,6 +609,111 @@ Enter token PIN: ****
 
 ---
 
+## 📦 Building & Distribution
+
+PDFSigner can be packaged in multiple formats for easy distribution.
+
+### Available Formats
+
+| Format | Description | Best For |
+|--------|-------------|----------|
+| **Flatpak** | Sandboxed app with GNOME runtime | Recommended for most users |
+| **AppImage** | Portable single-file executable | Users without root access |
+| **.deb** | Native Debian/Ubuntu package | Debian-based distributions |
+
+### Quick Build
+
+```bash
+# Build all formats
+./scripts/build-packages.sh --all
+
+# Build individual formats
+./scripts/build-packages.sh --flatpak
+./scripts/build-packages.sh --deb
+./scripts/build-packages.sh --appimage
+
+# Clean previous builds
+./scripts/build-packages.sh --clean
+```
+
+### Output
+
+```
+dist/
+├── appimage/PDFSigner-{VERSION}-x86_64.AppImage
+├── deb/pdfsigner_{VERSION}-1_all.deb
+└── flatpak/PDFSigner-{VERSION}.flatpak
+```
+
+### Flatpak (Recommended)
+
+Flatpak is the recommended distribution format because:
+- Includes GTK4/libadwaita in the runtime (no system dependencies)
+- Sandboxed with controlled permissions
+- Auto-updates via Flathub
+
+```bash
+# Build
+./scripts/build-packages.sh --flatpak
+
+# Install locally
+flatpak install --user dist/flatpak/PDFSigner-*.flatpak
+
+# Run
+flatpak run com.pdfsigner.app
+```
+
+**Requirements:** `flatpak`, `flatpak-builder`, GNOME Platform 46 runtime
+
+### AppImage
+
+Portable format that runs on most Linux distributions.
+
+```bash
+# Build
+./scripts/build-packages.sh --appimage
+
+# Run (no installation needed)
+chmod +x dist/appimage/PDFSigner-*.AppImage
+./dist/appimage/PDFSigner-*.AppImage
+```
+
+**Note:** Requires GTK4 and libadwaita installed on the host system.
+
+### Debian Package
+
+Native package for Debian, Ubuntu, Linux Mint, and derivatives.
+
+```bash
+# Build
+./scripts/build-packages.sh --deb
+
+# Install
+sudo dpkg -i dist/deb/pdfsigner_*.deb
+sudo apt install -f  # Install dependencies
+
+# Run
+pdfsigner-gui
+```
+
+**Requirements:** `debhelper`, `dh-python`, `dpkg-dev`
+
+### GitHub Releases (CI/CD)
+
+Packages are automatically built and published when a version tag is pushed:
+
+```bash
+# Create and push a version tag
+git tag v0.7.0
+git push origin v0.7.0
+
+# GitHub Actions will:
+# 1. Build all three formats in parallel
+# 2. Create a GitHub Release with all artifacts
+```
+
+---
+
 ## 🐛 Troubleshooting
 
 ### "No module named 'gi'"
@@ -769,6 +875,19 @@ MIT License - See [LICENSE](LICENSE)
 ---
 
 ## 📝 Changelog
+
+### [0.7.0] - 2026-01-14
+
+#### Added
+- **Complete packaging system** for distribution:
+  - **Flatpak** manifest with GNOME Platform 46 runtime
+  - **AppImage** builder with GTK4 availability check
+  - **Debian (.deb)** packaging with proper dependencies
+- **GitHub Actions release workflow** - Automated builds on tag push
+- **AppStream metadata** - `com.pdfsigner.app.metainfo.xml` for software centers
+- **Desktop entry** - Proper `.desktop` file with actions and MIME types
+- **Multi-resolution icons** - 16x16 to 512x512 for HiDPI support
+- **Main build script** - `scripts/build-packages.sh` with `--all`, `--flatpak`, `--deb`, `--appimage` options
 
 ### [0.6.0] - 2026-01-14
 

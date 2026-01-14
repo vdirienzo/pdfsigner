@@ -2,6 +2,7 @@
 
 > **Purpose:** This file helps Claude (or any AI assistant) understand the project context quickly.
 > **Last Updated:** 2026-01-14
+> **Version:** 0.7.0
 > **Author:** Homero Thompson del Lago del Terror
 
 ---
@@ -64,9 +65,9 @@ Auto-detected in priority order by `nss_handler.py`:
 
 ```
 pdfsigner/
-├── .github/
-│   └── workflows/
-│       └── ci.yml              # CI/CD pipeline (lint, security, test, build)
+├── .github/workflows/
+│   ├── ci.yml                  # CI/CD pipeline (lint, security, test, build)
+│   └── release.yml             # Package builds on tag push
 ├── src/pdfsigner/
 │   ├── cli/                    # CLI commands (sign.py, validate.py, etc.)
 │   ├── config/                 # Settings from ~/.config/pdfsigner/config.toml
@@ -75,17 +76,29 @@ pdfsigner/
 │   │   ├── pdf_analyzer/       # Content analysis, position finding
 │   │   ├── signer/             # PAdES signing (pdf_signer, batch_manager, lta_handler)
 │   │   ├── token/              # NSS/PKCS#11 (nss_handler, cert_selector, pin_cache)
+│   │   ├── setup/              # NSS wizard (nss_checker, nss_setup)
 │   │   └── validator/          # Signature validation
 │   ├── gui/                    # GTK4 standalone app (app.py, main_window.py)
-│   └── ui/dialogs/             # Reusable dialogs (options, pin, progress, help)
-├── tests/
-│   ├── unit/                   # Unit tests (170+ tests)
-│   └── integration/            # Integration tests (TSA, etc.)
+│   └── ui/dialogs/             # Reusable dialogs (options, pin, progress, nss_wizard)
+├── data/
+│   ├── com.pdfsigner.app.desktop    # Desktop entry
+│   ├── com.pdfsigner.app.metainfo.xml  # AppStream metadata
+│   └── icons/                  # Multi-resolution icons (16-512px)
+├── debian/                     # Debian packaging (control, rules, changelog)
+├── flatpak/
+│   └── com.pdfsigner.app.yaml  # Flatpak manifest
 ├── scripts/
+│   ├── build-packages.sh       # Main packaging script
+│   ├── appimage/               # AppImage build scripts
+│   ├── debian/                 # Debian build script
+│   ├── flatpak/                # Flatpak build script
 │   ├── install.sh              # Multi-distro installer
 │   └── uninstall.sh            # Uninstaller
+├── tests/
+│   ├── unit/                   # Unit tests (289+ tests)
+│   └── integration/            # Integration tests (TSA, etc.)
 ├── config/                     # Example config files
-├── .pre-commit-config.yaml     # Pre-commit hooks (ruff, mypy, bandit)
+├── .pre-commit-config.yaml     # Pre-commit hooks
 ├── CONTRIBUTING.md             # Contribution guidelines
 ├── LICENSE                     # MIT License
 └── README.md
@@ -274,7 +287,59 @@ GitHub Actions runs on push/PR to `main` and `dev`:
 
 ---
 
-## Recent Changes (v0.6.0)
+## Packaging & Distribution
+
+### Build Packages
+
+```bash
+# Build all formats
+./scripts/build-packages.sh --all
+
+# Individual formats
+./scripts/build-packages.sh --flatpak   # Recommended
+./scripts/build-packages.sh --deb
+./scripts/build-packages.sh --appimage
+```
+
+### Output
+
+```
+dist/
+├── appimage/PDFSigner-{VERSION}-x86_64.AppImage
+├── deb/pdfsigner_{VERSION}-1_all.deb
+└── flatpak/PDFSigner-{VERSION}.flatpak
+```
+
+### CI/CD Releases
+
+Push a version tag to trigger automated builds:
+```bash
+git tag v0.7.0
+git push origin v0.7.0
+# GitHub Actions builds all formats and creates release
+```
+
+### Key Packaging Files
+
+| File | Purpose |
+|------|---------|
+| `scripts/build-packages.sh` | Main build script |
+| `flatpak/com.pdfsigner.app.yaml` | Flatpak manifest (GNOME Platform 46) |
+| `debian/control` | Debian dependencies |
+| `debian/rules` | Debian build rules |
+| `data/com.pdfsigner.app.metainfo.xml` | AppStream metadata |
+| `.github/workflows/release.yml` | CI/CD release workflow |
+
+---
+
+## Recent Changes (v0.7.0)
+
+- **Complete packaging system** - AppImage, .deb, Flatpak
+- **GitHub Actions release workflow** - Automated builds on tag push
+- **AppStream metadata** - For software centers
+- **Multi-resolution icons** - 16x16 to 512x512
+
+### Previous (v0.6.0)
 
 - **289 tests** - 79 new tests for signer module
 - **92% coverage** on core/signer/ module (was 84%)

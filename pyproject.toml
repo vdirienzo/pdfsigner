@@ -1,9 +1,9 @@
 [project]
 name = "pdfsigner"
-version = "0.1.0"
+version = "0.7.0"
 description = "Digital PDF signing application with SafeNet 5110 USB token"
 readme = "README.md"
-requires-python = ">=3.12"
+requires-python = ">=3.11"
 authors = [
     { name = "Homero Thompson del Lago del Terror" }
 ]
@@ -40,7 +40,7 @@ build-backend = "hatchling.build"
 packages = ["src/pdfsigner"]
 
 [tool.ruff]
-target-version = "py312"
+target-version = "py311"
 line-length = 100
 
 [tool.ruff.lint]
@@ -58,7 +58,7 @@ testpaths = ["tests"]
 pythonpath = ["src"]
 
 [tool.mypy]
-python_version = "3.12"
+python_version = "3.11"
 warn_return_any = false  # Demasiados falsos positivos con PyGObject
 warn_unused_ignores = true
 # Ignorar errores en módulos externos sin stubs
