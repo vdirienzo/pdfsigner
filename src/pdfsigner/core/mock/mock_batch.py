@@ -1,143 +1,18 @@
 """
-mock_handlers.py - Mock handlers for dry-run mode
+mock_batch.py - Mock batch signing manager for dry-run mode
 
 Author: Homero Thompson del Lago del Terror
 
-Simulates token and signing behavior without real hardware.
-Useful for testing and demonstration.
+Simulates batch signing with visual stamp simulation.
 """
 
-import shutil
 import time
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import datetime
 from pathlib import Path
 
+import fitz  # PyMuPDF
 from loguru import logger
-
-
-@dataclass
-class MockCertificateInfo:
-    """Simulated certificate information."""
-
-    subject: str
-    issuer: str
-    serial_number: str
-    not_before: datetime
-    not_after: datetime
-    pkcs11_id: bytes = b"MOCK_CERT_ID"
-
-
-@dataclass
-class MockCertificate:
-    """Simulated certificate for dry-run."""
-
-    info: MockCertificateInfo
-    display_name: str
-    days_until_expiry: int
-    is_expiring_soon: bool = False
-
-
-def create_mock_certificate(name: str = "Test User") -> MockCertificate:
-    """
-    Creates a mock certificate for testing.
-
-    Args:
-        name: Name of the certificate holder
-
-    Returns:
-        Simulated certificate
-    """
-    now = datetime.now()
-    info = MockCertificateInfo(
-        subject=f"CN={name}, O=Test Organization, C=AR",
-        issuer="CN=Test CA, O=Certificate Authority, C=AR",
-        serial_number="1234567890ABCDEF",
-        not_before=now - timedelta(days=365),
-        not_after=now + timedelta(days=365),
-    )
-
-    return MockCertificate(
-        info=info,
-        display_name=name,
-        days_until_expiry=365,
-        is_expiring_soon=False,
-    )
-
-
-class MockNSSHandler:
-    """
-    Mock NSS handler for dry-run mode.
-
-    Simulates all token operations without real hardware.
-    """
-
-    def __init__(self):
-        """Initializes the mock handler."""
-        self._initialized = False
-        self._authenticated = False
-        self._connected = False
-        logger.info("[DRY-RUN] MockNSSHandler created")
-
-    def initialize(self) -> None:
-        """Simulates NSS initialization."""
-        logger.info("[DRY-RUN] Initializing NSS (simulated)...")
-        time.sleep(0.2)  # Simulate latency
-        self._initialized = True
-        logger.info("[DRY-RUN] NSS initialized successfully")
-
-    def get_available_tokens(self) -> list[str]:
-        """Returns simulated tokens."""
-        if not self._initialized:
-            return []
-        return ["SafeNet 5110 (SIMULATED)"]
-
-    def connect_token(self) -> None:
-        """Simulates token connection."""
-        logger.info("[DRY-RUN] Connecting to simulated token...")
-        time.sleep(0.3)
-        self._connected = True
-        logger.info("[DRY-RUN] Token connected")
-
-    def authenticate(self, pin: str) -> None:
-        """
-        Simulates PIN authentication.
-
-        Accepts any PIN with 4+ digits.
-        """
-        logger.info("[DRY-RUN] Authenticating with PIN...")
-        time.sleep(0.5)  # Simulate verification
-
-        if len(pin) < 4:
-            raise ValueError("[DRY-RUN] PIN must be at least 4 digits")
-
-        self._authenticated = True
-        logger.info("[DRY-RUN] Authentication successful")
-
-    def login(self, pin: str) -> None:
-        """Alias for authenticate."""
-        self.authenticate(pin)
-
-    def is_authenticated(self) -> bool:
-        """Checks if authenticated."""
-        return self._authenticated
-
-    def get_certificates(self) -> list[MockCertificate]:
-        """Returns simulated certificates."""
-        if not self._authenticated:
-            return []
-
-        return [
-            create_mock_certificate("Juan Pérez (TEST)"),
-            create_mock_certificate("María García (TEST)"),
-        ]
-
-    def close(self) -> None:
-        """Closes the simulated connection."""
-        logger.info("[DRY-RUN] Closing token connection...")
-        self._authenticated = False
-        self._connected = False
-        self._initialized = False
 
 
 @dataclass
@@ -175,12 +50,95 @@ class MockBatchResult:
         return list(self.errors.items())
 
 
+def _parse_page_spec(page_spec: str | int, total_pages: int) -> list[int]:
+    """
+    Parses page specification into list of page numbers.
+
+    Args:
+        page_spec: Page specification ("last", "all", int, or "1,2,3")
+        total_pages: Total number of pages in document
+
+    Returns:
+        List of 0-indexed page numbers
+    """
+    if isinstance(page_spec, int):
+        return [min(page_spec, total_pages - 1)]
+
+    if page_spec == "last":
+        return [total_pages - 1]
+
+    if page_spec == "all":
+        return list(range(total_pages))
+
+    # Parse comma-separated list
+    try:
+        pages = [int(p.strip()) - 1 for p in str(page_spec).split(",")]
+        return [p for p in pages if 0 <= p < total_pages]
+    except ValueError:
+        logger.warning(f"[DRY-RUN] Invalid page spec: {page_spec}, using last page")
+        return [total_pages - 1]
+
+
+def _add_stamp_to_pdf(
+    input_path: Path,
+    output_path: Path,
+    page_spec: str | int = "last",
+    visible: bool = True,
+) -> None:
+    """
+    Adds visual stamp to PDF in dry-run mode.
+
+    Args:
+        input_path: Input PDF path
+        output_path: Output PDF path
+        page_spec: Page specification
+        visible: Whether to add visible stamp
+    """
+    if not visible:
+        # Just copy if no visible signature
+        import shutil
+
+        shutil.copy2(input_path, output_path)
+        logger.info("[DRY-RUN] Invisible signature - copied without stamp")
+        return
+
+    doc = fitz.open(input_path)
+    stamp_text = f"SIGNATURE (SIMULATED)\n{datetime.now().strftime('%Y-%m-%d %H:%M')}"
+
+    pages_to_stamp = _parse_page_spec(page_spec, len(doc))
+
+    for page_num in pages_to_stamp:
+        if page_num < len(doc):
+            page = doc[page_num]
+            # Add stamp rectangle at bottom right
+            rect = fitz.Rect(
+                page.rect.width - 150,
+                page.rect.height - 60,
+                page.rect.width - 10,
+                page.rect.height - 10,
+            )
+            # Draw blue border
+            page.draw_rect(rect, color=(0, 0, 0.5), width=1)
+            # Insert text
+            page.insert_textbox(
+                rect,
+                stamp_text,
+                fontsize=8,
+                align=fitz.TEXT_ALIGN_CENTER,
+                color=(0, 0, 0.5),
+            )
+
+    doc.save(output_path)
+    doc.close()
+    logger.info(f"[DRY-RUN] Added visual stamp to {len(pages_to_stamp)} page(s): {pages_to_stamp}")
+
+
 class MockBatchManager:
     """
     Simulated batch signing manager.
 
-    Simulates the signing process by copying files
-    with _signed suffix without modifying content.
+    Simulates the signing process by adding visual stamps
+    to PDFs when visible=True, or just copying them when visible=False.
     """
 
     def __init__(self, nss_handler=None, lta_handler=None):
@@ -203,7 +161,7 @@ class MockBatchManager:
         """
         Simulates batch file signing.
 
-        Copies each PDF with _signed suffix simulating the process.
+        Adds visual stamps to PDFs when visible=True, simulating real signatures.
 
         Args:
             files: List of files (alias)
@@ -230,6 +188,8 @@ class MockBatchManager:
         errors = {}
 
         logger.info(f"[DRY-RUN] Simulating signing of {total} file(s)...")
+        if visible:
+            logger.info(f"[DRY-RUN] Visible signatures on page: {page}")
 
         for i, pdf_path in enumerate(file_list):
             current_file = str(pdf_path)
@@ -249,9 +209,9 @@ class MockBatchManager:
             time.sleep(0.5)
 
             try:
-                # Create "signed" file (copy with suffix)
+                # Create "signed" file with stamp
                 output_path = pdf_path.parent / f"{pdf_path.stem}_signed{pdf_path.suffix}"
-                shutil.copy2(pdf_path, output_path)
+                _add_stamp_to_pdf(pdf_path, output_path, page_spec=page, visible=visible)
 
                 logger.info(f"[DRY-RUN] Signed: {pdf_path.name} → {output_path.name}")
                 successful += 1
@@ -268,7 +228,7 @@ class MockBatchManager:
                     progress_callback(progress)
 
             except Exception as e:
-                logger.error(f"[DRY-RUN] Error copying {pdf_path}: {e}")
+                logger.error(f"[DRY-RUN] Error processing {pdf_path}: {e}")
                 failed += 1
                 errors[pdf_path] = str(e)
 

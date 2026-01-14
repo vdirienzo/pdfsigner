@@ -13,9 +13,14 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gio, GLib, Gtk
+from gi.repository import Adw, Gtk
 
 from pdfsigner.config.settings import get_settings, reload_settings
+from pdfsigner.gui.settings_pages import (
+    create_advanced_page,
+    create_general_page,
+    create_signature_page,
+)
 
 
 class SettingsDialog(Adw.PreferencesWindow):
@@ -38,262 +43,15 @@ class SettingsDialog(Adw.PreferencesWindow):
 
         self.settings = get_settings()
 
-        self._create_general_page()
-        self._create_signature_page()
-        self._create_advanced_page()
+        # Create pages using extracted modules
+        general_page = create_general_page(self.settings, self)
+        self.add(general_page)
 
-    def _create_general_page(self) -> None:
-        """Creates the general settings page."""
-        page = Adw.PreferencesPage()
-        page.set_title("General")
-        page.set_icon_name("preferences-system-symbolic")
+        signature_page = create_signature_page(self.settings, self)
+        self.add(signature_page)
 
-        # Grupo: NSS/Token
-        nss_group = Adw.PreferencesGroup()
-        nss_group.set_title("USB Token")
-        nss_group.set_description("NSS database configuration")
-
-        # NSS Path - ActionRow with entry and browse button
-        self.nss_path_row = Adw.ActionRow()
-        self.nss_path_row.set_title("NSS Database Path")
-        self.nss_path_row.set_subtitle("Path to NSS database directory")
-
-        # Entry for typing path
-        self.nss_path_entry = Gtk.Entry()
-        self.nss_path_entry.set_text(str(self.settings.nss_db_path))
-        self.nss_path_entry.set_hexpand(True)
-        self.nss_path_entry.set_valign(Gtk.Align.CENTER)
-        self.nss_path_row.add_suffix(self.nss_path_entry)
-
-        # Browse button
-        browse_button = Gtk.Button()
-        browse_button.set_icon_name("folder-open-symbolic")
-        browse_button.set_valign(Gtk.Align.CENTER)
-        browse_button.set_tooltip_text("Browse for NSS database folder")
-        browse_button.connect("clicked", self._on_browse_nss_clicked)
-        self.nss_path_row.add_suffix(browse_button)
-
-        nss_group.add(self.nss_path_row)
-
-        page.add(nss_group)
-
-        # Grupo: TSA
-        tsa_group = Adw.PreferencesGroup()
-        tsa_group.set_title("Timestamp Server (TSA)")
-        tsa_group.set_description("Timestamp source for signatures")
-
-        # TSA presets (moved before URL for better UX)
-        presets_row = Adw.ComboRow()
-        presets_row.set_title("Timestamp source")
-        presets_row.set_subtitle("Local time or external TSA server")
-
-        presets = Gtk.StringList.new(
-            [
-                "Local time (no TSA)",
-                "FreeTSA (freetsa.org)",
-                "DigiCert",
-                "Sectigo",
-                "GlobalSign",
-                "Custom URL",
-            ]
-        )
-        presets_row.set_model(presets)
-
-        # Set default based on current TSA URL
-        if not self.settings.tsa_url:
-            presets_row.set_selected(0)  # Local time
-        else:
-            presets_row.set_selected(5)  # Custom
-
-        presets_row.connect("notify::selected", self._on_tsa_preset_selected)
-        tsa_group.add(presets_row)
-        self.tsa_presets_row = presets_row
-
-        # TSA URL (only visible when Custom is selected)
-        self.tsa_url_row = Adw.EntryRow()
-        self.tsa_url_row.set_title("TSA URL")
-        self.tsa_url_row.set_text(self.settings.tsa_url or "")
-        self.tsa_url_row.set_show_apply_button(True)
-        self.tsa_url_row.connect("apply", self._on_setting_changed)
-        tsa_group.add(self.tsa_url_row)
-
-        # Credenciales TSA
-        self.tsa_user_row = Adw.EntryRow()
-        self.tsa_user_row.set_title("TSA Username (optional)")
-        self.tsa_user_row.set_text(self.settings.tsa_username or "")
-        self.tsa_user_row.set_show_apply_button(True)
-        tsa_group.add(self.tsa_user_row)
-
-        self.tsa_pass_row = Adw.PasswordEntryRow()
-        self.tsa_pass_row.set_title("TSA Password (optional)")
-        self.tsa_pass_row.set_text(self.settings.tsa_password or "")
-        self.tsa_pass_row.set_show_apply_button(True)
-        tsa_group.add(self.tsa_pass_row)
-
-        page.add(tsa_group)
-        self.add(page)
-
-    def _create_signature_page(self) -> None:
-        """Creates the visible signature settings page."""
-        page = Adw.PreferencesPage()
-        page.set_title("Visible Signature")
-        page.set_icon_name("edit-symbolic")
-
-        # Grupo: Apariencia
-        appearance_group = Adw.PreferencesGroup()
-        appearance_group.set_title("Appearance")
-
-        # Firma visible por defecto
-        self.visible_switch = Adw.SwitchRow()
-        self.visible_switch.set_title("Visible signature by default")
-        self.visible_switch.set_subtitle("Show signature stamp on document")
-        self.visible_switch.set_active(self.settings.default_visible)
-        appearance_group.add(self.visible_switch)
-
-        # Página por defecto
-        self.page_combo = Adw.ComboRow()
-        self.page_combo.set_title("Default page")
-        pages = Gtk.StringList.new(["Last page", "First page"])
-        self.page_combo.set_model(pages)
-        self.page_combo.set_selected(0 if self.settings.default_page == "last" else 1)
-        appearance_group.add(self.page_combo)
-
-        page.add(appearance_group)
-
-        # Grupo: Dimensiones
-        dimensions_group = Adw.PreferencesGroup()
-        dimensions_group.set_title("Stamp dimensions")
-
-        # Ancho
-        self.width_spin = Adw.SpinRow.new_with_range(20, 100, 5)
-        self.width_spin.set_title("Width (mm)")
-        self.width_spin.set_value(self.settings.signature_width_mm)
-        dimensions_group.add(self.width_spin)
-
-        # Alto
-        self.height_spin = Adw.SpinRow.new_with_range(10, 50, 5)
-        self.height_spin.set_title("Height (mm)")
-        self.height_spin.set_value(self.settings.signature_height_mm)
-        dimensions_group.add(self.height_spin)
-
-        page.add(dimensions_group)
-
-        # Grupo: Output
-        output_group = Adw.PreferencesGroup()
-        output_group.set_title("Output files")
-
-        # Sufijo
-        self.suffix_row = Adw.EntryRow()
-        self.suffix_row.set_title("Suffix for signed files")
-        self.suffix_row.set_text(self.settings.output_suffix)
-        self.suffix_row.set_show_apply_button(True)
-        output_group.add(self.suffix_row)
-
-        page.add(output_group)
-        self.add(page)
-
-    def _create_advanced_page(self) -> None:
-        """Creates the advanced settings page."""
-        page = Adw.PreferencesPage()
-        page.set_title("Advanced")
-        page.set_icon_name("applications-system-symbolic")
-
-        # Grupo: PIN Cache
-        pin_group = Adw.PreferencesGroup()
-        pin_group.set_title("PIN Cache")
-        pin_group.set_description("Cache PIN during batch signing")
-
-        # Habilitar cache
-        self.pin_cache_switch = Adw.SwitchRow()
-        self.pin_cache_switch.set_title("Enable PIN cache")
-        self.pin_cache_switch.set_subtitle("More convenient but less secure")
-        self.pin_cache_switch.set_active(self.settings.pin_cache_enabled)
-        pin_group.add(self.pin_cache_switch)
-
-        # Timeout
-        self.pin_timeout_spin = Adw.SpinRow.new_with_range(60, 3600, 60)
-        self.pin_timeout_spin.set_title("Timeout (seconds)")
-        self.pin_timeout_spin.set_value(self.settings.pin_cache_timeout_seconds)
-        pin_group.add(self.pin_timeout_spin)
-
-        page.add(pin_group)
-
-        # Grupo: Logging
-        log_group = Adw.PreferencesGroup()
-        log_group.set_title("Logging")
-
-        # Nivel de log
-        self.log_level_combo = Adw.ComboRow()
-        self.log_level_combo.set_title("Log level")
-        levels = Gtk.StringList.new(["DEBUG", "INFO", "WARNING", "ERROR"])
-        self.log_level_combo.set_model(levels)
-
-        level_index = {"DEBUG": 0, "INFO": 1, "WARNING": 2, "ERROR": 3}
-        self.log_level_combo.set_selected(level_index.get(self.settings.log_level, 1))
-        log_group.add(self.log_level_combo)
-
-        page.add(log_group)
-
-        # Grupo: Acciones
-        actions_group = Adw.PreferencesGroup()
-
-        # Botón guardar
-        save_button = Gtk.Button(label="Save settings")
-        save_button.add_css_class("suggested-action")
-        save_button.connect("clicked", self._on_save_clicked)
-        actions_group.add(save_button)
-
-        page.add(actions_group)
-        self.add(page)
-
-    def _on_browse_nss_clicked(self, button: Gtk.Button) -> None:
-        """Opens file dialog to select NSS database folder."""
-        dialog = Gtk.FileDialog()
-        dialog.set_title("Select NSS Database Folder")
-
-        # Start from current path if valid
-        current_path = Path(self.nss_path_entry.get_text())
-        if current_path.exists():
-            dialog.set_initial_folder(Gio.File.new_for_path(str(current_path)))
-
-        dialog.select_folder(self, None, self._on_folder_selected)
-
-    def _on_folder_selected(self, dialog: Gtk.FileDialog, result) -> None:
-        """Handles folder selection result."""
-        try:
-            folder = dialog.select_folder_finish(result)
-            if folder:
-                self.nss_path_entry.set_text(folder.get_path())
-        except GLib.Error:
-            pass  # User cancelled
-
-    def _on_tsa_preset_selected(self, combo, param) -> None:
-        """Handles timestamp source selection."""
-        presets = {
-            0: "",  # Local time (no TSA)
-            1: "https://freetsa.org/tsr",
-            2: "http://timestamp.digicert.com",
-            3: "http://timestamp.sectigo.com",
-            4: "http://timestamp.globalsign.com/tsa/r6advanced1",
-            5: "",  # Custom URL - keep current
-        }
-
-        selected = combo.get_selected()
-
-        if selected == 0:
-            # Local time - clear URL
-            self.tsa_url_row.set_text("")
-        elif selected == 5:
-            # Custom - don't change URL, user will type it
-            pass
-        else:
-            # Preset TSA
-            url = presets.get(selected, "")
-            self.tsa_url_row.set_text(url)
-
-    def _on_setting_changed(self, row) -> None:
-        """Handles change in a setting."""
-        pass  # Se guarda al presionar "Guardar"
+        advanced_page = create_advanced_page(self.settings, self, self._on_save_clicked)
+        self.add(advanced_page)
 
     def _on_save_clicked(self, button: Gtk.Button) -> None:
         """Saves the settings."""
