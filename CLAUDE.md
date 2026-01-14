@@ -373,7 +373,13 @@ git push origin v0.8.3
 
 ---
 
-## Recent Changes (v0.8.7)
+## Recent Changes (v0.8.8)
+
+- **Fixed first-run settings validation** - NSS path existence no longer validated at settings load
+  - Allows app to start cleanly on first run (before NSS wizard creates the database)
+  - Existence check moved to runtime (NSSChecker)
+
+### Previous (v0.8.7)
 
 - **NSS wizard window height** - Increased from 400px to 480px for better button visibility
 

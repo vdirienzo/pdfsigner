@@ -1,3 +1,10 @@
+pdfsigner (0.8.8-1) unstable; urgency=medium
+
+  * Fixed settings validation to allow first-run without NSS database
+  * NSS path existence now checked at runtime, not at settings load
+
+ -- Homero Thompson del Lago del Terror <noreply@example.com>  Tue, 14 Jan 2026 20:30:00 +0000
+
 pdfsigner (0.8.7-1) unstable; urgency=medium
 
   * Increased NSS setup wizard window height for better button visibility

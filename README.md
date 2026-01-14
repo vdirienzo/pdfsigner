@@ -928,6 +928,13 @@ MIT License - See [LICENSE](LICENSE)
 
 ## 📝 Changelog
 
+### [0.8.8] - 2026-01-14
+
+#### Fixed
+- **First-run experience** - Settings validation no longer requires NSS database to exist
+  - App starts cleanly on first run before wizard creates NSS database
+  - Existence check moved to runtime (NSSChecker)
+
 ### [0.8.7] - 2026-01-14
 
 #### Fixed

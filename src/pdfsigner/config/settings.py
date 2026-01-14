@@ -155,9 +155,9 @@ class Settings(BaseSettings):
     @field_validator("nss_db_path")
     @classmethod
     def validate_nss_path(cls, v: Path) -> Path:
-        """Validate that NSS path exists."""
-        if not v.exists():
-            raise ValueError(f"NSS directory does not exist: {v}")
+        """Validate NSS path format (existence checked at runtime by NSSChecker)."""
+        # Don't validate existence here - NSS may not exist on first run
+        # The NSSSetupWizard handles creating it
         return v
 
     @field_validator("signature_image_path")
