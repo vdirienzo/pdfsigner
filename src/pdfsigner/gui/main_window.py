@@ -13,6 +13,8 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
+from datetime import UTC
+
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
 from pdfsigner.gui.file_list_widget import FileListWidget
@@ -74,6 +76,10 @@ class MainWindow(Adw.ApplicationWindow):
 
         # Central area
         content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
+
+        # Certificate health banner
+        self.cert_banner = self._create_cert_banner()
+        content_box.append(self.cert_banner)
 
         # File list widget
         self.file_list = FileListWidget()
@@ -250,3 +256,91 @@ class MainWindow(Adw.ApplicationWindow):
         toast = Adw.Toast(title=message)
         toast.set_timeout(3)
         self.toast_overlay.add_toast(toast)
+
+    def _create_cert_banner(self):
+        """Creates the certificate health banner widget."""
+        from pdfsigner.gui.widgets.cert_health_banner import CertHealthBanner
+
+        banner = CertHealthBanner()
+        # Load certificate data in background
+        GLib.idle_add(self._load_certificate_health)
+        return banner
+
+    def _load_certificate_health(self) -> bool:
+        """Load certificate health data from NSS."""
+        from pdfsigner.config.settings import settings
+        from pdfsigner.core.certificate.health_status import CertificateHealth
+
+        try:
+            # Check if we're in dry-run mode
+            if settings.dry_run:
+                self._load_mock_certificate()
+                return False
+
+            # Try to load real certificate
+            from pdfsigner.core.setup import NSSChecker
+
+            checker = NSSChecker()
+            if not checker.is_configured():
+                self.cert_banner.set_health(None)
+                return False
+
+            # Get certificates from NSS
+            from pdfsigner.core.token.cert_selector import CertificateSelector
+            from pdfsigner.core.token.nss_handler import NSSHandler
+
+            nss = NSSHandler()
+            selector = CertificateSelector(nss)
+            certs = selector.get_valid_certificates()
+
+            if not certs:
+                self.cert_banner.set_health(None)
+                return False
+
+            # Use the first valid certificate
+            cert = certs[0]
+            health = CertificateHealth(
+                subject_cn=cert.display_name,
+                issuer_cn=self._extract_cn(cert.info.issuer),
+                not_before=cert.info.not_before,
+                not_after=cert.info.not_after,
+                serial_number=cert.info.serial_number,
+            )
+            self.cert_banner.set_health(health)
+
+        except Exception as e:
+            from loguru import logger
+
+            logger.debug(f"Could not load certificate health: {e}")
+            self.cert_banner.set_health(None)
+
+        return False  # Don't repeat
+
+    def _load_mock_certificate(self) -> None:
+        """Load mock certificate data for dry-run mode."""
+        from datetime import datetime, timedelta
+
+        from pdfsigner.core.certificate.health_status import CertificateHealth
+
+        # Create a mock certificate that expires in 45 days
+        now = datetime.now(UTC)
+        health = CertificateHealth(
+            subject_cn="Demo User (Dry Run)",
+            issuer_cn="Demo Certificate Authority",
+            not_before=now - timedelta(days=320),
+            not_after=now + timedelta(days=45),
+            serial_number="DEMO-12345",
+        )
+        self.cert_banner.set_health(health)
+
+    def _extract_cn(self, subject: str) -> str:
+        """Extract Common Name from certificate subject."""
+        for part in subject.split(","):
+            part = part.strip()
+            if part.startswith("CN="):
+                return part[3:]
+        return subject
+
+    def refresh_certificate_status(self) -> None:
+        """Refresh certificate health status."""
+        GLib.idle_add(self._load_certificate_health)

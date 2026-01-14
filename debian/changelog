@@ -1,3 +1,13 @@
+pdfsigner (0.8.9-1) unstable; urgency=medium
+
+  * Certificate Health Dashboard (GitHub Issue #6)
+  * Color-coded banner showing certificate expiry status
+  * Health levels: OK, WARNING, ALERT, CRITICAL, EXPIRED
+  * 41 new tests for health status module
+  * Total tests: 393
+
+ -- Homero Thompson del Lago del Terror <noreply@example.com>  Tue, 14 Jan 2026 21:00:00 +0000
+
 pdfsigner (0.8.8-1) unstable; urgency=medium
 
   * Fixed settings validation to allow first-run without NSS database

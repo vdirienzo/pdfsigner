@@ -55,6 +55,17 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="0.8.9" date="2026-01-14">
+      <description>
+        <p>Certificate Health Dashboard (GitHub Issue #6):</p>
+        <ul>
+          <li>Color-coded banner showing certificate expiry status</li>
+          <li>Health levels: OK, WARNING, ALERT, CRITICAL, EXPIRED</li>
+          <li>Shows subject, issuer, expiry date, and progress bar</li>
+          <li>41 new tests, total now 393</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.8.8" date="2026-01-14">
       <description>
         <p>First-run experience fix:</p>

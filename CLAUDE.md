@@ -2,7 +2,7 @@
 
 > **Purpose:** This file helps Claude (or any AI assistant) understand the project context quickly.
 > **Last Updated:** 2026-01-14
-> **Version:** 0.8.4
+> **Version:** 0.8.9
 > **Author:** Homero Thompson del Lago del Terror
 
 ---
@@ -19,6 +19,7 @@
 - Visible signature with smart positioning
 - **QR verification code** - Optional QR in visible signatures (hash, signer, timestamp)
 - **Signature viewer** - Display existing signatures when adding files (signer, timestamp, validity)
+- **Certificate health dashboard** - Color-coded banner showing certificate expiry status (Issue #6)
 - Batch signing with PIN cache
 - **Multi-token PKCS#11 support**
 
@@ -39,7 +40,7 @@
 | Linting | Ruff |
 | Type Check | mypy |
 | Security | Bandit, Safety |
-| Testing | pytest (360 tests) |
+| Testing | pytest (393 tests) |
 
 ---
 
@@ -196,7 +197,7 @@ uv run pytest tests/unit/test_position_finder.py -v
 ```
 
 ### Current Coverage
-- **360 tests passing** (including 39 GUI tests)
+- **393 tests passing** (including 39 GUI tests)
 - **~45% overall coverage**
 - Key modules:
   - signer/ module: **92%** (lta_handler 100%, signature_field 97%, batch_manager 97%)
@@ -373,7 +374,17 @@ git push origin v0.8.3
 
 ---
 
-## Recent Changes (v0.8.8)
+## Recent Changes (v0.8.9)
+
+- **Certificate Health Dashboard** - GitHub Issue #6 implemented
+  - Color-coded banner in main window showing certificate expiry status
+  - Health levels: OK (>60 days), WARNING (31-60), ALERT (8-30), CRITICAL (1-7), EXPIRED (≤0)
+  - Shows: status icon, subject CN, issuer CN, expiry date, days remaining, progress bar
+  - New modules: `core/certificate/health_status.py`, `gui/widgets/cert_health_banner.py`
+  - 41 new tests for health status logic
+- **Total tests: 393** (was 360)
+
+### Previous (v0.8.8)
 
 - **Fixed first-run settings validation** - NSS path existence no longer validated at settings load
   - Allows app to start cleanly on first run (before NSS wizard creates the database)

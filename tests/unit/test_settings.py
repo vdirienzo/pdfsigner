@@ -19,7 +19,7 @@ class TestSettings:
 
         settings = Settings(nss_db_path=nss_dir)
 
-        assert settings.tsa_url == "https://freetsa.org/tsr"
+        assert settings.tsa_url == ""  # Empty by default, user must configure
         assert settings.output_suffix == "_signed"
         assert settings.default_visible is False
         assert settings.pin_cache_enabled is True
