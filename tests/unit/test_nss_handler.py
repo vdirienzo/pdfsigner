@@ -262,13 +262,19 @@ class TestNSSHandlerLibraryPaths:
 
     def test_nss_lib_paths_defined(self):
         """Test NSS library paths are defined."""
-        assert len(NSSHandler.NSS_LIB_PATHS) > 0
+        from pdfsigner.core.token.pkcs11_libs import NSS_LIB_PATHS
+
+        assert len(NSS_LIB_PATHS) > 0
 
     def test_safenet_lib_paths_defined(self):
         """Test SafeNet library paths are defined."""
-        assert len(NSSHandler.SAFENET_LIB_PATHS) > 0
+        from pdfsigner.core.token.pkcs11_libs import SAFENET_LIB_PATHS
+
+        assert len(SAFENET_LIB_PATHS) > 0
 
     def test_all_paths_are_absolute(self):
         """Test all library paths are absolute."""
-        for path in NSSHandler.NSS_LIB_PATHS + NSSHandler.SAFENET_LIB_PATHS:
+        from pdfsigner.core.token.pkcs11_libs import NSS_LIB_PATHS, SAFENET_LIB_PATHS
+
+        for path in NSS_LIB_PATHS + SAFENET_LIB_PATHS:
             assert path.startswith("/")
