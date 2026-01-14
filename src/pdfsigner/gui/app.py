@@ -186,3 +186,7 @@ def run_gui() -> int:
     Adw.init()
     app = PDFSignerApp()
     return app.run(sys.argv)
+
+
+if __name__ == "__main__":
+    sys.exit(run_gui())

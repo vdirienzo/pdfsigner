@@ -35,8 +35,8 @@ test*.pdf
 .DS_Store
 Thumbs.db
 
-# Local main.py (for quick testing)
-main.py
+# Local main.py (for quick testing) - only in project root
+/main.py
 
 # Debian build artifacts
 debian/.debhelper/
