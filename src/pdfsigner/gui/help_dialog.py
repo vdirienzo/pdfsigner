@@ -88,127 +88,127 @@ class HelpDialog(Adw.Window):
     def _create_intro_section(self) -> Gtk.Box:
         """Creates the introduction section."""
         return self._create_section(
-            "¿Qué es PDFSigner?",
-            "PDFSigner es una aplicación para firmar digitalmente documentos PDF "
-            "utilizando un token USB criptográfico (como SafeNet 5110).\n\n"
-            "Las firmas digitales garantizan:\n"
-            "• Autenticidad: Confirma quién firmó el documento\n"
-            "• Integridad: Detecta si el documento fue modificado\n"
-            "• No repudio: El firmante no puede negar haber firmado",
+            "What is PDFSigner?",
+            "PDFSigner is an application for digitally signing PDF documents "
+            "using a cryptographic USB token (such as SafeNet 5110).\n\n"
+            "Digital signatures guarantee:\n"
+            "• Authenticity: Confirms who signed the document\n"
+            "• Integrity: Detects if the document was modified\n"
+            "• Non-repudiation: The signer cannot deny having signed",
         )
 
     def _create_requirements_section(self) -> Gtk.Box:
         """Creates the requirements section."""
         return self._create_section(
-            "Requisitos",
-            "Para firmar documentos necesitas:\n\n"
-            "1. Token USB criptográfico\n"
-            "   - SafeNet 5110 u otro token compatible\n"
-            "   - Debe estar conectado al equipo\n\n"
-            "2. Certificado digital\n"
-            "   - Instalado en el token\n"
-            "   - Emitido por una autoridad certificante válida\n\n"
-            "3. PIN del token\n"
-            "   - Código secreto para acceder al token\n"
-            "   - ¡No lo compartas con nadie!\n\n"
-            "4. Base de datos NSS configurada\n"
-            "   - Generalmente en ~/.nss\n"
-            "   - Se configura en Preferencias",
+            "Requirements",
+            "To sign documents you need:\n\n"
+            "1. Cryptographic USB Token\n"
+            "   - SafeNet 5110 or other compatible token\n"
+            "   - Must be connected to the computer\n\n"
+            "2. Digital Certificate\n"
+            "   - Installed on the token\n"
+            "   - Issued by a valid certificate authority\n\n"
+            "3. Token PIN\n"
+            "   - Secret code to access the token\n"
+            "   - Never share it with anyone!\n\n"
+            "4. NSS Database configured\n"
+            "   - Usually at ~/.nss\n"
+            "   - Configure in Preferences",
         )
 
     def _create_howto_section(self) -> Gtk.Box:
         """Creates the how-to section."""
         return self._create_section(
-            "¿Cómo firmar un documento?",
-            "Paso 1: Agregar archivos\n"
-            "   - Arrastra PDFs a la ventana, o\n"
-            "   - Usa el botón '+' para seleccionar archivos\n\n"
-            "Paso 2: Configurar opciones\n"
-            "   - Click en 'Sign' (Firmar)\n"
-            "   - Elige si quieres firma visible o invisible\n"
-            "   - Si es visible, selecciona página y posición\n\n"
-            "Paso 3: Ingresar PIN\n"
-            "   - Ingresa el PIN de tu token\n"
-            "   - El PIN se usa solo para esta sesión\n\n"
-            "Paso 4: ¡Listo!\n"
-            "   - Se crea un nuevo archivo: documento_firmado.pdf\n"
-            "   - El original no se modifica",
+            "How to sign a document?",
+            "Step 1: Add files\n"
+            "   - Drag PDFs to the window, or\n"
+            "   - Use the '+' button to select files\n\n"
+            "Step 2: Configure options\n"
+            "   - Click on 'Sign'\n"
+            "   - Choose visible or invisible signature\n"
+            "   - If visible, select page and position\n\n"
+            "Step 3: Enter PIN\n"
+            "   - Enter your token PIN\n"
+            "   - The PIN is used only for this session\n\n"
+            "Step 4: Done!\n"
+            "   - A new file is created: document_signed.pdf\n"
+            "   - The original is not modified",
         )
 
     def _create_options_section(self) -> Gtk.Box:
         """Creates the options explanation section."""
         return self._create_section(
-            "Opciones de firma",
-            "Firma visible vs invisible:\n\n"
-            "• Firma VISIBLE:\n"
-            "  - Muestra un sello/estampa en el documento\n"
-            "  - Incluye nombre del firmante y fecha\n"
-            "  - Útil para documentos que se imprimirán\n\n"
-            "• Firma INVISIBLE:\n"
-            "  - No se ve en el documento\n"
-            "  - Igual de válida legalmente\n"
-            "  - Se verifica con un visor de PDF\n\n"
-            "Posición de la firma:\n"
-            "  - Inferior derecha (default)\n"
-            "  - Superior izquierda/derecha\n"
-            "  - Centro\n"
-            "  - Automático: busca espacio libre\n\n"
-            "Página:\n"
-            "  - Última página (default)\n"
-            "  - Primera página\n"
-            "  - Todas las páginas\n"
-            "  - Páginas específicas (ej: 1,3,5)",
+            "Signature Options",
+            "Visible vs invisible signature:\n\n"
+            "• VISIBLE signature:\n"
+            "  - Shows a stamp/seal on the document\n"
+            "  - Includes signer name and date\n"
+            "  - Useful for documents that will be printed\n\n"
+            "• INVISIBLE signature:\n"
+            "  - Not visible on the document\n"
+            "  - Equally valid legally\n"
+            "  - Verified with a PDF viewer\n\n"
+            "Signature position:\n"
+            "  - Bottom right (default)\n"
+            "  - Top left/right\n"
+            "  - Center\n"
+            "  - Automatic: finds free space\n\n"
+            "Page:\n"
+            "  - Last page (default)\n"
+            "  - First page\n"
+            "  - All pages\n"
+            "  - Specific pages (e.g.: 1,3,5)",
         )
 
     def _create_validation_section(self) -> Gtk.Box:
         """Creates the validation section."""
         return self._create_section(
-            "Validar firmas",
-            "Para verificar si un PDF está firmado correctamente:\n\n"
-            "1. Agrega el PDF firmado a la lista\n"
-            "2. Click en 'Validate' (Validar)\n"
-            "3. Se mostrará información sobre:\n"
-            "   - Quién firmó\n"
-            "   - Cuándo se firmó\n"
-            "   - Si el documento fue modificado\n"
-            "   - Estado del certificado\n\n"
-            "También puedes abrir el PDF en:\n"
-            "• Adobe Reader: Panel de firmas\n"
-            "• Okular: Propiedades > Firmas\n"
-            "• Evince: Archivo > Propiedades",
+            "Validate Signatures",
+            "To verify if a PDF is correctly signed:\n\n"
+            "1. Add the signed PDF to the list\n"
+            "2. Click on 'Validate'\n"
+            "3. Information will be shown about:\n"
+            "   - Who signed\n"
+            "   - When it was signed\n"
+            "   - If the document was modified\n"
+            "   - Certificate status\n\n"
+            "You can also open the PDF in:\n"
+            "• Adobe Reader: Signatures panel\n"
+            "• Okular: Properties > Signatures\n"
+            "• Evince: File > Properties",
         )
 
     def _create_troubleshooting_section(self) -> Gtk.Box:
         """Creates the troubleshooting section."""
         return self._create_section(
-            "Problemas comunes",
-            "❌ 'Token no encontrado'\n"
-            "   → Verifica que el token USB esté conectado\n"
-            "   → Revisa la configuración de NSS en Preferencias\n\n"
-            "❌ 'PIN incorrecto'\n"
-            "   → Verifica el PIN (cuidado con mayúsculas)\n"
-            "   → Después de varios intentos el token se bloquea\n\n"
-            "❌ 'PDF protegido'\n"
-            "   → El PDF tiene restricciones de edición\n"
-            "   → Contacta al creador del documento\n\n"
-            "❌ 'Error de timestamp'\n"
-            "   → Servidor TSA no disponible\n"
-            "   → Verifica conexión a internet\n"
-            "   → Prueba con 'Hora local' en Preferencias\n\n"
-            "❌ La firma no aparece\n"
-            "   → Abre el PDF en Adobe Reader\n"
-            "   → Las firmas invisibles no se ven pero son válidas",
+            "Common Problems",
+            "❌ 'Token not found'\n"
+            "   → Verify the USB token is connected\n"
+            "   → Check NSS configuration in Preferences\n\n"
+            "❌ 'Incorrect PIN'\n"
+            "   → Check the PIN (watch for caps lock)\n"
+            "   → After several attempts the token locks\n\n"
+            "❌ 'Protected PDF'\n"
+            "   → The PDF has editing restrictions\n"
+            "   → Contact the document creator\n\n"
+            "❌ 'Timestamp error'\n"
+            "   → TSA server unavailable\n"
+            "   → Check internet connection\n"
+            "   → Try 'Local time' in Preferences\n\n"
+            "❌ Signature doesn't appear\n"
+            "   → Open the PDF in Adobe Reader\n"
+            "   → Invisible signatures are valid but not visible",
         )
 
     def _create_about_section(self) -> Gtk.Box:
         """Creates the about/links section."""
         return self._create_section(
-            "Acerca de PDFSigner",
-            "PDFSigner es software libre y de código abierto.\n\n"
-            "📦 Repositorio:\n"
+            "About PDFSigner",
+            "PDFSigner is free and open source software.\n\n"
+            "Repository:\n"
             "   https://github.com/vdirienzo/pdfsigner\n\n"
-            "🐛 Reportar problemas:\n"
+            "Report issues:\n"
             "   https://github.com/vdirienzo/pdfsigner/issues\n\n"
-            "📖 Documentación y actualizaciones disponibles en GitHub.\n\n"
-            "Desarrollado con ❤️ usando Python, GTK4 y pyHanko.",
+            "Documentation and updates available on GitHub.\n\n"
+            "Built with Python, GTK4 and pyHanko.",
         )
