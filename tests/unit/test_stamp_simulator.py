@@ -4,7 +4,6 @@ test_stamp_simulator.py - Tests for StampSimulator (dry-run mode)
 Author: Homero Thompson del Lago del Terror
 """
 
-
 from pdfsigner.core.mock.stamp_simulator import (
     get_stamp_rect,
     parse_page_spec,

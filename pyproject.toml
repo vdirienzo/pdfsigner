@@ -52,6 +52,8 @@ ignore = ["E402"]
 # Archivos que usan PyGObject necesitan imports después de gi.require_version
 "src/pdfsigner/gui/*.py" = ["E402"]
 "src/pdfsigner/ui/**/*.py" = ["E402"]
+# Tests: allow PascalCase for mock variables (common convention)
+"tests/**/*.py" = ["N806"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
