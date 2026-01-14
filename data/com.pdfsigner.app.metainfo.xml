@@ -55,6 +55,18 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="0.8.6" date="2026-01-14">
+      <description>
+        <p>Signature viewer and hybrid PDF fixes:</p>
+        <ul>
+          <li>Signature viewer in GUI with info button for full details</li>
+          <li>Fixed hybrid PDF validation (mixed xref tables/streams)</li>
+          <li>Word wrap in validation dialog for long text</li>
+          <li>TSA integration tests for DigiCert and Sectigo</li>
+          <li>17 new tests for file_list_widget and hybrid PDF</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.8.3" date="2026-01-14">
       <description>
         <p>Packaging version sync:</p>

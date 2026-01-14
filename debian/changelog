@@ -1,3 +1,13 @@
+pdfsigner (0.8.6-1) unstable; urgency=medium
+
+  * Signature viewer in GUI with info button for details
+  * Fixed hybrid PDF validation (strict=False)
+  * Word wrap in validation dialog for long text
+  * TSA integration tests for DigiCert and Sectigo
+  * 17 new tests for file_list_widget and hybrid PDF
+
+ -- Homero Thompson del Lago del Terror <noreply@example.com>  Tue, 14 Jan 2026 19:00:00 +0000
+
 pdfsigner (0.8.3-1) unstable; urgency=medium
 
   * Fixed Debian package versioning in changelog
