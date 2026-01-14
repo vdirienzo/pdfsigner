@@ -123,6 +123,53 @@ class PDFSigner:
         suffix = settings.output_suffix
         return input_path.with_stem(f"{input_path.stem}{suffix}")
 
+    def _build_stamp_style(
+        self, appearance: "SignatureAppearance"
+    ) -> "stamp.TextStampStyle | None":
+        """
+        Builds the visual stamp style for visible signatures.
+
+        Args:
+            appearance: Signature appearance configuration
+
+        Returns:
+            TextStampStyle if visible signature, None otherwise
+        """
+        if not appearance.visible:
+            return None
+
+        # Import here to avoid circular imports and allow lazy loading
+        from pyhanko import stamp
+        from pyhanko.pdf_utils import images
+
+        # Build stamp text based on configuration
+        text_parts = []
+
+        if appearance.show_name:
+            text_parts.append("Firmado por: %(signer)s")
+
+        if appearance.show_date:
+            text_parts.append("Fecha: %(ts)s")
+
+        # If no parts configured, use default
+        if not text_parts:
+            text_parts = ["Firmado digitalmente"]
+
+        stamp_text = "\n".join(text_parts)
+
+        # Build stamp style
+        style_kwargs = {"stamp_text": stamp_text}
+
+        # Add background image if configured
+        if appearance.image_path and appearance.image_path.exists():
+            try:
+                style_kwargs["background"] = images.PdfImage(str(appearance.image_path))
+                logger.debug(f"Using stamp background: {appearance.image_path}")
+            except Exception as e:
+                logger.warning(f"Could not load stamp image: {e}")
+
+        return stamp.TextStampStyle(**style_kwargs)
+
     def sign_pdf(
         self,
         input_path: Path,
@@ -182,16 +229,26 @@ class PDFSigner:
                 # Main signature field name (first one, or None for invisible)
                 sig_field_name = field_specs[0].sig_field_name if field_specs else None
 
-                # Sign
+                # Build stamp style for visible signatures
+                stamp_style = self._build_stamp_style(appearance)
+
+                # Create signature metadata
+                sig_metadata = signers.PdfSignatureMetadata(
+                    field_name=sig_field_name,
+                    md_algorithm="sha256",
+                    subfilter=signers.SigSeedSubFilter.PADES,
+                )
+
+                # Sign using PdfSigner to support stamp_style
+                pdf_signer = signers.PdfSigner(
+                    sig_metadata,
+                    signer=signer,
+                    stamp_style=stamp_style,
+                )
+
                 with open(output_path, "wb") as out:
-                    signers.sign_pdf(
+                    pdf_signer.sign_pdf(
                         writer,
-                        signers.PdfSignatureMetadata(
-                            field_name=sig_field_name,
-                            md_algorithm="sha256",
-                            subfilter=signers.SigSeedSubFilter.PADES,
-                        ),
-                        signer=signer,
                         output=out,
                         **sig_kwargs,
                     )
