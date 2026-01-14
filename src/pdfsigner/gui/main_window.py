@@ -268,11 +268,12 @@ class MainWindow(Adw.ApplicationWindow):
 
     def _load_certificate_health(self) -> bool:
         """Load certificate health data from NSS."""
-        from pdfsigner.config.settings import settings
+        from pdfsigner.config.settings import get_settings
         from pdfsigner.core.certificate.health_status import CertificateHealth
 
         try:
             # Check if we're in dry-run mode
+            settings = get_settings()
             if settings.dry_run:
                 self._load_mock_certificate()
                 return False
