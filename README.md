@@ -714,21 +714,23 @@ uv run safety check
 
 ### Test Coverage
 
-**179 tests passing** with **33% overall coverage**
+**289 tests passing** with **~45% overall coverage**
 
 | Module | Coverage |
 |--------|----------|
+| `lta_handler.py` | **100%** |
 | `exceptions.py` | 100% |
 | `stamp_simulator.py` | 100% |
 | `pin_cache.py` | 98% |
 | `batch_manager.py` | 97% |
+| `signature_field.py` | **97%** |
 | `main.py` | 96% |
 | `position_finder.py` | 92% |
 | `settings.py` | 91% |
+| `multi_signer.py` | **90%** |
+| `pdf_signer.py` | **83%** |
 | `content_analyzer.py` | 78% |
-| `pdf_signer.py` | 72% |
 | `pdf_validator.py` | 70% |
-| `lta_handler.py` | 43% |
 
 **Note:** GUI modules have 0% coverage as they require GTK4 display for testing.
 
@@ -767,6 +769,23 @@ MIT License - See [LICENSE](LICENSE)
 ---
 
 ## 📝 Changelog
+
+### [0.6.0] - 2026-01-14
+
+#### Added
+- **79 new tests** for signer module components
+  - `test_lta_handler.py` - 23 tests for TSA configuration and timestamping
+  - `test_signature_field.py` - 31 tests for page parsing and field specs
+  - `test_multi_signer.py` - 17 tests for multiple signature support
+  - Additional tests for pdf_signer.py (certificate creation, validation, stamp images)
+
+#### Changed
+- **Improved test coverage** on core/signer/ module:
+  - `lta_handler.py`: 72% → **100%**
+  - `signature_field.py`: 14% → **97%**
+  - `multi_signer.py`: 25% → **90%**
+  - `pdf_signer.py`: 72% → **83%**
+  - Overall signer module: 84% → **92%**
 
 ### [0.5.0] - 2026-01-14
 

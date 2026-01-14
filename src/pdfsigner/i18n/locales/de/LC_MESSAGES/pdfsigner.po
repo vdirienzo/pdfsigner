@@ -1,0 +1,270 @@
+# PDFSigner - German translations
+# Author: Homero Thompson del Lago del Terror
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PDFSigner 0.6.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-01-14 10:00+0000\n"
+"PO-Revision-Date: 2026-01-14 10:00+0000\n"
+"Last-Translator: Homero Thompson del Lago del Terror\n"
+"Language-Team: German\n"
+"Language: de\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+# Main Window
+msgid "PDFSigner"
+msgstr "PDFSigner"
+
+msgid "Drag PDF files here"
+msgstr "PDF-Dateien hierher ziehen"
+
+msgid "Sign"
+msgstr "Signieren"
+
+msgid "Validate"
+msgstr "Validieren"
+
+msgid "Clear"
+msgstr "Löschen"
+
+msgid "Add files"
+msgstr "Dateien hinzufügen"
+
+msgid "Settings"
+msgstr "Einstellungen"
+
+msgid "No files to sign"
+msgstr "Keine Dateien zum Signieren"
+
+msgid "No files to validate"
+msgstr "Keine Dateien zum Validieren"
+
+msgid "file(s) added"
+msgstr "Datei(en) hinzugefügt"
+
+msgid "file(s) selected"
+msgstr "Datei(en) ausgewählt"
+
+# Settings Dialog
+msgid "Preferences"
+msgstr "Einstellungen"
+
+msgid "General"
+msgstr "Allgemein"
+
+msgid "NSS Database"
+msgstr "NSS-Datenbank"
+
+msgid "NSS Database Path"
+msgstr "NSS-Datenbankpfad"
+
+msgid "Timestamp Server (TSA)"
+msgstr "Zeitstempelserver (TSA)"
+
+msgid "TSA URL"
+msgstr "TSA-URL"
+
+msgid "TSA Username"
+msgstr "TSA-Benutzername"
+
+msgid "TSA Password"
+msgstr "TSA-Passwort"
+
+msgid "Visible Signature"
+msgstr "Sichtbare Signatur"
+
+msgid "Show visible stamp"
+msgstr "Sichtbaren Stempel anzeigen"
+
+msgid "Stamp Size"
+msgstr "Stempelgröße"
+
+msgid "Width (mm)"
+msgstr "Breite (mm)"
+
+msgid "Height (mm)"
+msgstr "Höhe (mm)"
+
+msgid "Page"
+msgstr "Seite"
+
+msgid "Last page"
+msgstr "Letzte Seite"
+
+msgid "First page"
+msgstr "Erste Seite"
+
+msgid "All pages"
+msgstr "Alle Seiten"
+
+msgid "Advanced"
+msgstr "Erweitert"
+
+msgid "PIN Cache"
+msgstr "PIN-Cache"
+
+msgid "Enable PIN cache"
+msgstr "PIN-Cache aktivieren"
+
+msgid "Timeout (seconds)"
+msgstr "Zeitüberschreitung (Sekunden)"
+
+msgid "Output"
+msgstr "Ausgabe"
+
+msgid "File suffix"
+msgstr "Dateisuffix"
+
+msgid "Logging"
+msgstr "Protokollierung"
+
+msgid "Log Level"
+msgstr "Protokollebene"
+
+msgid "Save"
+msgstr "Speichern"
+
+msgid "Settings saved"
+msgstr "Einstellungen gespeichert"
+
+# Appearance
+msgid "Appearance"
+msgstr "Aussehen"
+
+msgid "Theme"
+msgstr "Design"
+
+msgid "System default"
+msgstr "Systemstandard"
+
+msgid "Light"
+msgstr "Hell"
+
+msgid "Dark"
+msgstr "Dunkel"
+
+msgid "Accent Color"
+msgstr "Akzentfarbe"
+
+msgid "Language"
+msgstr "Sprache"
+
+# NSS Setup Wizard
+msgid "Initial Setup Required"
+msgstr "Ersteinrichtung Erforderlich"
+
+msgid "PDFSigner needs to create a security database to communicate with your USB token."
+msgstr "PDFSigner muss eine Sicherheitsdatenbank erstellen, um mit Ihrem USB-Token zu kommunizieren."
+
+msgid "This is a one-time setup that takes a few seconds."
+msgstr "Dies ist eine einmalige Einrichtung, die nur wenige Sekunden dauert."
+
+msgid "Cancel"
+msgstr "Abbrechen"
+
+msgid "Set Up"
+msgstr "Einrichten"
+
+msgid "Creating Security Database..."
+msgstr "Sicherheitsdatenbank wird erstellt..."
+
+msgid "Please wait while we configure NSS."
+msgstr "Bitte warten Sie, während wir NSS konfigurieren."
+
+msgid "Setup Complete"
+msgstr "Einrichtung Abgeschlossen"
+
+msgid "Security database created successfully!"
+msgstr "Sicherheitsdatenbank erfolgreich erstellt!"
+
+msgid "Connect your USB token and PDFSigner will detect it automatically."
+msgstr "Schließen Sie Ihren USB-Token an und PDFSigner erkennt ihn automatisch."
+
+msgid "Start PDFSigner"
+msgstr "PDFSigner Starten"
+
+msgid "Setup Failed"
+msgstr "Einrichtung Fehlgeschlagen"
+
+msgid "Retry"
+msgstr "Erneut Versuchen"
+
+msgid "Quit"
+msgstr "Beenden"
+
+# Signing
+msgid "Signing in progress..."
+msgstr "Signierung läuft..."
+
+msgid "Enter PIN"
+msgstr "PIN Eingeben"
+
+msgid "Enter your token PIN:"
+msgstr "Geben Sie Ihre Token-PIN ein:"
+
+msgid "Signing complete"
+msgstr "Signierung abgeschlossen"
+
+msgid "Signing failed"
+msgstr "Signierung fehlgeschlagen"
+
+# Validation
+msgid "Validation complete"
+msgstr "Validierung abgeschlossen"
+
+msgid "Valid signature"
+msgstr "Gültige Signatur"
+
+msgid "Invalid signature"
+msgstr "Ungültige Signatur"
+
+msgid "No signatures found"
+msgstr "Keine Signaturen gefunden"
+
+# Accessibility
+msgid "Main application window"
+msgstr "Hauptanwendungsfenster"
+
+msgid "List of PDF files to process"
+msgstr "Liste der zu verarbeitenden PDF-Dateien"
+
+msgid "Sign selected PDF files"
+msgstr "Ausgewählte PDF-Dateien signieren"
+
+msgid "Validate signatures in selected files"
+msgstr "Signaturen in ausgewählten Dateien validieren"
+
+msgid "Remove all files from list"
+msgstr "Alle Dateien aus der Liste entfernen"
+
+msgid "Open file browser to add PDFs"
+msgstr "Dateibrowser öffnen, um PDFs hinzuzufügen"
+
+msgid "Open application settings"
+msgstr "Anwendungseinstellungen öffnen"
+
+# Errors
+msgid "Error"
+msgstr "Fehler"
+
+msgid "Token not found"
+msgstr "Token nicht gefunden"
+
+msgid "Invalid PIN"
+msgstr "Ungültige PIN"
+
+msgid "Certificate not found"
+msgstr "Zertifikat nicht gefunden"
+
+msgid "PDF is corrupted"
+msgstr "PDF ist beschädigt"
+
+msgid "PDF is password protected"
+msgstr "PDF ist passwortgeschützt"
+
+msgid "TSA connection failed"
+msgstr "TSA-Verbindung fehlgeschlagen"

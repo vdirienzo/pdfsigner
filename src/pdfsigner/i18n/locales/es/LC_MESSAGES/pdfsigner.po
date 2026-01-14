@@ -1,0 +1,270 @@
+# PDFSigner - Spanish translations
+# Author: Homero Thompson del Lago del Terror
+#
+msgid ""
+msgstr ""
+"Project-Id-Version: PDFSigner 0.6.0\n"
+"Report-Msgid-Bugs-To: \n"
+"POT-Creation-Date: 2026-01-14 10:00+0000\n"
+"PO-Revision-Date: 2026-01-14 10:00+0000\n"
+"Last-Translator: Homero Thompson del Lago del Terror\n"
+"Language-Team: Spanish\n"
+"Language: es\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Plural-Forms: nplurals=2; plural=(n != 1);\n"
+
+# Main Window
+msgid "PDFSigner"
+msgstr "PDFSigner"
+
+msgid "Drag PDF files here"
+msgstr "Arrastra archivos PDF aquí"
+
+msgid "Sign"
+msgstr "Firmar"
+
+msgid "Validate"
+msgstr "Validar"
+
+msgid "Clear"
+msgstr "Limpiar"
+
+msgid "Add files"
+msgstr "Agregar archivos"
+
+msgid "Settings"
+msgstr "Configuración"
+
+msgid "No files to sign"
+msgstr "No hay archivos para firmar"
+
+msgid "No files to validate"
+msgstr "No hay archivos para validar"
+
+msgid "file(s) added"
+msgstr "archivo(s) agregado(s)"
+
+msgid "file(s) selected"
+msgstr "archivo(s) seleccionado(s)"
+
+# Settings Dialog
+msgid "Preferences"
+msgstr "Preferencias"
+
+msgid "General"
+msgstr "General"
+
+msgid "NSS Database"
+msgstr "Base de Datos NSS"
+
+msgid "NSS Database Path"
+msgstr "Ruta de la Base de Datos NSS"
+
+msgid "Timestamp Server (TSA)"
+msgstr "Servidor de Marca de Tiempo (TSA)"
+
+msgid "TSA URL"
+msgstr "URL del TSA"
+
+msgid "TSA Username"
+msgstr "Usuario TSA"
+
+msgid "TSA Password"
+msgstr "Contraseña TSA"
+
+msgid "Visible Signature"
+msgstr "Firma Visible"
+
+msgid "Show visible stamp"
+msgstr "Mostrar sello visible"
+
+msgid "Stamp Size"
+msgstr "Tamaño del Sello"
+
+msgid "Width (mm)"
+msgstr "Ancho (mm)"
+
+msgid "Height (mm)"
+msgstr "Alto (mm)"
+
+msgid "Page"
+msgstr "Página"
+
+msgid "Last page"
+msgstr "Última página"
+
+msgid "First page"
+msgstr "Primera página"
+
+msgid "All pages"
+msgstr "Todas las páginas"
+
+msgid "Advanced"
+msgstr "Avanzado"
+
+msgid "PIN Cache"
+msgstr "Caché de PIN"
+
+msgid "Enable PIN cache"
+msgstr "Habilitar caché de PIN"
+
+msgid "Timeout (seconds)"
+msgstr "Tiempo de espera (segundos)"
+
+msgid "Output"
+msgstr "Salida"
+
+msgid "File suffix"
+msgstr "Sufijo de archivo"
+
+msgid "Logging"
+msgstr "Registro"
+
+msgid "Log Level"
+msgstr "Nivel de Registro"
+
+msgid "Save"
+msgstr "Guardar"
+
+msgid "Settings saved"
+msgstr "Configuración guardada"
+
+# Appearance
+msgid "Appearance"
+msgstr "Apariencia"
+
+msgid "Theme"
+msgstr "Tema"
+
+msgid "System default"
+msgstr "Predeterminado del sistema"
+
+msgid "Light"
+msgstr "Claro"
+
+msgid "Dark"
+msgstr "Oscuro"
+
+msgid "Accent Color"
+msgstr "Color de Acento"
+
+msgid "Language"
+msgstr "Idioma"
+
+# NSS Setup Wizard
+msgid "Initial Setup Required"
+msgstr "Configuración Inicial Requerida"
+
+msgid "PDFSigner needs to create a security database to communicate with your USB token."
+msgstr "PDFSigner necesita crear una base de datos de seguridad para comunicarse con su token USB."
+
+msgid "This is a one-time setup that takes a few seconds."
+msgstr "Esta es una configuración única que toma unos segundos."
+
+msgid "Cancel"
+msgstr "Cancelar"
+
+msgid "Set Up"
+msgstr "Configurar"
+
+msgid "Creating Security Database..."
+msgstr "Creando Base de Datos de Seguridad..."
+
+msgid "Please wait while we configure NSS."
+msgstr "Por favor espere mientras configuramos NSS."
+
+msgid "Setup Complete"
+msgstr "Configuración Completa"
+
+msgid "Security database created successfully!"
+msgstr "¡Base de datos de seguridad creada exitosamente!"
+
+msgid "Connect your USB token and PDFSigner will detect it automatically."
+msgstr "Conecte su token USB y PDFSigner lo detectará automáticamente."
+
+msgid "Start PDFSigner"
+msgstr "Iniciar PDFSigner"
+
+msgid "Setup Failed"
+msgstr "Configuración Fallida"
+
+msgid "Retry"
+msgstr "Reintentar"
+
+msgid "Quit"
+msgstr "Salir"
+
+# Signing
+msgid "Signing in progress..."
+msgstr "Firmando..."
+
+msgid "Enter PIN"
+msgstr "Ingresar PIN"
+
+msgid "Enter your token PIN:"
+msgstr "Ingrese el PIN de su token:"
+
+msgid "Signing complete"
+msgstr "Firma completada"
+
+msgid "Signing failed"
+msgstr "Firma fallida"
+
+# Validation
+msgid "Validation complete"
+msgstr "Validación completada"
+
+msgid "Valid signature"
+msgstr "Firma válida"
+
+msgid "Invalid signature"
+msgstr "Firma inválida"
+
+msgid "No signatures found"
+msgstr "No se encontraron firmas"
+
+# Accessibility
+msgid "Main application window"
+msgstr "Ventana principal de la aplicación"
+
+msgid "List of PDF files to process"
+msgstr "Lista de archivos PDF a procesar"
+
+msgid "Sign selected PDF files"
+msgstr "Firmar archivos PDF seleccionados"
+
+msgid "Validate signatures in selected files"
+msgstr "Validar firmas en archivos seleccionados"
+
+msgid "Remove all files from list"
+msgstr "Eliminar todos los archivos de la lista"
+
+msgid "Open file browser to add PDFs"
+msgstr "Abrir explorador de archivos para agregar PDFs"
+
+msgid "Open application settings"
+msgstr "Abrir configuración de la aplicación"
+
+# Errors
+msgid "Error"
+msgstr "Error"
+
+msgid "Token not found"
+msgstr "Token no encontrado"
+
+msgid "Invalid PIN"
+msgstr "PIN inválido"
+
+msgid "Certificate not found"
+msgstr "Certificado no encontrado"
+
+msgid "PDF is corrupted"
+msgstr "El PDF está corrupto"
+
+msgid "PDF is password protected"
+msgstr "El PDF está protegido con contraseña"
+
+msgid "TSA connection failed"
+msgstr "Conexión TSA fallida"

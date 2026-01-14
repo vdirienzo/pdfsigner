@@ -180,9 +180,11 @@ uv run pytest tests/unit/test_position_finder.py -v
 ```
 
 ### Current Coverage
-- **179 tests passing**
-- **33% overall coverage**
-- Key modules: exceptions (100%), stamp_simulator (100%), pin_cache (98%), batch_manager (97%)
+- **289 tests passing**
+- **~45% overall coverage**
+- Key modules:
+  - signer/ module: **92%** (lta_handler 100%, signature_field 97%, batch_manager 97%)
+  - exceptions (100%), stamp_simulator (100%), pin_cache (98%)
 
 ---
 
@@ -272,7 +274,15 @@ GitHub Actions runs on push/PR to `main` and `dev`:
 
 ---
 
-## Recent Changes (v0.5.0)
+## Recent Changes (v0.6.0)
+
+- **289 tests** - 79 new tests for signer module
+- **92% coverage** on core/signer/ module (was 84%)
+- **100% coverage** on lta_handler.py
+- **97% coverage** on signature_field.py (was 14%)
+- **90% coverage** on multi_signer.py (was 25%)
+
+### Previous (v0.5.0)
 
 - **NSS Setup Wizard** - First-run wizard auto-configures NSS database
 - **Izenpe TSA added** - Basque Country timestamp server

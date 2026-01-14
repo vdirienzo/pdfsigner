@@ -128,6 +128,20 @@ class Settings(BaseSettings):
         description="Simulation mode without real token",
     )
 
+    # --- Appearance ---
+    theme: Literal["system", "light", "dark"] = Field(
+        default="system",
+        description="Application theme (system, light, dark)",
+    )
+    accent_color: str = Field(
+        default="blue",
+        description="Accent color for UI elements",
+    )
+    language: str = Field(
+        default="",
+        description="UI language (empty = system default)",
+    )
+
     @field_validator("nss_db_path")
     @classmethod
     def validate_nss_path(cls, v: Path) -> Path:
