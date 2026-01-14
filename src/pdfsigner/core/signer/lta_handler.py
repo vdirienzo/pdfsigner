@@ -121,12 +121,9 @@ class LTAHandler:
 
             self._timestamper = HTTPTimeStamper(
                 url=self.tsa_config.url,
-                https_timeout=self.tsa_config.timeout,
+                timeout=self.tsa_config.timeout,
+                auth=auth,
             )
-
-            # If there's authentication, configure it in the session
-            if auth:
-                self._timestamper.session.auth = auth
 
         return self._timestamper
 
