@@ -1,14 +1,14 @@
 #!/bin/bash
-# install.sh - Instalador de PDFSigner para Nautilus
+# install.sh - PDFSigner Installer
 #
-# Autor: Homero Thompson del Lago del Terror
+# Author: Homero Thompson del Lago del Terror
 #
-# Instala la extensión de Nautilus y crea la configuración inicial.
-# Detecta la distribución y ofrece instalar dependencias del sistema.
+# Installs dependencies and creates initial configuration.
+# Detects distribution and offers to install system dependencies.
 
 set -e
 
-# Colores
+# Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
@@ -24,7 +24,7 @@ echo -e "${GREEN}╚════════════════════
 echo
 
 # ============================================================================
-# Funciones de utilidad
+# Utility functions
 # ============================================================================
 
 log_info() {
@@ -47,7 +47,7 @@ log_step() {
     echo -e "${CYAN}→${NC} $1"
 }
 
-# Detectar distribución
+# Detect distribution
 detect_distro() {
     if [ -f /etc/os-release ]; then
         . /etc/os-release
@@ -71,18 +71,18 @@ detect_distro() {
     fi
 }
 
-# Verificar si un comando existe
+# Check if a command exists
 command_exists() {
     command -v "$1" &> /dev/null
 }
 
-# Verificar si un paquete Python está instalado en el sistema
+# Check if a Python package is installed in the system
 python_pkg_installed() {
     python3 -c "import $1" 2>/dev/null
 }
 
 # ============================================================================
-# Instalación de dependencias por distribución
+# Install dependencies by distribution
 # ============================================================================
 
 install_deps_debian() {
@@ -93,12 +93,11 @@ install_deps_debian() {
         "python3-gi-cairo"
         "gir1.2-gtk-4.0"
         "gir1.2-adw-1"
-        "python3-nautilus"
         "libnss3-tools"
         "opensc"
     )
 
-    # Verificar cuáles faltan
+    # Check which are missing
     local MISSING=()
     for pkg in "${PACKAGES[@]}"; do
         if ! dpkg -l "$pkg" &>/dev/null; then
@@ -133,12 +132,11 @@ install_deps_fedora() {
         "python3-gobject"
         "gtk4"
         "libadwaita"
-        "nautilus-python"
         "nss-tools"
         "opensc"
     )
 
-    # Verificar cuáles faltan
+    # Check which are missing
     local MISSING=()
     for pkg in "${PACKAGES[@]}"; do
         if ! rpm -q "$pkg" &>/dev/null; then
@@ -172,12 +170,11 @@ install_deps_arch() {
         "python-gobject"
         "gtk4"
         "libadwaita"
-        "python-nautilus"
         "nss"
         "opensc"
     )
 
-    # Verificar cuáles faltan
+    # Check which are missing
     local MISSING=()
     for pkg in "${PACKAGES[@]}"; do
         if ! pacman -Qi "$pkg" &>/dev/null; then
@@ -212,12 +209,11 @@ install_deps_opensuse() {
         "python3-gobject-Gdk"
         "gtk4"
         "libadwaita-1-0"
-        "nautilus-extension-python"
         "mozilla-nss-tools"
         "opensc"
     )
 
-    # Verificar cuáles faltan
+    # Check which are missing
     local MISSING=()
     for pkg in "${PACKAGES[@]}"; do
         if ! rpm -q "$pkg" &>/dev/null; then
@@ -264,7 +260,7 @@ install_system_deps() {
             install_deps_opensuse
             ;;
         *)
-            # Intentar por familia
+            # Try by family
             if [[ "$DISTRO_FAMILY" == *"debian"* ]]; then
                 install_deps_debian
             elif [[ "$DISTRO_FAMILY" == *"fedora"* ]] || [[ "$DISTRO_FAMILY" == *"rhel"* ]]; then
@@ -278,7 +274,6 @@ install_system_deps() {
                 log_info "Install the following packages manually:"
                 echo "  - Python GTK4 bindings (python3-gi, gir1.2-gtk-4.0)"
                 echo "  - libadwaita (gir1.2-adw-1)"
-                echo "  - Nautilus Python extension (python3-nautilus)"
                 echo "  - NSS tools (libnss3-tools)"
                 echo "  - OpenSC (opensc)"
             fi
@@ -287,7 +282,7 @@ install_system_deps() {
 }
 
 # ============================================================================
-# Instalación de uv
+# Install uv
 # ============================================================================
 
 install_uv() {
@@ -321,7 +316,7 @@ install_uv() {
 }
 
 # ============================================================================
-# Configuración del venv con system site-packages
+# Configure venv with system site-packages
 # ============================================================================
 
 setup_venv() {
@@ -341,63 +336,7 @@ setup_venv() {
 }
 
 # ============================================================================
-# Instalación de la extensión de Nautilus
-# ============================================================================
-
-install_nautilus_extension() {
-    log_step "Installing Nautilus extension..."
-
-    local EXTENSION_DIR="$HOME/.local/share/nautilus-python/extensions"
-    mkdir -p "$EXTENSION_DIR"
-
-    # Remove old extension if exists (was named pdfsigner.py before)
-    rm -f "$EXTENSION_DIR/pdfsigner.py"
-
-    # Create wrapper extension (named differently to avoid import collision)
-    cat > "$EXTENSION_DIR/pdfsigner_nautilus.py" << EXTENSION_EOF
-"""
-PDFSigner - Extensión de Nautilus para firma digital de PDFs
-
-Autor: Homero Thompson del Lago del Terror
-
-Wrapper que carga el módulo principal desde el proyecto instalado.
-"""
-
-import sys
-from pathlib import Path
-
-# Agregar el proyecto al path
-PROJECT_PATH = Path("$PROJECT_DIR")
-VENV_PATH = PROJECT_PATH / ".venv" / "lib"
-
-# Encontrar versión de Python en venv
-for pyver in VENV_PATH.glob("python3.*"):
-    site_packages = pyver / "site-packages"
-    if site_packages.exists():
-        sys.path.insert(0, str(site_packages))
-        break
-
-sys.path.insert(0, str(PROJECT_PATH / "src"))
-
-# Importar la extensión real
-try:
-    from pdfsigner.nautilus_extension.sign_extension import PDFSignerExtension
-except ImportError as e:
-    import gi
-    gi.require_version("GObject", "2.0")
-    from gi.repository import GObject
-
-    class PDFSignerExtension(GObject.GObject):
-        """Placeholder cuando el módulo no está disponible."""
-        def __init__(self):
-            print(f"PDFSigner: Error de importación - {e}")
-EXTENSION_EOF
-
-    log_success "Nautilus extension installed in: $EXTENSION_DIR"
-}
-
-# ============================================================================
-# Configuración inicial
+# Initial configuration
 # ============================================================================
 
 setup_config() {
@@ -418,18 +357,7 @@ setup_config() {
 }
 
 # ============================================================================
-# Reinicio de Nautilus
-# ============================================================================
-
-restart_nautilus() {
-    log_step "Restarting Nautilus..."
-    nautilus -q 2>/dev/null || true
-    sleep 1
-    log_success "Nautilus restarted"
-}
-
-# ============================================================================
-# Verificación de instalación
+# Verify installation
 # ============================================================================
 
 verify_installation() {
@@ -469,19 +397,18 @@ verify_installation() {
         log_warning "NSS tools not available (certutil)"
     fi
 
-    # Verify extension
-    if [ -f "$HOME/.local/share/nautilus-python/extensions/pdfsigner_nautilus.py" ]; then
-        log_success "Nautilus extension installed"
-    else
-        log_error "Nautilus extension not installed"
-        ALL_OK=false
-    fi
-
     # Verify CLI
     if uv run pdfsigner --help &>/dev/null; then
         log_success "CLI functional"
     else
         log_warning "CLI not verified"
+    fi
+
+    # Verify GUI
+    if uv run python -c "from pdfsigner.gui.app import PDFSignerApp" 2>/dev/null; then
+        log_success "GUI module available"
+    else
+        log_warning "GUI module not verified"
     fi
 
     echo
@@ -505,30 +432,24 @@ main() {
 
     PROJECT_DIR="$(pwd)"
 
-    echo -e "${CYAN}Step 1/5: System dependencies${NC}"
+    echo -e "${CYAN}Step 1/4: System dependencies${NC}"
     echo "─────────────────────────────────────────────"
     install_system_deps
     echo
 
-    echo -e "${CYAN}Step 2/5: uv installation${NC}"
+    echo -e "${CYAN}Step 2/4: uv installation${NC}"
     echo "─────────────────────────────────────────────"
     install_uv
     echo
 
-    echo -e "${CYAN}Step 3/5: Python virtual environment${NC}"
+    echo -e "${CYAN}Step 3/4: Python virtual environment${NC}"
     echo "─────────────────────────────────────────────"
     setup_venv
     echo
 
-    echo -e "${CYAN}Step 4/5: Nautilus extension${NC}"
-    echo "─────────────────────────────────────────────"
-    install_nautilus_extension
-    echo
-
-    echo -e "${CYAN}Step 5/5: Configuration${NC}"
+    echo -e "${CYAN}Step 4/4: Configuration${NC}"
     echo "─────────────────────────────────────────────"
     setup_config
-    restart_nautilus
     echo
 
     # Verify
@@ -553,13 +474,10 @@ main() {
     echo -e "  2. ${YELLOW}Verify USB token:${NC}"
     echo -e "     certutil -L -d ~/.nss"
     echo
-    echo -e "  3. ${YELLOW}Test standalone GUI:${NC}"
+    echo -e "  3. ${YELLOW}Run GUI:${NC}"
     echo -e "     uv run pdfsigner-gui"
     echo
-    echo -e "  4. ${YELLOW}Test from Nautilus:${NC}"
-    echo -e "     Open Nautilus → Right-click on PDF → 'Sign digitally'"
-    echo
-    echo -e "  5. ${YELLOW}Test CLI:${NC}"
+    echo -e "  4. ${YELLOW}Run CLI:${NC}"
     echo -e "     uv run pdfsigner sign file.pdf"
     echo -e "     uv run pdfsigner validate document_signed.pdf"
     echo
@@ -567,5 +485,5 @@ main() {
     echo
 }
 
-# Ejecutar
+# Run
 main "$@"

@@ -12,8 +12,7 @@ PDFSigner is a tool for digitally signing PDF documents using cryptographic USB 
 
 - **PAdES-LTV Signature** - Long Term Validation with TSA timestamp
 - **SafeNet 5110 Token** - Full support via NSS/PKCS#11
-- **Nautilus Integration** - Right-click → "Sign digitally"
-- **Standalone GUI** - Independent GTK4 application with drag & drop
+- **GTK4 GUI** - Modern graphical interface with drag & drop
 - **Complete CLI** - For scripts and automation
 - **Dry-Run Mode** - Simulate signing without token for testing
 - **Visible/invisible signature** - With smart positioning
@@ -324,7 +323,6 @@ sudo apt install -y \
     python3-gi-cairo \
     gir1.2-gtk-4.0 \
     gir1.2-adw-1 \
-    python3-nautilus \
     libnss3-tools \
     opensc
 
@@ -357,7 +355,6 @@ sudo dnf install -y \
     python3-gobject \
     gtk4 \
     libadwaita \
-    nautilus-python \
     nss-tools \
     opensc
 
@@ -373,7 +370,6 @@ sudo pacman -S --noconfirm \
     python-gobject \
     gtk4 \
     libadwaita \
-    python-nautilus \
     nss \
     opensc
 
@@ -541,20 +537,6 @@ uv run pdfsigner list-certs
 # Simulate signing without real token
 uv run pdfsigner --dry-run sign document.pdf
 ```
-
-### Nautilus Integration
-
-```bash
-# Install extension
-./scripts/install.sh
-
-# Restart Nautilus
-nautilus -q
-
-# Usage: Right-click on PDF → "Sign digitally"
-```
-
----
 
 ## 🧪 Dry-Run Mode (Testing)
 
@@ -725,7 +707,6 @@ pdfsigner/
 │   │   ├── token/           # NSS/PKCS#11
 │   │   └── validator/       # Validation
 │   ├── gui/                 # GTK4 application
-│   ├── nautilus_extension/  # Nautilus plugin
 │   └── ui/                  # Dialogs and widgets
 ├── tests/
 ├── scripts/
@@ -769,7 +750,6 @@ MIT License - See [LICENSE](LICENSE)
   - Help dialog content
   - Progress messages
   - Status notifications
-  - Nautilus extension labels
 - **Modularized mock code**: extracted `stamp_simulator.py` from `mock_batch.py`
 
 ### [0.1.0] - 2025-01-13
@@ -783,5 +763,4 @@ MIT License - See [LICENSE](LICENSE)
 - Visible signature with smart positioning
 - Batch signing with PIN cache
 - Signature validation
-- Nautilus integration
 - Multi-distribution installer

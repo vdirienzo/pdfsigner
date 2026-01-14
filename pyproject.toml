@@ -1,7 +1,7 @@
 [project]
 name = "pdfsigner"
 version = "0.1.0"
-description = "Plugin de Nautilus para firma digital de PDFs con token USB SafeNet 5110"
+description = "Digital PDF signing application with SafeNet 5110 USB token"
 readme = "README.md"
 requires-python = ">=3.12"
 authors = [
@@ -16,7 +16,7 @@ dependencies = [
     "cryptography>=42.0.0",
     "certifi>=2024.0.0",
 ]
-# Nota: PyGObject se usa del sistema (python3-gi) ya que viene con python3-nautilus
+# Note: PyGObject is used from system (python3-gi) for GTK4 bindings
 
 [project.optional-dependencies]
 dev = [
@@ -50,7 +50,6 @@ ignore = ["E402"]
 # Archivos que usan PyGObject necesitan imports después de gi.require_version
 "src/pdfsigner/gui/*.py" = ["E402"]
 "src/pdfsigner/ui/**/*.py" = ["E402"]
-"src/pdfsigner/nautilus_extension/*.py" = ["E402"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

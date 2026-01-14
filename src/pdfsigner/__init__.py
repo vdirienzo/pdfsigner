@@ -1,9 +1,9 @@
 """
-PDFSigner - Plugin de Nautilus para firma digital de PDFs
+PDFSigner - Digital PDF signing application
 
-Autor: Homero Thompson del Lago del Terror
+Author: Homero Thompson del Lago del Terror
 
-Firma digital PAdES-LTV con token USB SafeNet 5110.
+PAdES-LTV digital signatures with SafeNet 5110 USB token.
 """
 
 __version__ = "0.1.0"

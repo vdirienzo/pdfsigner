@@ -3,7 +3,7 @@
 #
 # Author: Homero Thompson del Lago del Terror
 #
-# Removes the Nautilus extension (keeps configuration).
+# Removes PDFSigner virtual environment (keeps configuration).
 
 set -e
 
@@ -17,29 +17,14 @@ echo -e "${YELLOW}║       PDFSigner - Uninstaller          ║${NC}"
 echo -e "${YELLOW}╚════════════════════════════════════════╝${NC}"
 echo
 
-EXTENSION_FILE="$HOME/.local/share/nautilus-python/extensions/pdfsigner_nautilus.py"
-OLD_EXTENSION_FILE="$HOME/.local/share/nautilus-python/extensions/pdfsigner.py"
-
-# Remove extension (both old and new names)
-REMOVED=false
-if [ -f "$EXTENSION_FILE" ]; then
-    rm "$EXTENSION_FILE"
-    REMOVED=true
-fi
-if [ -f "$OLD_EXTENSION_FILE" ]; then
-    rm "$OLD_EXTENSION_FILE"
-    REMOVED=true
-fi
-
-if [ "$REMOVED" = true ]; then
-    echo -e "${GREEN}✓ Extension removed${NC}"
+# Remove virtual environment
+if [ -d ".venv" ]; then
+    echo -e "${YELLOW}→ Removing virtual environment...${NC}"
+    rm -rf .venv
+    echo -e "${GREEN}✓ Virtual environment removed${NC}"
 else
-    echo -e "${YELLOW}⚠ Extension not found${NC}"
+    echo -e "${YELLOW}⚠ Virtual environment not found${NC}"
 fi
-
-# Restart Nautilus
-echo -e "${YELLOW}→ Restarting Nautilus...${NC}"
-nautilus -q 2>/dev/null || true
 
 echo
 echo -e "${GREEN}✓ Uninstallation completed${NC}"
@@ -47,5 +32,8 @@ echo
 echo -e "Note: Configuration is preserved at:"
 echo -e "  ${YELLOW}~/.config/pdfsigner/config.toml${NC}"
 echo
-echo -e "To remove it as well:"
+echo -e "To remove configuration as well:"
 echo -e "  ${YELLOW}rm -rf ~/.config/pdfsigner${NC}"
+echo
+echo -e "To remove logs:"
+echo -e "  ${YELLOW}rm -rf ~/.local/share/pdfsigner${NC}"
