@@ -875,7 +875,7 @@ uv run safety check
 
 ### Test Coverage
 
-**472 tests passing** with **~50% overall coverage**
+**503 tests passing** with **~55% overall coverage**
 
 | Module | Coverage |
 |--------|----------|
@@ -891,8 +891,8 @@ uv run safety check
 | `settings.py` | 91% |
 | `multi_signer.py` | **90%** |
 | `pdf_signer.py` | **83%** |
-| `content_analyzer.py` | 78% |
-| `pdf_validator.py` | 70% |
+| `content_analyzer.py` | **97%** |
+| `pdf_validator.py` | **96%** |
 
 **E2E Tests:** 16 tests for dry-run sign + validate flow in `test_e2e_signing_flow.py`.
 
@@ -942,10 +942,12 @@ MIT License - See [LICENSE](LICENSE)
 ### [0.9.1] - 2026-01-14
 
 #### Added
-- **Test coverage boost** - 472 total tests (was 393)
+- **Test coverage boost** - 503 total tests (was 393)
   - 16 E2E tests for dry-run sign → validate flow
   - 32 tests for certificate health status logic
   - 13 tests for file list widget business logic
+  - 13 tests for content_analyzer.py (78% → 97%)
+  - 22 tests for pdf_validator.py (73% → 96%)
 
 ### [0.9.0] - 2026-01-14
 

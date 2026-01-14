@@ -40,7 +40,7 @@
 | Linting | Ruff |
 | Type Check | mypy |
 | Security | Bandit, Safety |
-| Testing | pytest (472 tests) |
+| Testing | pytest (503 tests) |
 
 ---
 
@@ -96,7 +96,7 @@ pdfsigner/
 │   ├── install.sh              # Multi-distro installer
 │   └── uninstall.sh            # Uninstaller
 ├── tests/
-│   ├── unit/                   # Unit tests (456 tests including GUI)
+│   ├── unit/                   # Unit tests (487 tests including GUI)
 │   │   ├── conftest_gui.py    # GTK mocks for GUI testing
 │   │   ├── test_signing_handler.py  # 16 GUI tests
 │   │   └── test_validation_handler.py  # 10 GUI tests
