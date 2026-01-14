@@ -23,17 +23,49 @@ PDFSigner is a tool for digitally signing PDF documents using cryptographic USB 
 
 ---
 
+## 📸 Screenshots
+
+<table>
+  <tr>
+    <td align="center">
+      <img src="screenshots/01.png" width="400" alt="Main Window"/>
+      <br/><b>Main Window</b><br/>
+      <sub>Drag & drop PDF files to sign</sub>
+    </td>
+    <td align="center">
+      <img src="screenshots/02.png" width="400" alt="Settings - General"/>
+      <br/><b>Settings - General</b><br/>
+      <sub>NSS database path and TSA configuration</sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center">
+      <img src="screenshots/03.png" width="400" alt="Settings - Visible Signature"/>
+      <br/><b>Settings - Visible Signature</b><br/>
+      <sub>Signature appearance and dimensions</sub>
+    </td>
+    <td align="center">
+      <img src="screenshots/04.png" width="400" alt="Settings - Advanced"/>
+      <br/><b>Settings - Advanced</b><br/>
+      <sub>PIN cache and logging options</sub>
+    </td>
+  </tr>
+</table>
+
+---
+
 ## 📋 Table of Contents
 
-1. [Prerequisites](#-prerequisites)
-2. [SafeNet Driver Installation](#-safenet-5110-driver-installation)
-3. [NSS Database Creation](#️-nss-database-creation)
-4. [PDFSigner Installation](#-pdfsigner-installation)
-5. [Configuration](#️-configuration)
-6. [Usage](#️-usage)
-7. [Dry-Run Mode (Testing)](#-dry-run-mode-testing)
-8. [Troubleshooting](#-troubleshooting)
-9. [Development](#-development)
+1. [Screenshots](#-screenshots)
+2. [Prerequisites](#-prerequisites)
+3. [SafeNet Driver Installation](#-safenet-5110-driver-installation)
+4. [NSS Database Creation](#️-nss-database-creation)
+5. [PDFSigner Installation](#-pdfsigner-installation)
+6. [Configuration](#️-configuration)
+7. [Usage](#️-usage)
+8. [Dry-Run Mode (Testing)](#-dry-run-mode-testing)
+9. [Troubleshooting](#-troubleshooting)
+10. [Development](#-development)
 
 ---
 
