@@ -1,3 +1,36 @@
+pdfsigner (0.8.3-1) unstable; urgency=medium
+
+  * Fixed Debian package versioning in changelog
+  * All packaging artifacts now show correct version
+
+ -- Homero Thompson del Lago del Terror <noreply@example.com>  Tue, 14 Jan 2026 17:00:00 +0000
+
+pdfsigner (0.8.2-1) unstable; urgency=medium
+
+  * Updated AppStream metainfo with all release history
+  * Fixed screenshot URLs for software centers
+  * Improved release workflow
+
+ -- Homero Thompson del Lago del Terror <noreply@example.com>  Tue, 14 Jan 2026 16:30:00 +0000
+
+pdfsigner (0.8.1-1) unstable; urgency=medium
+
+  * QR verification code in visible signatures (hash, signer, timestamp)
+  * Refactored PKCS#11 library paths for better modularity
+  * Updated packaging scripts with all dependencies
+  * High quality stamp rendering (150 DPI)
+
+ -- Homero Thompson del Lago del Terror <noreply@example.com>  Tue, 14 Jan 2026 15:00:00 +0000
+
+pdfsigner (0.8.0-1) unstable; urgency=medium
+
+  * Optional QR code in visible signatures
+  * QR contains document hash, signer name, and timestamp
+  * New --qr-code CLI flag
+  * GUI checkbox in signature options
+
+ -- Homero Thompson del Lago del Terror <noreply@example.com>  Tue, 14 Jan 2026 14:00:00 +0000
+
 pdfsigner (0.7.0-1) unstable; urgency=medium
 
   * Complete packaging system (AppImage, Debian, Flatpak)

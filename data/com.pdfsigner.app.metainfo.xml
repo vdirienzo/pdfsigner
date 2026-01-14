@@ -55,6 +55,15 @@
   <content_rating type="oars-1.1" />
 
   <releases>
+    <release version="0.8.3" date="2026-01-14">
+      <description>
+        <p>Packaging version sync:</p>
+        <ul>
+          <li>Fixed Debian package versioning in changelog</li>
+          <li>All packaging artifacts now show correct version</li>
+        </ul>
+      </description>
+    </release>
     <release version="0.8.2" date="2026-01-14">
       <description>
         <p>Metadata and packaging fixes:</p>
