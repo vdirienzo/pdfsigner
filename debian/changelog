@@ -1,3 +1,17 @@
+pdfsigner (0.9.1-1) unstable; urgency=medium
+
+  * Test coverage boost: 520 total tests (was 393)
+  * content_analyzer.py: 78% → 97%
+  * pdf_validator.py: 73% → 96%
+  * settings.py: 94% → 100%
+  * position_finder.py: 92% → 100%
+  * multi_signer.py: 90% → 100%
+  * 16 E2E tests for dry-run sign → validate flow
+  * 32 tests for certificate health status logic
+  * Overall coverage: ~60%
+
+ -- Homero Thompson del Lago del Terror <noreply@example.com>  Tue, 14 Jan 2026 23:00:00 +0000
+
 pdfsigner (0.9.0-1) unstable; urgency=medium
 
   * Certificate Health Dashboard Complete (Issue #6)

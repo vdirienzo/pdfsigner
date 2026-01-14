@@ -875,7 +875,9 @@ uv run safety check
 
 ### Test Coverage
 
-**520 tests passing** with **~60% overall coverage**
+**520 tests passing** with **87% core coverage**
+
+> Coverage excludes GUI/UI code (untestable without display). See `[tool.coverage]` in `pyproject.toml`.
 
 | Module | Coverage | Notes |
 |--------|----------|-------|
@@ -885,19 +887,21 @@ uv run safety check
 | `settings.py` | **100%** | Configuration |
 | `position_finder.py` | **100%** | Signature positioning |
 | `multi_signer.py` | **100%** | Multiple signatures |
+| `pkcs11_libs.py` | **100%** | Token library paths |
+| `main.py` | 98% | Entry point |
 | `pin_cache.py` | 98% | PIN caching |
 | `qr_generator.py` | 98% | QR code generation |
 | `batch_manager.py` | 97% | Batch operations |
 | `signature_field.py` | 97% | Field specs |
 | `content_analyzer.py` | 97% | PDF analysis |
 | `pdf_validator.py` | 96% | Signature validation |
-| `main.py` | 96% | Entry point |
 | `stamp_simulator.py` | 95% | Dry-run stamps |
+| `stamp_composer.py` | 84% | Image composition |
 | `pdf_signer.py` | 74% | Core signing (covered by E2E) |
 
 **E2E Tests:** 16 integration tests for complete dry-run sign → validate flow.
 
-**GUI Tests:** 26 tests for `SigningHandler` and `ValidationHandler` using GTK mocks (no display required).
+**GUI Tests:** 26 tests for `SigningHandler` and `ValidationHandler` using GTK mocks.
 
 ### Structure
 

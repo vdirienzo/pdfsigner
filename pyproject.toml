@@ -1,6 +1,6 @@
 [project]
 name = "pdfsigner"
-version = "0.9.0"
+version = "0.9.1"
 description = "Digital PDF signing application with SafeNet 5110 USB token"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -63,6 +63,22 @@ ignore = ["E402"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+
+[tool.coverage.run]
+source = ["src/pdfsigner"]
+omit = [
+    "src/pdfsigner/gui/*",
+    "src/pdfsigner/ui/*",
+    "src/pdfsigner/cli/*",
+    "src/pdfsigner/i18n/*",
+]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "if __name__ == .__main__.:",
+    "raise NotImplementedError",
+]
 
 [tool.mypy]
 python_version = "3.12"
