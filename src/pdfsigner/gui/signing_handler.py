@@ -19,10 +19,10 @@ from gi.repository import Adw, GLib, Gtk
 
 from pdfsigner.config.settings import get_settings
 from pdfsigner.exceptions import PDFSignerError, TokenError
+from pdfsigner.i18n import _
 from pdfsigner.ui.dialogs.options_dialog import SignatureOptionsDialog
 from pdfsigner.ui.dialogs.pin_dialog import PinDialog
 from pdfsigner.ui.dialogs.progress_dialog import ProgressDialog
-from pdfsigner.i18n import _
 
 
 class SigningHandler:
@@ -223,7 +223,8 @@ class SigningHandler:
                     msg = getattr(progress, "message", None) or _("Error")
                     self.window.file_list.update_file_status(file_path, "error", msg)
                 else:
-                    self.window.file_list.update_file_status(file_path, "processing", _("Signing..."))
+                    status_msg = _("Signing...")
+                    self.window.file_list.update_file_status(file_path, "processing", status_msg)
 
     def _signing_complete(self, results, dry_run: bool = False) -> None:
         """Callback when signing completes."""
@@ -245,7 +246,9 @@ class SigningHandler:
         if failed == 0:
             self.window.show_toast(_("✓ {}{}file(s) signed{}").format(prefix, success, suffix))
         else:
-            self.window.show_toast(_("{}Signed: {}/{} (Errors: {}){}").format(prefix, success, total, failed, suffix))
+            self.window.show_toast(
+                _("{}Signed: {}/{} (Errors: {}){}").format(prefix, success, total, failed, suffix)
+            )
 
     def _show_error(self, title: str, message: str) -> None:
         """Shows an error dialog."""

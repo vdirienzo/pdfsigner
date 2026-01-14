@@ -1,0 +1,18 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=PDFSigner
+GenericName=PDF Digital Signer
+Comment=Sign PDF documents with USB cryptographic tokens
+Exec=pdfsigner-gui %F
+Icon=com.pdfsigner.app
+Terminal=false
+Categories=Office;
+MimeType=application/pdf;
+Keywords=pdf;sign;signature;certificate;token;pkcs11;
+StartupNotify=true
+Actions=validate;
+
+[Desktop Action validate]
+Name=Validate Signatures
+Exec=pdfsigner validate %F
