@@ -350,8 +350,11 @@ install_nautilus_extension() {
     local EXTENSION_DIR="$HOME/.local/share/nautilus-python/extensions"
     mkdir -p "$EXTENSION_DIR"
 
-    # Crear wrapper de extensión
-    cat > "$EXTENSION_DIR/pdfsigner.py" << EXTENSION_EOF
+    # Remove old extension if exists (was named pdfsigner.py before)
+    rm -f "$EXTENSION_DIR/pdfsigner.py"
+
+    # Create wrapper extension (named differently to avoid import collision)
+    cat > "$EXTENSION_DIR/pdfsigner_nautilus.py" << EXTENSION_EOF
 """
 PDFSigner - Extensión de Nautilus para firma digital de PDFs
 
@@ -467,7 +470,7 @@ verify_installation() {
     fi
 
     # Verify extension
-    if [ -f "$HOME/.local/share/nautilus-python/extensions/pdfsigner.py" ]; then
+    if [ -f "$HOME/.local/share/nautilus-python/extensions/pdfsigner_nautilus.py" ]; then
         log_success "Nautilus extension installed"
     else
         log_error "Nautilus extension not installed"

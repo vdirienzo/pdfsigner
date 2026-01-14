@@ -17,11 +17,21 @@ echo -e "${YELLOW}║       PDFSigner - Uninstaller          ║${NC}"
 echo -e "${YELLOW}╚════════════════════════════════════════╝${NC}"
 echo
 
-EXTENSION_FILE="$HOME/.local/share/nautilus-python/extensions/pdfsigner.py"
+EXTENSION_FILE="$HOME/.local/share/nautilus-python/extensions/pdfsigner_nautilus.py"
+OLD_EXTENSION_FILE="$HOME/.local/share/nautilus-python/extensions/pdfsigner.py"
 
-# Remove extension
+# Remove extension (both old and new names)
+REMOVED=false
 if [ -f "$EXTENSION_FILE" ]; then
     rm "$EXTENSION_FILE"
+    REMOVED=true
+fi
+if [ -f "$OLD_EXTENSION_FILE" ]; then
+    rm "$OLD_EXTENSION_FILE"
+    REMOVED=true
+fi
+
+if [ "$REMOVED" = true ]; then
     echo -e "${GREEN}✓ Extension removed${NC}"
 else
     echo -e "${YELLOW}⚠ Extension not found${NC}"
