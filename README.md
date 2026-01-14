@@ -872,11 +872,12 @@ uv run safety check
 
 ### Test Coverage
 
-**343 tests passing** with **~45% overall coverage**
+**472 tests passing** with **~50% overall coverage**
 
 | Module | Coverage |
 |--------|----------|
 | `lta_handler.py` | **100%** |
+| `health_status.py` | **100%** |
 | `exceptions.py` | 100% |
 | `stamp_simulator.py` | 100% |
 | `pin_cache.py` | 98% |
@@ -889,6 +890,8 @@ uv run safety check
 | `pdf_signer.py` | **83%** |
 | `content_analyzer.py` | 78% |
 | `pdf_validator.py` | 70% |
+
+**E2E Tests:** 16 tests for dry-run sign + validate flow in `test_e2e_signing_flow.py`.
 
 **GUI Tests:** 26 tests for `SigningHandler` and `ValidationHandler` using GTK mocks (no display required).
 
