@@ -152,40 +152,9 @@ def create_appearance_page(settings, dialog) -> Adw.PreferencesPage:
     lang_group.add(lang_row)
     page.add(lang_group)
 
-    # Group: Accessibility
-    a11y_group = Adw.PreferencesGroup()
-    a11y_group.set_title(_("Accessibility"))
-    a11y_group.set_description(_("Options to improve accessibility"))
-
-    # High contrast mode
-    high_contrast_row = Adw.SwitchRow()
-    high_contrast_row.set_title(_("High contrast"))
-    high_contrast_row.set_subtitle(_("Increase contrast for better visibility"))
-    high_contrast_row.set_active(False)
-    a11y_group.add(high_contrast_row)
-
-    # Reduce motion
-    reduce_motion_row = Adw.SwitchRow()
-    reduce_motion_row.set_title(_("Reduce motion"))
-    reduce_motion_row.set_subtitle(_("Minimize animations"))
-    reduce_motion_row.set_active(False)
-    a11y_group.add(reduce_motion_row)
-
-    # Large text
-    large_text_row = Adw.SwitchRow()
-    large_text_row.set_title(_("Large text"))
-    large_text_row.set_subtitle(_("Use larger font sizes"))
-    large_text_row.set_active(False)
-    a11y_group.add(large_text_row)
-
-    page.add(a11y_group)
-
     # Store references for saving
     dialog.theme_row = theme_row
     dialog.lang_row = lang_row
-    dialog.high_contrast_row = high_contrast_row
-    dialog.reduce_motion_row = reduce_motion_row
-    dialog.large_text_row = large_text_row
 
     return page
 
