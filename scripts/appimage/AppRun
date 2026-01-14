@@ -1,0 +1,81 @@
+#!/bin/bash
+# AppRun - Entry point for PDFSigner AppImage
+# Author: Homero Thompson del Lago del Terror
+#
+# This script checks for GTK4/PyGObject availability on the host system
+# and runs the application.
+
+set -e
+
+APPDIR="$(dirname "$(readlink -f "$0")")"
+APPNAME="PDFSigner"
+
+# Function to show error message
+show_error() {
+    local message="$1"
+
+    # Try zenity first (GTK)
+    if command -v zenity &>/dev/null; then
+        zenity --error --title="$APPNAME" --text="$message" --width=400 2>/dev/null
+    # Try kdialog (KDE)
+    elif command -v kdialog &>/dev/null; then
+        kdialog --error "$message" --title "$APPNAME" 2>/dev/null
+    # Fallback to terminal
+    else
+        echo "ERROR: $message" >&2
+    fi
+}
+
+# Check if GTK4 and libadwaita are available
+check_gtk4() {
+    python3 -c "
+import gi
+gi.require_version('Gtk', '4.0')
+gi.require_version('Adw', '1')
+from gi.repository import Gtk, Adw
+" 2>/dev/null
+}
+
+# Main
+if ! check_gtk4; then
+    show_error "GTK4 and libadwaita are required but not found.
+
+Please install:
+
+Ubuntu/Debian:
+  sudo apt install python3-gi gir1.2-gtk-4.0 gir1.2-adw-1
+
+Fedora:
+  sudo dnf install python3-gobject gtk4 libadwaita
+
+Arch Linux:
+  sudo pacman -S python-gobject gtk4 libadwaita
+
+openSUSE:
+  sudo zypper install python3-gobject gtk4 libadwaita"
+    exit 1
+fi
+
+# Set environment variables
+export PYTHONPATH="$APPDIR/usr/lib/python3/site-packages:$PYTHONPATH"
+export PATH="$APPDIR/usr/bin:$PATH"
+export XDG_DATA_DIRS="$APPDIR/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+export GDK_PIXBUF_MODULE_FILE="$APPDIR/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache"
+
+# Handle command line arguments
+case "${1:-}" in
+    --help|-h)
+        exec python3 -m pdfsigner.main --help
+        ;;
+    --version|-V)
+        exec python3 -m pdfsigner.main --version
+        ;;
+    sign|validate|list-certs)
+        # CLI commands
+        exec python3 -m pdfsigner.main "$@"
+        ;;
+    *)
+        # Default: launch GUI
+        exec python3 -m pdfsigner.gui.app "$@"
+        ;;
+esac

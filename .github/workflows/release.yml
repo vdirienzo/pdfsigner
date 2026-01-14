@@ -1,0 +1,227 @@
+# release.yml - Build and release packages for PDFSigner
+# Author: Homero Thompson del Lago del Terror
+#
+# This workflow builds AppImage, .deb, and Flatpak packages
+# and creates a GitHub Release when a version tag is pushed.
+#
+# Trigger: Push tag matching v* (e.g., v0.6.0, v1.0.0)
+
+name: Release Packages
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to build (e.g., 0.6.0)'
+        required: false
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  PYTHON_VERSION: '3.12'
+
+jobs:
+  # ==========================================================================
+  # Build AppImage
+  # ==========================================================================
+  build-appimage:
+    name: Build AppImage
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libfuse2 \
+            file \
+            wget
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build wheel
+          pip install pillow  # For icon generation
+
+      - name: Generate icons
+        run: |
+          python3 -c "
+          from PIL import Image
+          import os
+          src = 'src/pdfsigner/ui/icon/icon512.png'
+          img = Image.open(src)
+          for size in [16, 32, 48, 64, 128, 256, 512]:
+              dest = f'data/icons/{size}x{size}/apps/com.pdfsigner.app.png'
+              os.makedirs(os.path.dirname(dest), exist_ok=True)
+              img.resize((size, size), Image.Resampling.LANCZOS).save(dest)
+          "
+
+      - name: Build AppImage
+        run: |
+          chmod +x scripts/appimage/AppRun scripts/appimage/build-appimage.sh
+          bash scripts/build-packages.sh --appimage
+
+      - name: Upload AppImage artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: appimage
+          path: dist/appimage/*.AppImage
+          retention-days: 5
+
+  # ==========================================================================
+  # Build Debian Package
+  # ==========================================================================
+  build-deb:
+    name: Build Debian Package
+    runs-on: ubuntu-22.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            debhelper \
+            dh-python \
+            python3-all \
+            python3-setuptools \
+            python3-build \
+            python3-pip \
+            python3-pil \
+            dpkg-dev \
+            fakeroot
+
+      - name: Generate icons
+        run: |
+          python3 -c "
+          from PIL import Image
+          import os
+          src = 'src/pdfsigner/ui/icon/icon512.png'
+          img = Image.open(src)
+          for size in [16, 32, 48, 64, 128, 256, 512]:
+              dest = f'data/icons/{size}x{size}/apps/com.pdfsigner.app.png'
+              os.makedirs(os.path.dirname(dest), exist_ok=True)
+              img.resize((size, size), Image.Resampling.LANCZOS).save(dest)
+          "
+
+      - name: Build Debian package
+        run: |
+          chmod +x scripts/debian/prepare-debian.sh
+          bash scripts/build-packages.sh --deb
+
+      - name: Upload .deb artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: deb
+          path: dist/deb/*.deb
+          retention-days: 5
+
+  # ==========================================================================
+  # Build Flatpak
+  # ==========================================================================
+  build-flatpak:
+    name: Build Flatpak
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+
+      - name: Install Flatpak
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder python3-pil
+          sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+
+      - name: Install GNOME runtime
+        run: |
+          sudo flatpak install -y flathub org.gnome.Platform//46 org.gnome.Sdk//46
+
+      - name: Generate icons
+        run: |
+          python3 -c "
+          from PIL import Image
+          import os
+          src = 'src/pdfsigner/ui/icon/icon512.png'
+          img = Image.open(src)
+          for size in [16, 32, 48, 64, 128, 256, 512]:
+              dest = f'data/icons/{size}x{size}/apps/com.pdfsigner.app.png'
+              os.makedirs(os.path.dirname(dest), exist_ok=True)
+              img.resize((size, size), Image.Resampling.LANCZOS).save(dest)
+          "
+
+      - name: Build Flatpak
+        run: |
+          chmod +x scripts/flatpak/build-flatpak.sh
+          bash scripts/build-packages.sh --flatpak
+        continue-on-error: true  # Flatpak build may fail in CI due to sandbox
+
+      - name: Upload Flatpak artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flatpak
+          path: dist/flatpak/*.flatpak
+          retention-days: 5
+          if-no-files-found: ignore
+
+  # ==========================================================================
+  # Create Release
+  # ==========================================================================
+  create-release:
+    name: Create GitHub Release
+    needs: [build-appimage, build-deb, build-flatpak]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Display artifacts
+        run: |
+          echo "Downloaded artifacts:"
+          find artifacts -type f -ls
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          name: PDFSigner ${{ github.ref_name }}
+          draft: false
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          generate_release_notes: true
+          files: |
+            artifacts/appimage/*.AppImage
+            artifacts/deb/*.deb
+            artifacts/flatpak/*.flatpak
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

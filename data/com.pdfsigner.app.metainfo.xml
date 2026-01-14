@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  com.pdfsigner.app.metainfo.xml - AppStream metadata
+
+  Author: Homero Thompson del Lago del Terror
+-->
+<component type="desktop-application">
+  <id>com.pdfsigner.app</id>
+  <name>PDFSigner</name>
+  <summary>Sign PDF documents with USB cryptographic tokens</summary>
+  <metadata_license>MIT</metadata_license>
+  <project_license>MIT</project_license>
+  <developer id="com.github.vdirienzo">
+    <name>Homero Thompson del Lago del Terror</name>
+  </developer>
+
+  <description>
+    <p>PDFSigner is a GTK4 application for digitally signing PDF documents
+    using USB cryptographic tokens (PKCS#11). Features include:</p>
+    <ul>
+      <li>PAdES-LTV signatures with TSA timestamp</li>
+      <li>Support for multiple token types (SafeNet, YubiKey, Nitrokey, OpenSC)</li>
+      <li>Batch signing with PIN cache</li>
+      <li>Visible signature stamps with smart positioning</li>
+      <li>Signature validation</li>
+      <li>Dry-run mode for testing without real token</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">com.pdfsigner.app.desktop</launchable>
+
+  <screenshots>
+    <screenshot type="default">
+      <image>https://raw.githubusercontent.com/vdirienzo/pdfsigner/main/screenshots/01.png</image>
+      <caption>Main window with PDF list</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/vdirienzo/pdfsigner/main/screenshots/02.png</image>
+      <caption>Signing in progress</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/vdirienzo/pdfsigner/main/screenshots/03.png</image>
+      <caption>Settings dialog</caption>
+    </screenshot>
+    <screenshot>
+      <image>https://raw.githubusercontent.com/vdirienzo/pdfsigner/main/screenshots/04.png</image>
+      <caption>Signature validation</caption>
+    </screenshot>
+  </screenshots>
+
+  <url type="homepage">https://github.com/vdirienzo/pdfsigner</url>
+  <url type="bugtracker">https://github.com/vdirienzo/pdfsigner/issues</url>
+  <url type="vcs-browser">https://github.com/vdirienzo/pdfsigner</url>
+
+  <content_rating type="oars-1.1" />
+
+  <releases>
+    <release version="0.6.0" date="2026-01-14">
+      <description>
+        <p>Multi-token PKCS#11 support release:</p>
+        <ul>
+          <li>Auto-detection for 8+ token types (SafeNet, YubiKey, Nitrokey, OpenSC, etc.)</li>
+          <li>Improved TSA timestamp integration</li>
+          <li>Theme and language settings with auto-save</li>
+          <li>Better error messages</li>
+        </ul>
+      </description>
+    </release>
+    <release version="0.1.0" date="2025-12-01">
+      <description>
+        <p>Initial release with core features:</p>
+        <ul>
+          <li>PAdES-LTV signatures</li>
+          <li>GTK4/libadwaita interface</li>
+          <li>Batch signing</li>
+          <li>CLI support</li>
+        </ul>
+      </description>
+    </release>
+  </releases>
+
+  <requires>
+    <id>org.gnome.Platform</id>
+  </requires>
+
+  <recommends>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </recommends>
+
+  <supports>
+    <control>touch</control>
+  </supports>
+
+  <branding>
+    <color type="primary" scheme_preference="light">#3584e4</color>
+    <color type="primary" scheme_preference="dark">#1c71d8</color>
+  </branding>
+
+  <categories>
+    <category>Office</category>
+    <category>Utility</category>
+    <category>Graphics</category>
+  </categories>
+
+  <keywords>
+    <keyword>pdf</keyword>
+    <keyword>sign</keyword>
+    <keyword>signature</keyword>
+    <keyword>certificate</keyword>
+    <keyword>token</keyword>
+    <keyword>pkcs11</keyword>
+    <keyword>digital signature</keyword>
+    <keyword>cryptographic</keyword>
+  </keywords>
+</component>

@@ -1,0 +1,19 @@
+pdfsigner (0.6.0-1) unstable; urgency=medium
+
+  * Multi-token PKCS#11 support with auto-detection
+  * Support for SafeNet, YubiKey, Nitrokey, OpenSC, and more
+  * Improved TSA timestamp integration
+  * Theme and language settings with auto-save
+  * Better error messages and user feedback
+
+ -- Homero Thompson del Lago del Terror <noreply@example.com>  Tue, 14 Jan 2026 10:00:00 +0000
+
+pdfsigner (0.1.0-1) unstable; urgency=low
+
+  * Initial release
+  * PAdES-LTV signatures with TSA timestamps
+  * GTK4/libadwaita interface
+  * Batch signing with PIN cache
+  * CLI support
+
+ -- Homero Thompson del Lago del Terror <noreply@example.com>  Sun, 01 Dec 2025 10:00:00 +0000

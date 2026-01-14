@@ -1,0 +1,36 @@
+#!/usr/bin/make -f
+# debian/rules for pdfsigner
+# Author: Homero Thompson del Lago del Terror
+
+export DH_VERBOSE = 1
+export PYBUILD_NAME = pdfsigner
+export DEB_BUILD_MAINT_OPTIONS = hardening=+all
+
+%:
+	dh $@ --with python3 --buildsystem=pybuild
+
+override_dh_auto_build:
+	python3 -m build --wheel --no-isolation
+
+override_dh_auto_install:
+	dh_auto_install
+
+	# Install desktop file
+	install -Dm644 data/com.pdfsigner.app.desktop \
+		debian/pdfsigner/usr/share/applications/com.pdfsigner.app.desktop
+
+	# Install metainfo
+	install -Dm644 data/com.pdfsigner.app.metainfo.xml \
+		debian/pdfsigner/usr/share/metainfo/com.pdfsigner.app.metainfo.xml
+
+	# Install icons
+	for size in 16 32 48 64 128 256 512; do \
+		install -Dm644 data/icons/$${size}x$${size}/apps/com.pdfsigner.app.png \
+			debian/pdfsigner/usr/share/icons/hicolor/$${size}x$${size}/apps/com.pdfsigner.app.png; \
+	done
+
+override_dh_installchangelogs:
+	dh_installchangelogs CHANGELOG.md
+
+override_dh_compress:
+	dh_compress -X.py
