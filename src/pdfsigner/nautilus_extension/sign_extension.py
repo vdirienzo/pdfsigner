@@ -12,7 +12,7 @@ from urllib.parse import unquote, urlparse
 
 import gi
 
-gi.require_version("Nautilus", "4.0")
+gi.require_version("Nautilus", "4.1")
 gi.require_version("Gtk", "4.0")
 gi.require_version("GObject", "2.0")
 
