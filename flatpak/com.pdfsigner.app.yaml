@@ -53,7 +53,7 @@ modules:
       # Install build backend and dependencies
       - pip3 install --prefix=${FLATPAK_DEST} --no-cache-dir
           hatchling pyhanko[pkcs11] python-pkcs11 pymupdf pydantic-settings
-          loguru cryptography certifi urllib3 babel
+          loguru cryptography certifi urllib3 babel qrcode pillow
 
       # Install the application itself
       - pip3 install --prefix=${FLATPAK_DEST} --no-deps .

@@ -116,7 +116,7 @@ install_dependencies() {
         --no-compile \
         --upgrade \
         pyhanko[pkcs11] python-pkcs11 pymupdf pydantic-settings \
-        loguru cryptography certifi urllib3 babel
+        loguru cryptography certifi urllib3 babel qrcode pillow
 
     # Install pdfsigner itself
     python3 -m pip install \

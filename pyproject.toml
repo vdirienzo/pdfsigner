@@ -1,6 +1,6 @@
 [project]
 name = "pdfsigner"
-version = "0.7.0"
+version = "0.8.1"
 description = "Digital PDF signing application with SafeNet 5110 USB token"
 readme = "README.md"
 requires-python = ">=3.12"
