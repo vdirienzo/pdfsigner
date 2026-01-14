@@ -2,7 +2,7 @@
 
 > **Purpose:** This file helps Claude (or any AI assistant) understand the project context quickly.
 > **Last Updated:** 2026-01-14
-> **Version:** 0.8.0
+> **Version:** 0.8.1
 > **Author:** Homero Thompson del Lago del Terror
 
 ---
@@ -38,7 +38,7 @@
 | Linting | Ruff |
 | Type Check | mypy |
 | Security | Bandit, Safety |
-| CI/CD | GitHub Actions |
+| Releases | GitHub Actions (on tag) |
 
 ---
 
@@ -67,7 +67,6 @@ Auto-detected in priority order by `nss_handler.py`:
 ```
 pdfsigner/
 ├── .github/workflows/
-│   ├── ci.yml                  # CI/CD pipeline (lint, security, test, build)
 │   └── release.yml             # Package builds on tag push
 ├── src/pdfsigner/
 │   ├── cli/                    # CLI commands (sign.py, validate.py, etc.)
@@ -228,13 +227,6 @@ uv run pre-commit install
 uv run pre-commit run --all-files
 ```
 
-### CI/CD Pipeline
-GitHub Actions runs on push/PR to `main` and `dev`:
-1. **Lint** - Ruff check and format
-2. **Security** - Bandit and Safety
-3. **Test** - pytest with coverage
-4. **Build** - Package build
-
 ---
 
 ## Important Files
@@ -251,7 +243,7 @@ GitHub Actions runs on push/PR to `main` and `dev`:
 | `stamp_composer.py` | Image composition (text + QR) using Pillow |
 
 ### nss_handler.py Key Details
-- Contains `PKCS11_LIB_PATHS` constants for each token vendor
+- Uses `pkcs11_libs.py` for token vendor library paths
 - `_find_pkcs11_lib()` searches libraries in priority order
 - First found library is used
 - Logs which token type was detected
@@ -364,7 +356,7 @@ git push origin v0.7.0
 | `data/com.pdfsigner.app.metainfo.xml` | AppStream metadata |
 | `data/icons/` | Multi-resolution icons (16-512px) |
 | `screenshots/` | App screenshots for software centers |
-| `.github/workflows/release.yml` | CI/CD release workflow |
+| `.github/workflows/release.yml` | Release workflow (builds on tag) |
 
 ### Build Dependencies
 
@@ -376,7 +368,13 @@ git push origin v0.7.0
 
 ---
 
-## Recent Changes (v0.8.0)
+## Recent Changes (v0.8.1)
+
+- **Refactored nss_handler.py** - Extracted PKCS#11 paths to `pkcs11_libs.py`
+  - nss_handler.py: 382 → 285 lines (better modularity)
+- **Removed CI workflow** - No automated checks on push (release workflow kept)
+
+### Previous (v0.8.0)
 
 - **QR verification code** - Optional QR in visible signatures
   - Contains: document hash (SHA-256), signer name, timestamp

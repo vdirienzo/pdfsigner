@@ -926,6 +926,15 @@ MIT License - See [LICENSE](LICENSE)
 
 ## 📝 Changelog
 
+### [0.8.1] - 2026-01-14
+
+#### Changed
+- **Refactored nss_handler.py** - Extracted PKCS#11 library paths to `pkcs11_libs.py`
+  - nss_handler.py: 382 → 285 lines (better modularity)
+
+#### Removed
+- **CI workflow** - Removed automated checks on push (release workflow kept for builds)
+
 ### [0.8.0] - 2026-01-14
 
 #### Added
