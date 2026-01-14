@@ -748,6 +748,30 @@ MIT License - See [LICENSE](LICENSE)
 
 ## 📝 Changelog
 
+### [0.2.0] - 2026-01-13
+
+#### Added
+- **Help dialog** with comprehensive user documentation
+- **Customizable stamp appearance** for real signatures using pyHanko TextStampStyle
+  - Show signer name (`%(signer)s` placeholder)
+  - Show signature date (`%(ts)s` placeholder)
+  - Optional custom image background
+
+#### Fixed
+- **Simulated stamp position** now respects user-selected position preference
+  - Fixed coordinate system handling (PyMuPDF uses top-left origin)
+  - Stamps now appear in correct position during dry-run mode
+- **GitHub repository URL** in About dialog (was pointing to incorrect URL)
+- **Output file suffix** changed from `_firmado` to `_signed` for consistency
+
+#### Changed
+- **All UI messages translated to English** for international users
+  - Help dialog content
+  - Progress messages
+  - Status notifications
+  - Nautilus extension labels
+- **Modularized mock code**: extracted `stamp_simulator.py` from `mock_batch.py`
+
 ### [0.1.0] - 2025-01-13
 
 #### Added
