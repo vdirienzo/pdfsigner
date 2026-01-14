@@ -699,16 +699,22 @@ uv run safety check
 
 ### Test Coverage
 
+**170 tests passing** with **31% overall coverage**
+
 | Module | Coverage |
 |--------|----------|
 | `exceptions.py` | 100% |
 | `stamp_simulator.py` | 100% |
 | `pin_cache.py` | 98% |
+| `batch_manager.py` | 97% |
 | `main.py` | 96% |
 | `position_finder.py` | 92% |
 | `settings.py` | 91% |
+| `content_analyzer.py` | 78% |
+| `pdf_signer.py` | 72% |
+| `pdf_validator.py` | 70% |
 
-**Note:** GUI modules have lower coverage as they require GTK4 display for testing.
+**Note:** GUI modules have 0% coverage as they require GTK4 display for testing.
 
 ### Structure
 
@@ -746,7 +752,21 @@ MIT License - See [LICENSE](LICENSE)
 
 ## 📝 Changelog
 
-### [0.2.1] - 2026-01-14
+### [0.3.0] - 2026-01-13
+
+#### Added
+- **CI/CD Pipeline** - GitHub Actions for lint, test, security, and build
+- **MIT License** file
+- **Pre-commit hooks** - Automated code quality checks (ruff, mypy, bandit)
+- **CONTRIBUTING.md** - Guidelines for contributors
+- **Expanded test suite** - 170 tests with 31% coverage
+  - Tests for `pdf_signer.py`, `batch_manager.py`, `nss_handler.py`, `pdf_validator.py`
+  - Improved test fixtures with valid PyMuPDF-generated PDFs
+
+#### Changed
+- **Sample PDF fixture** now uses PyMuPDF for better pyHanko compatibility
+
+### [0.2.1] - 2026-01-13
 
 #### Added
 - **Comprehensive test suite** with 83 unit tests

@@ -20,32 +20,19 @@ def temp_dir():
 
 @pytest.fixture
 def sample_pdf(temp_dir: Path) -> Path:
-    """Crea un PDF de prueba mínimo."""
-    # PDF mínimo válido
-    pdf_content = b"""%PDF-1.4
-1 0 obj
-<< /Type /Catalog /Pages 2 0 R >>
-endobj
-2 0 obj
-<< /Type /Pages /Kids [3 0 R] /Count 1 >>
-endobj
-3 0 obj
-<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> >>
-endobj
-xref
-0 4
-0000000000 65535 f
-0000000009 00000 n
-0000000058 00000 n
-0000000115 00000 n
-trailer
-<< /Size 4 /Root 1 0 R >>
-startxref
-213
-%%EOF
-"""
+    """Crea un PDF de prueba válido usando PyMuPDF."""
+    import fitz  # PyMuPDF
+
     pdf_path = temp_dir / "test.pdf"
-    pdf_path.write_bytes(pdf_content)
+
+    # Create a valid PDF with PyMuPDF
+    doc = fitz.open()
+    page = doc.new_page(width=612, height=792)  # Letter size
+    # Add some text so it's not completely empty
+    page.insert_text((72, 72), "Test PDF Document", fontsize=12)
+    doc.save(str(pdf_path))
+    doc.close()
+
     return pdf_path
 
 
