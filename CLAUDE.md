@@ -2,7 +2,7 @@
 
 > **Purpose:** This file helps Claude (or any AI assistant) understand the project context quickly.
 > **Last Updated:** 2026-01-14
-> **Version:** 0.8.2
+> **Version:** 0.8.3
 > **Author:** Homero Thompson del Lago del Terror
 
 ---
@@ -38,7 +38,7 @@
 | Linting | Ruff |
 | Type Check | mypy |
 | Security | Bandit, Safety |
-| Releases | GitHub Actions (on tag) |
+| Testing | pytest (343 tests) |
 
 ---
 
@@ -66,8 +66,6 @@ Auto-detected in priority order by `nss_handler.py`:
 
 ```
 pdfsigner/
-├── .github/workflows/
-│   └── release.yml             # Package builds on tag push
 ├── src/pdfsigner/
 │   ├── cli/                    # CLI commands (sign.py, validate.py, etc.)
 │   ├── config/                 # Settings from ~/.config/pdfsigner/config.toml
@@ -96,7 +94,10 @@ pdfsigner/
 │   ├── install.sh              # Multi-distro installer
 │   └── uninstall.sh            # Uninstaller
 ├── tests/
-│   ├── unit/                   # Unit tests (289+ tests)
+│   ├── unit/                   # Unit tests (343 tests including GUI)
+│   │   ├── conftest_gui.py    # GTK mocks for GUI testing
+│   │   ├── test_signing_handler.py  # 16 GUI tests
+│   │   └── test_validation_handler.py  # 10 GUI tests
 │   └── integration/            # Integration tests (TSA, etc.)
 ├── config/                     # Example config files
 ├── .pre-commit-config.yaml     # Pre-commit hooks
@@ -194,11 +195,12 @@ uv run pytest tests/unit/test_position_finder.py -v
 ```
 
 ### Current Coverage
-- **289 tests passing**
+- **343 tests passing** (including 26 GUI tests)
 - **~45% overall coverage**
 - Key modules:
   - signer/ module: **92%** (lta_handler 100%, signature_field 97%, batch_manager 97%)
   - exceptions (100%), stamp_simulator (100%), pin_cache (98%)
+- GUI tests use mocks (no display required)
 
 ---
 
@@ -336,13 +338,16 @@ chmod +x PDFSigner-*.AppImage && ./PDFSigner-*.AppImage
 # Or install: sudo mv squashfs-root /opt/pdfsigner
 ```
 
-### CI/CD Releases
+### Manual Releases
 
-Push a version tag to trigger automated builds:
+During development, releases are built locally:
 ```bash
-git tag v0.7.0
-git push origin v0.7.0
-# GitHub Actions builds all formats and creates release
+# Build all formats
+./scripts/build-packages.sh --all
+
+# Create release tag (if needed)
+git tag v0.8.3
+git push origin v0.8.3
 ```
 
 ### Key Packaging Files
@@ -356,7 +361,6 @@ git push origin v0.7.0
 | `data/com.pdfsigner.app.metainfo.xml` | AppStream metadata |
 | `data/icons/` | Multi-resolution icons (16-512px) |
 | `screenshots/` | App screenshots for software centers |
-| `.github/workflows/release.yml` | Release workflow (builds on tag) |
 
 ### Build Dependencies
 
@@ -368,7 +372,15 @@ git push origin v0.7.0
 
 ---
 
-## Recent Changes (v0.8.2)
+## Recent Changes (v0.8.3)
+
+- **GUI unit tests** - 26 tests for SigningHandler and ValidationHandler
+  - Uses GTK mocks (no display required)
+  - `conftest_gui.py` provides mock GTK4/Adwaita objects
+- **Removed release workflow** - Manual releases during development
+- **Synced Debian changelog** - All versions 0.8.0-0.8.3
+
+### Previous (v0.8.2)
 
 - **Fixed AppStream metainfo** - Updated with all release history, fixed screenshot URLs
 - **Fixed release workflow** - Added missing pip dependencies (pillow, build, hatchling)
@@ -376,7 +388,7 @@ git push origin v0.7.0
 ### Previous (v0.8.1)
 
 - **Refactored nss_handler.py** - Extracted PKCS#11 paths to `pkcs11_libs.py`
-- **Removed CI workflow** - No automated checks on push (release workflow kept)
+- **Removed CI workflow** - No automated checks on push
 - **Updated packaging** - Added `qrcode pillow` to Flatpak/AppImage build scripts
 
 ### Previous (v0.8.0)

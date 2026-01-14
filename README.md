@@ -735,19 +735,21 @@ sudo apt remove pdfsigner
 
 **Build Requirements:** `debhelper`, `dh-python`, `pybuild-plugin-pyproject`, `python3-hatchling`
 
-### GitHub Releases (CI/CD)
+### GitHub Releases
 
-Packages are automatically built and published when a version tag is pushed:
+Packages can be built manually using the build script:
 
 ```bash
-# Create and push a version tag
-git tag v0.7.0
-git push origin v0.7.0
+# Build all formats locally
+./scripts/build-packages.sh --all
 
-# GitHub Actions will:
-# 1. Build all three formats in parallel
-# 2. Create a GitHub Release with all artifacts
+# Output in dist/ directory:
+# - dist/appimage/PDFSigner-{VERSION}-x86_64.AppImage
+# - dist/deb/pdfsigner_{VERSION}-1_all.deb
+# - dist/flatpak/PDFSigner-{VERSION}.flatpak
 ```
+
+**Note:** During development, releases are created manually. For stable releases, packages are uploaded to GitHub Releases.
 
 ---
 
@@ -870,7 +872,7 @@ uv run safety check
 
 ### Test Coverage
 
-**289 tests passing** with **~45% overall coverage**
+**343 tests passing** with **~45% overall coverage**
 
 | Module | Coverage |
 |--------|----------|
@@ -888,7 +890,7 @@ uv run safety check
 | `content_analyzer.py` | 78% |
 | `pdf_validator.py` | 70% |
 
-**Note:** GUI modules have 0% coverage as they require GTK4 display for testing.
+**GUI Tests:** 26 tests for `SigningHandler` and `ValidationHandler` using GTK mocks (no display required).
 
 ### Structure
 
@@ -926,6 +928,17 @@ MIT License - See [LICENSE](LICENSE)
 
 ## 📝 Changelog
 
+### [0.8.3] - 2026-01-14
+
+#### Added
+- **GUI unit tests** - 26 tests for SigningHandler and ValidationHandler using GTK mocks
+  - Tests run without display (no Xvfb required)
+  - `conftest_gui.py` provides mock GTK4/Adwaita objects
+- **Debian changelog** - Synced with actual versions (0.8.0-0.8.3)
+
+#### Removed
+- **Release workflow** - Removed automated releases for faster development iteration
+
 ### [0.8.2] - 2026-01-14
 
 #### Fixed
@@ -941,7 +954,7 @@ MIT License - See [LICENSE](LICENSE)
 - **Updated packaging scripts** - Added `qrcode` and `pillow` dependencies to Flatpak and AppImage builds
 
 #### Removed
-- **CI workflow** - Removed automated checks on push (release workflow kept for builds)
+- **CI workflow** - Removed automated checks on push
 
 ### [0.8.0] - 2026-01-14
 
