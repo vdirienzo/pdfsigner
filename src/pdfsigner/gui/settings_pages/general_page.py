@@ -79,9 +79,17 @@ def create_general_page(settings, dialog) -> Adw.PreferencesPage:
 
     # Set default based on current TSA URL
     if not settings.tsa_url:
-        presets_row.set_selected(0)  # Local time
+        presets_row.set_selected(0)  # Local time (no TSA)
     else:
-        presets_row.set_selected(5)  # Custom
+        # Check if current URL matches a preset
+        preset_found = False
+        for idx, url in TSA_PRESETS.items():
+            if url and url == settings.tsa_url:
+                presets_row.set_selected(idx)
+                preset_found = True
+                break
+        if not preset_found:
+            presets_row.set_selected(6)  # Custom URL
 
     # TSA URL (only visible when Custom is selected)
     tsa_url_row = Adw.EntryRow()
@@ -151,10 +159,10 @@ def _on_tsa_preset_selected(combo, tsa_url_row) -> None:
     if selected == 0:
         # Local time - clear URL
         tsa_url_row.set_text("")
-    elif selected == 5:
-        # Custom - don't change URL, user will type it
+    elif selected == 6:
+        # Custom URL - don't change URL, user will type it
         pass
     else:
-        # Preset TSA
+        # Preset TSA (indices 1-5)
         url = TSA_PRESETS.get(selected, "")
         tsa_url_row.set_text(url)
