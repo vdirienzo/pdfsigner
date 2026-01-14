@@ -936,6 +936,11 @@ MIT License - See [LICENSE](LICENSE)
   - `conftest_gui.py` provides mock GTK4/Adwaita objects
 - **Debian changelog** - Synced with actual versions (0.8.0-0.8.3)
 
+#### Fixed
+- **AppImage GUI launch** - Fixed GUI not opening when running AppImage
+  - Added `if __name__ == "__main__"` block to `app.py`
+  - Fixed `.gitignore` pattern that was excluding `src/pdfsigner/main.py`
+
 #### Removed
 - **Release workflow** - Removed automated releases for faster development iteration
 
