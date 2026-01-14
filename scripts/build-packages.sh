@@ -145,23 +145,80 @@ show_summary() {
 
     echo -e "${BOLD}Generated packages:${NC}\n"
 
-    local found=0
+    local found_appimage=""
+    local found_deb=""
+    local found_flatpak=""
 
+    # Find generated packages
     if [[ -d "$PROJECT_ROOT/dist" ]]; then
-        while IFS= read -r -d '' file; do
-            local size
-            size=$(du -h "$file" | cut -f1)
-            echo -e "  ${GREEN}✓${NC} $(basename "$file") (${size})"
-            found=1
-        done < <(find "$PROJECT_ROOT/dist" -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.flatpak" \) -print0 2>/dev/null)
+        found_appimage=$(find "$PROJECT_ROOT/dist" -name "*.AppImage" 2>/dev/null | head -1)
+        found_deb=$(find "$PROJECT_ROOT/dist" -name "*.deb" 2>/dev/null | head -1)
+        found_flatpak=$(find "$PROJECT_ROOT/dist" -name "*.flatpak" 2>/dev/null | head -1)
     fi
 
-    if [[ $found -eq 0 ]]; then
+    # Show packages and installation instructions
+    if [[ -n "$found_appimage" ]]; then
+        local size=$(du -h "$found_appimage" | cut -f1)
+        echo -e "${GREEN}┌─────────────────────────────────────────────────────────────────┐${NC}"
+        echo -e "${GREEN}│${NC} ${BOLD}AppImage${NC}                                                        ${GREEN}│${NC}"
+        echo -e "${GREEN}├─────────────────────────────────────────────────────────────────┤${NC}"
+        echo -e "${GREEN}│${NC} File: $(basename "$found_appimage") ($size)"
+        echo -e "${GREEN}│${NC} Path: $found_appimage"
+        echo -e "${GREEN}│${NC}"
+        echo -e "${GREEN}│${NC} ${BOLD}Install:${NC}"
+        echo -e "${GREEN}│${NC}   chmod +x $(basename "$found_appimage")"
+        echo -e "${GREEN}│${NC}   ./$(basename "$found_appimage")"
+        echo -e "${GREEN}│${NC}"
+        echo -e "${GREEN}│${NC} ${BOLD}Or move to /usr/local/bin:${NC}"
+        echo -e "${GREEN}│${NC}   sudo mv $(basename "$found_appimage") /usr/local/bin/pdfsigner"
+        echo -e "${GREEN}└─────────────────────────────────────────────────────────────────┘${NC}"
+        echo ""
+    fi
+
+    if [[ -n "$found_deb" ]]; then
+        local size=$(du -h "$found_deb" | cut -f1)
+        echo -e "${BLUE}┌─────────────────────────────────────────────────────────────────┐${NC}"
+        echo -e "${BLUE}│${NC} ${BOLD}Debian Package (.deb)${NC}                                           ${BLUE}│${NC}"
+        echo -e "${BLUE}├─────────────────────────────────────────────────────────────────┤${NC}"
+        echo -e "${BLUE}│${NC} File: $(basename "$found_deb") ($size)"
+        echo -e "${BLUE}│${NC} Path: $found_deb"
+        echo -e "${BLUE}│${NC}"
+        echo -e "${BLUE}│${NC} ${BOLD}Install:${NC}"
+        echo -e "${BLUE}│${NC}   sudo dpkg -i $(basename "$found_deb")"
+        echo -e "${BLUE}│${NC}   sudo apt install -f  # if dependencies missing"
+        echo -e "${BLUE}│${NC}"
+        echo -e "${BLUE}│${NC} ${BOLD}Uninstall:${NC}"
+        echo -e "${BLUE}│${NC}   sudo apt remove pdfsigner"
+        echo -e "${BLUE}└─────────────────────────────────────────────────────────────────┘${NC}"
+        echo ""
+    fi
+
+    if [[ -n "$found_flatpak" ]]; then
+        local size=$(du -h "$found_flatpak" | cut -f1)
+        echo -e "${YELLOW}┌─────────────────────────────────────────────────────────────────┐${NC}"
+        echo -e "${YELLOW}│${NC} ${BOLD}Flatpak${NC}                                                         ${YELLOW}│${NC}"
+        echo -e "${YELLOW}├─────────────────────────────────────────────────────────────────┤${NC}"
+        echo -e "${YELLOW}│${NC} File: $(basename "$found_flatpak") ($size)"
+        echo -e "${YELLOW}│${NC} Path: $found_flatpak"
+        echo -e "${YELLOW}│${NC}"
+        echo -e "${YELLOW}│${NC} ${BOLD}Install:${NC}"
+        echo -e "${YELLOW}│${NC}   flatpak install --user $(basename "$found_flatpak")"
+        echo -e "${YELLOW}│${NC}"
+        echo -e "${YELLOW}│${NC} ${BOLD}Run:${NC}"
+        echo -e "${YELLOW}│${NC}   flatpak run com.pdfsigner.app"
+        echo -e "${YELLOW}│${NC}"
+        echo -e "${YELLOW}│${NC} ${BOLD}Uninstall:${NC}"
+        echo -e "${YELLOW}│${NC}   flatpak uninstall com.pdfsigner.app"
+        echo -e "${YELLOW}└─────────────────────────────────────────────────────────────────┘${NC}"
+        echo ""
+    fi
+
+    if [[ -z "$found_appimage" && -z "$found_deb" && -z "$found_flatpak" ]]; then
         echo -e "  ${YELLOW}No packages found${NC}"
+        echo ""
     fi
 
-    echo ""
-    log_info "Packages are in: $PROJECT_ROOT/dist/"
+    echo -e "${BOLD}All packages stored in:${NC} $PROJECT_ROOT/dist/"
 }
 
 # ============================================================================
