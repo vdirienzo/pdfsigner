@@ -62,6 +62,9 @@ export PATH="$APPDIR/usr/bin:$PATH"
 export XDG_DATA_DIRS="$APPDIR/usr/share:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
 export GDK_PIXBUF_MODULE_FILE="$APPDIR/usr/lib/gdk-pixbuf-2.0/2.10.0/loaders.cache"
 
+# Suppress harmless RuntimeWarning about module imports
+export PYTHONWARNINGS="ignore::RuntimeWarning"
+
 # Handle command line arguments
 case "${1:-}" in
     --help|-h)
