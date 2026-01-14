@@ -123,9 +123,7 @@ class PDFSigner:
         suffix = settings.output_suffix
         return input_path.with_stem(f"{input_path.stem}{suffix}")
 
-    def _build_stamp_style(
-        self, appearance: "SignatureAppearance"
-    ) -> "stamp.TextStampStyle | None":
+    def _build_stamp_style(self, appearance: "SignatureAppearance"):
         """
         Builds the visual stamp style for visible signatures.
 

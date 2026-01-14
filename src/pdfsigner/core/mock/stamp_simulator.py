@@ -39,7 +39,7 @@ def parse_page_spec(page_spec: str | int, total_pages: int) -> list[int]:
 
     # Parse comma-separated list or ranges
     try:
-        pages = []
+        pages: list[int] = []
         for part in str(page_spec).replace(" ", "").split(","):
             if "-" in part:
                 start, end = part.split("-", 1)

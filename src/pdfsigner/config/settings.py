@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Literal
 
 from pydantic import Field, field_validator
-from pydantic_settings import BaseSettings, SettingsConfigDict, PydanticBaseSettingsSource
+from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 # TOML config file path
 TOML_CONFIG_PATH = Path.home() / ".config" / "pdfsigner" / "config.toml"

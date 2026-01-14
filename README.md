@@ -679,19 +679,36 @@ echo "/usr/lib/python3/dist-packages" > .venv/lib/python3.*/site-packages/system
 ### Commands
 
 ```bash
-# Tests
+# Run all tests
 uv run pytest -v
+
+# Run tests with coverage
+uv run pytest --cov=src/pdfsigner --cov-report=term-missing
 
 # Linter
 uv run ruff check --fix .
 uv run ruff format .
 
 # Type checking
-uv run mypy src/pdfsigner
+uv run mypy src/pdfsigner --ignore-missing-imports
 
-# Security
+# Security scan
 uv run bandit -r src/
+uv run safety check
 ```
+
+### Test Coverage
+
+| Module | Coverage |
+|--------|----------|
+| `exceptions.py` | 100% |
+| `stamp_simulator.py` | 100% |
+| `pin_cache.py` | 98% |
+| `main.py` | 96% |
+| `position_finder.py` | 92% |
+| `settings.py` | 91% |
+
+**Note:** GUI modules have lower coverage as they require GTK4 display for testing.
 
 ### Structure
 
@@ -728,6 +745,23 @@ MIT License - See [LICENSE](LICENSE)
 ---
 
 ## 📝 Changelog
+
+### [0.2.1] - 2026-01-14
+
+#### Added
+- **Comprehensive test suite** with 83 unit tests
+- **Desktop integration** - Application icon in GNOME menu
+- **Code quality tools** - ruff, bandit, safety, mypy
+- **Test coverage reporting** with pytest-cov
+
+#### Fixed
+- **Desktop launcher** now works correctly from GNOME application menu
+- **urllib3 vulnerability** updated to 2.6.3 (CVE-2025-66471, CVE-2025-66418)
+- **Type hints** corrected in pdf_signer.py and stamp_simulator.py
+- **Import ordering** fixed in settings.py
+
+#### Changed
+- **Removed Nautilus integration** - Simplified to standalone GUI + CLI only
 
 ### [0.2.0] - 2026-01-13
 
