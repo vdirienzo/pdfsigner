@@ -1,9 +1,9 @@
 #!/bin/bash
-# uninstall.sh - Desinstalador de PDFSigner
+# uninstall.sh - PDFSigner Uninstaller
 #
-# Autor: Homero Thompson del Lago del Terror
+# Author: Homero Thompson del Lago del Terror
 #
-# Elimina la extensión de Nautilus (mantiene configuración).
+# Removes the Nautilus extension (keeps configuration).
 
 set -e
 
@@ -13,29 +13,29 @@ YELLOW='\033[1;33m'
 NC='\033[0m'
 
 echo -e "${YELLOW}╔════════════════════════════════════════╗${NC}"
-echo -e "${YELLOW}║     PDFSigner - Desinstalador          ║${NC}"
+echo -e "${YELLOW}║       PDFSigner - Uninstaller          ║${NC}"
 echo -e "${YELLOW}╚════════════════════════════════════════╝${NC}"
 echo
 
 EXTENSION_FILE="$HOME/.local/share/nautilus-python/extensions/pdfsigner.py"
 
-# Eliminar extensión
+# Remove extension
 if [ -f "$EXTENSION_FILE" ]; then
     rm "$EXTENSION_FILE"
-    echo -e "${GREEN}✓ Extensión eliminada${NC}"
+    echo -e "${GREEN}✓ Extension removed${NC}"
 else
-    echo -e "${YELLOW}⚠ Extensión no encontrada${NC}"
+    echo -e "${YELLOW}⚠ Extension not found${NC}"
 fi
 
-# Reiniciar Nautilus
-echo -e "${YELLOW}→ Reiniciando Nautilus...${NC}"
+# Restart Nautilus
+echo -e "${YELLOW}→ Restarting Nautilus...${NC}"
 nautilus -q 2>/dev/null || true
 
 echo
-echo -e "${GREEN}✓ Desinstalación completada${NC}"
+echo -e "${GREEN}✓ Uninstallation completed${NC}"
 echo
-echo -e "Nota: La configuración se mantiene en:"
+echo -e "Note: Configuration is preserved at:"
 echo -e "  ${YELLOW}~/.config/pdfsigner/config.toml${NC}"
 echo
-echo -e "Para eliminarla también:"
+echo -e "To remove it as well:"
 echo -e "  ${YELLOW}rm -rf ~/.config/pdfsigner${NC}"

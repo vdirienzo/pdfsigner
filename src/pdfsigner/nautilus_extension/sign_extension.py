@@ -76,12 +76,12 @@ class PDFSignerExtension(GObject.GObject, Nautilus.MenuProvider):
 
         # Crear item de menú
         count = len(pdf_files)
-        label = "Firmar digitalmente" if count == 1 else f"Firmar {count} PDFs"
+        label = "Sign digitally" if count == 1 else f"Sign {count} PDFs"
 
         item = Nautilus.MenuItem(
             name="PDFSigner::Sign",
             label=label,
-            tip="Firmar con certificado digital (token USB)",
+            tip="Sign with digital certificate (USB token)",
         )
 
         item.connect("activate", self._on_sign_activate, pdf_files)
@@ -115,7 +115,7 @@ class PDFSignerExtension(GObject.GObject, Nautilus.MenuProvider):
         # Convertir URIs a paths
         pdf_paths = [self._get_path_from_uri(f.get_uri()) for f in files]
 
-        logger.info(f"Iniciando firma de {len(pdf_paths)} archivo(s)")
+        logger.info(f"Starting signature of {len(pdf_paths)} file(s)")
 
         # Ejecutar en hilo separado para no bloquear Nautilus
         import threading
@@ -185,7 +185,7 @@ class PDFSignerExtension(GObject.GObject, Nautilus.MenuProvider):
             tokens = nss_handler.get_available_tokens()
 
             if not tokens:
-                self._show_error("No se detectó token USB")
+                self._show_error("USB token not detected")
                 return False
 
             nss_handler.connect_token()
@@ -209,9 +209,9 @@ class PDFSignerExtension(GObject.GObject, Nautilus.MenuProvider):
             # Autenticar
             try:
                 nss_handler.authenticate(pin)
-                pin_cache.store(pin)  # Cachear para el lote
+                pin_cache.store(pin)  # Cache for batch
             except Exception as e:
-                self._show_error(f"Error de autenticación: {e}")
+                self._show_error(f"Authentication error: {e}")
                 nss_handler.close()
                 return False
 
@@ -219,9 +219,9 @@ class PDFSignerExtension(GObject.GObject, Nautilus.MenuProvider):
             cert_selector = CertificateSelector(nss_handler)
             try:
                 cert = cert_selector.get_default_certificate()
-                logger.info(f"Usando certificado: {cert.display_name}")
+                logger.info(f"Using certificate: {cert.display_name}")
             except Exception as e:
-                self._show_error(f"No hay certificado válido: {e}")
+                self._show_error(f"No valid certificate: {e}")
                 nss_handler.close()
                 return False
 
@@ -229,7 +229,7 @@ class PDFSignerExtension(GObject.GObject, Nautilus.MenuProvider):
             try:
                 lta_handler = create_lta_handler_from_settings()
             except Exception as e:
-                logger.warning(f"TSA no disponible: {e}")
+                logger.warning(f"TSA not available: {e}")
                 lta_handler = None
 
             # 5. Mostrar progreso y firmar
@@ -264,24 +264,24 @@ class PDFSignerExtension(GObject.GObject, Nautilus.MenuProvider):
                 self._show_notification(f"✓ {result.successful} file(s) signed")
 
         except Exception as e:
-            logger.exception("Error en workflow de firma")
-            self._show_error(f"Error inesperado: {e}")
+            logger.exception("Error in signing workflow")
+            self._show_error(f"Unexpected error: {e}")
 
         return False
 
     def _show_error(self, message: str) -> None:
-        """Muestra diálogo de error."""
+        """Shows error dialog."""
         dialog = Gtk.MessageDialog(
             message_type=Gtk.MessageType.ERROR,
             buttons=Gtk.ButtonsType.OK,
-            text="Error de Firma",
+            text="Signing Error",
             secondary_text=message,
         )
         dialog.run()
         dialog.destroy()
 
     def _show_notification(self, message: str) -> None:
-        """Muestra notificación del sistema."""
+        """Shows system notification."""
         try:
             from gi.repository import Gio
 

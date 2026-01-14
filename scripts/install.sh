@@ -18,8 +18,8 @@ NC='\033[0m' # No Color
 
 # Banner
 echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║              PDFSigner - Instalador v0.1.0                 ║${NC}"
-echo -e "${GREEN}║     Firma digital de PDFs con token USB SafeNet 5110      ║${NC}"
+echo -e "${GREEN}║              PDFSigner - Installer v0.2.0                  ║${NC}"
+echo -e "${GREEN}║     Digital PDF signing with SafeNet 5110 USB token       ║${NC}"
 echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
 echo
 
@@ -86,7 +86,7 @@ python_pkg_installed() {
 # ============================================================================
 
 install_deps_debian() {
-    log_step "Instalando dependencias para Debian/Ubuntu..."
+    log_step "Installing dependencies for Debian/Ubuntu..."
 
     local PACKAGES=(
         "python3-gi"
@@ -107,27 +107,27 @@ install_deps_debian() {
     done
 
     if [ ${#MISSING[@]} -eq 0 ]; then
-        log_success "Todas las dependencias del sistema ya están instaladas"
+        log_success "All system dependencies already installed"
         return 0
     fi
 
-    log_warning "Paquetes faltantes: ${MISSING[*]}"
+    log_warning "Missing packages: ${MISSING[*]}"
     echo
-    read -p "¿Instalar dependencias con apt? [S/n] " -n 1 -r
+    read -p "Install dependencies with apt? [Y/n] " -n 1 -r
     echo
 
-    if [[ $REPLY =~ ^[Ss]?$ ]]; then
+    if [[ $REPLY =~ ^[Yy]?$ ]]; then
         sudo apt update
         sudo apt install -y "${MISSING[@]}"
-        log_success "Dependencias instaladas"
+        log_success "Dependencies installed"
     else
-        log_warning "Omitiendo instalación de dependencias del sistema"
-        log_info "Instalar manualmente: sudo apt install ${MISSING[*]}"
+        log_warning "Skipping system dependencies installation"
+        log_info "Install manually: sudo apt install ${MISSING[*]}"
     fi
 }
 
 install_deps_fedora() {
-    log_step "Instalando dependencias para Fedora/RHEL..."
+    log_step "Installing dependencies for Fedora/RHEL..."
 
     local PACKAGES=(
         "python3-gobject"
@@ -147,26 +147,26 @@ install_deps_fedora() {
     done
 
     if [ ${#MISSING[@]} -eq 0 ]; then
-        log_success "Todas las dependencias del sistema ya están instaladas"
+        log_success "All system dependencies already installed"
         return 0
     fi
 
-    log_warning "Paquetes faltantes: ${MISSING[*]}"
+    log_warning "Missing packages: ${MISSING[*]}"
     echo
-    read -p "¿Instalar dependencias con dnf? [S/n] " -n 1 -r
+    read -p "Install dependencies with dnf? [Y/n] " -n 1 -r
     echo
 
-    if [[ $REPLY =~ ^[Ss]?$ ]]; then
+    if [[ $REPLY =~ ^[Yy]?$ ]]; then
         sudo dnf install -y "${MISSING[@]}"
-        log_success "Dependencias instaladas"
+        log_success "Dependencies installed"
     else
-        log_warning "Omitiendo instalación de dependencias del sistema"
-        log_info "Instalar manualmente: sudo dnf install ${MISSING[*]}"
+        log_warning "Skipping system dependencies installation"
+        log_info "Install manually: sudo dnf install ${MISSING[*]}"
     fi
 }
 
 install_deps_arch() {
-    log_step "Instalando dependencias para Arch Linux..."
+    log_step "Installing dependencies for Arch Linux..."
 
     local PACKAGES=(
         "python-gobject"
@@ -186,26 +186,26 @@ install_deps_arch() {
     done
 
     if [ ${#MISSING[@]} -eq 0 ]; then
-        log_success "Todas las dependencias del sistema ya están instaladas"
+        log_success "All system dependencies already installed"
         return 0
     fi
 
-    log_warning "Paquetes faltantes: ${MISSING[*]}"
+    log_warning "Missing packages: ${MISSING[*]}"
     echo
-    read -p "¿Instalar dependencias con pacman? [S/n] " -n 1 -r
+    read -p "Install dependencies with pacman? [Y/n] " -n 1 -r
     echo
 
-    if [[ $REPLY =~ ^[Ss]?$ ]]; then
+    if [[ $REPLY =~ ^[Yy]?$ ]]; then
         sudo pacman -S --noconfirm "${MISSING[@]}"
-        log_success "Dependencias instaladas"
+        log_success "Dependencies installed"
     else
-        log_warning "Omitiendo instalación de dependencias del sistema"
-        log_info "Instalar manualmente: sudo pacman -S ${MISSING[*]}"
+        log_warning "Skipping system dependencies installation"
+        log_info "Install manually: sudo pacman -S ${MISSING[*]}"
     fi
 }
 
 install_deps_opensuse() {
-    log_step "Instalando dependencias para openSUSE..."
+    log_step "Installing dependencies for openSUSE..."
 
     local PACKAGES=(
         "python3-gobject"
@@ -226,28 +226,28 @@ install_deps_opensuse() {
     done
 
     if [ ${#MISSING[@]} -eq 0 ]; then
-        log_success "Todas las dependencias del sistema ya están instaladas"
+        log_success "All system dependencies already installed"
         return 0
     fi
 
-    log_warning "Paquetes faltantes: ${MISSING[*]}"
+    log_warning "Missing packages: ${MISSING[*]}"
     echo
-    read -p "¿Instalar dependencias con zypper? [S/n] " -n 1 -r
+    read -p "Install dependencies with zypper? [Y/n] " -n 1 -r
     echo
 
-    if [[ $REPLY =~ ^[Ss]?$ ]]; then
+    if [[ $REPLY =~ ^[Yy]?$ ]]; then
         sudo zypper install -y "${MISSING[@]}"
-        log_success "Dependencias instaladas"
+        log_success "Dependencies installed"
     else
-        log_warning "Omitiendo instalación de dependencias del sistema"
-        log_info "Instalar manualmente: sudo zypper install ${MISSING[*]}"
+        log_warning "Skipping system dependencies installation"
+        log_info "Install manually: sudo zypper install ${MISSING[*]}"
     fi
 }
 
 install_system_deps() {
     detect_distro
 
-    log_info "Distribución detectada: $DISTRO_NAME ($DISTRO_ID)"
+    log_info "Detected distribution: $DISTRO_NAME ($DISTRO_ID)"
     echo
 
     case "$DISTRO_ID" in
@@ -274,8 +274,8 @@ install_system_deps() {
             elif [[ "$DISTRO_FAMILY" == *"suse"* ]]; then
                 install_deps_opensuse
             else
-                log_warning "Distribución no reconocida: $DISTRO_NAME"
-                log_info "Instalar manualmente los siguientes paquetes:"
+                log_warning "Unrecognized distribution: $DISTRO_NAME"
+                log_info "Install the following packages manually:"
                 echo "  - Python GTK4 bindings (python3-gi, gir1.2-gtk-4.0)"
                 echo "  - libadwaita (gir1.2-adw-1)"
                 echo "  - Nautilus Python extension (python3-nautilus)"
@@ -292,30 +292,30 @@ install_system_deps() {
 
 install_uv() {
     if command_exists uv; then
-        log_success "uv ya está instalado: $(uv --version)"
+        log_success "uv already installed: $(uv --version)"
         return 0
     fi
 
-    log_warning "uv no está instalado"
+    log_warning "uv is not installed"
     echo
-    read -p "¿Instalar uv (gestor de paquetes Python moderno)? [S/n] " -n 1 -r
+    read -p "Install uv (modern Python package manager)? [Y/n] " -n 1 -r
     echo
 
-    if [[ $REPLY =~ ^[Ss]?$ ]]; then
-        log_step "Instalando uv..."
+    if [[ $REPLY =~ ^[Yy]?$ ]]; then
+        log_step "Installing uv..."
         curl -LsSf https://astral.sh/uv/install.sh | sh
 
-        # Agregar al PATH para esta sesión
+        # Add to PATH for this session
         export PATH="$HOME/.local/bin:$PATH"
 
         if command_exists uv; then
-            log_success "uv instalado correctamente"
+            log_success "uv installed successfully"
         else
-            log_error "Error instalando uv"
+            log_error "Error installing uv"
             exit 1
         fi
     else
-        log_error "uv es requerido para instalar PDFSigner"
+        log_error "uv is required to install PDFSigner"
         exit 1
     fi
 }
@@ -325,18 +325,18 @@ install_uv() {
 # ============================================================================
 
 setup_venv() {
-    log_step "Configurando entorno virtual..."
+    log_step "Configuring virtual environment..."
 
-    # Sincronizar dependencias
+    # Sync dependencies
     uv sync
 
-    # Agregar acceso a paquetes del sistema (para gi)
+    # Add access to system packages (for gi)
     local VENV_SITE_PACKAGES
     VENV_SITE_PACKAGES=$(find .venv/lib -type d -name "site-packages" | head -1)
 
     if [ -n "$VENV_SITE_PACKAGES" ]; then
         echo "/usr/lib/python3/dist-packages" > "$VENV_SITE_PACKAGES/system-packages.pth"
-        log_success "Configurado acceso a paquetes del sistema (PyGObject)"
+        log_success "Configured access to system packages (PyGObject)"
     fi
 }
 
@@ -345,7 +345,7 @@ setup_venv() {
 # ============================================================================
 
 install_nautilus_extension() {
-    log_step "Instalando extensión de Nautilus..."
+    log_step "Installing Nautilus extension..."
 
     local EXTENSION_DIR="$HOME/.local/share/nautilus-python/extensions"
     mkdir -p "$EXTENSION_DIR"
@@ -390,7 +390,7 @@ except ImportError as e:
             print(f"PDFSigner: Error de importación - {e}")
 EXTENSION_EOF
 
-    log_success "Extensión de Nautilus instalada en: $EXTENSION_DIR"
+    log_success "Nautilus extension installed in: $EXTENSION_DIR"
 }
 
 # ============================================================================
@@ -405,12 +405,12 @@ setup_config() {
     mkdir -p "$LOG_DIR"
 
     if [ ! -f "$CONFIG_DIR/config.toml" ]; then
-        log_step "Creando configuración inicial..."
+        log_step "Creating initial configuration..."
         cp config/pdfsigner.toml.example "$CONFIG_DIR/config.toml"
-        log_success "Configuración creada en: $CONFIG_DIR/config.toml"
-        log_warning "Editar el archivo para configurar TSA y otros parámetros"
+        log_success "Configuration created in: $CONFIG_DIR/config.toml"
+        log_warning "Edit the file to configure TSA and other parameters"
     else
-        log_info "Configuración existente preservada: $CONFIG_DIR/config.toml"
+        log_info "Existing configuration preserved: $CONFIG_DIR/config.toml"
     fi
 }
 
@@ -419,10 +419,10 @@ setup_config() {
 # ============================================================================
 
 restart_nautilus() {
-    log_step "Reiniciando Nautilus..."
+    log_step "Restarting Nautilus..."
     nautilus -q 2>/dev/null || true
     sleep 1
-    log_success "Nautilus reiniciado"
+    log_success "Nautilus restarted"
 }
 
 # ============================================================================
@@ -431,54 +431,54 @@ restart_nautilus() {
 
 verify_installation() {
     echo
-    log_step "Verificando instalación..."
+    log_step "Verifying installation..."
 
     local ALL_OK=true
 
-    # Verificar gi
+    # Verify gi
     if python_pkg_installed gi; then
-        log_success "PyGObject (gi) disponible"
+        log_success "PyGObject (gi) available"
     else
-        log_error "PyGObject (gi) no disponible"
+        log_error "PyGObject (gi) not available"
         ALL_OK=false
     fi
 
-    # Verificar GTK4
+    # Verify GTK4
     if python3 -c "import gi; gi.require_version('Gtk', '4.0'); from gi.repository import Gtk" 2>/dev/null; then
-        log_success "GTK4 disponible"
+        log_success "GTK4 available"
     else
-        log_error "GTK4 no disponible"
+        log_error "GTK4 not available"
         ALL_OK=false
     fi
 
-    # Verificar libadwaita
+    # Verify libadwaita
     if python3 -c "import gi; gi.require_version('Adw', '1'); from gi.repository import Adw" 2>/dev/null; then
-        log_success "libadwaita disponible"
+        log_success "libadwaita available"
     else
-        log_error "libadwaita no disponible"
+        log_error "libadwaita not available"
         ALL_OK=false
     fi
 
-    # Verificar NSS
+    # Verify NSS
     if command_exists certutil; then
-        log_success "NSS tools disponibles"
+        log_success "NSS tools available"
     else
-        log_warning "NSS tools no disponibles (certutil)"
+        log_warning "NSS tools not available (certutil)"
     fi
 
-    # Verificar extensión
+    # Verify extension
     if [ -f "$HOME/.local/share/nautilus-python/extensions/pdfsigner.py" ]; then
-        log_success "Extensión de Nautilus instalada"
+        log_success "Nautilus extension installed"
     else
-        log_error "Extensión de Nautilus no instalada"
+        log_error "Nautilus extension not installed"
         ALL_OK=false
     fi
 
-    # Verificar CLI
+    # Verify CLI
     if uv run pdfsigner --help &>/dev/null; then
-        log_success "CLI funcional"
+        log_success "CLI functional"
     else
-        log_warning "CLI no verificado"
+        log_warning "CLI not verified"
     fi
 
     echo
@@ -494,73 +494,73 @@ verify_installation() {
 # ============================================================================
 
 main() {
-    # Verificar directorio correcto
+    # Verify correct directory
     if [ ! -f "pyproject.toml" ]; then
-        log_error "Ejecutar desde el directorio raíz del proyecto"
+        log_error "Run from the project root directory"
         exit 1
     fi
 
     PROJECT_DIR="$(pwd)"
 
-    echo -e "${CYAN}Paso 1/5: Dependencias del sistema${NC}"
+    echo -e "${CYAN}Step 1/5: System dependencies${NC}"
     echo "─────────────────────────────────────────────"
     install_system_deps
     echo
 
-    echo -e "${CYAN}Paso 2/5: Instalación de uv${NC}"
+    echo -e "${CYAN}Step 2/5: uv installation${NC}"
     echo "─────────────────────────────────────────────"
     install_uv
     echo
 
-    echo -e "${CYAN}Paso 3/5: Entorno virtual Python${NC}"
+    echo -e "${CYAN}Step 3/5: Python virtual environment${NC}"
     echo "─────────────────────────────────────────────"
     setup_venv
     echo
 
-    echo -e "${CYAN}Paso 4/5: Extensión de Nautilus${NC}"
+    echo -e "${CYAN}Step 4/5: Nautilus extension${NC}"
     echo "─────────────────────────────────────────────"
     install_nautilus_extension
     echo
 
-    echo -e "${CYAN}Paso 5/5: Configuración${NC}"
+    echo -e "${CYAN}Step 5/5: Configuration${NC}"
     echo "─────────────────────────────────────────────"
     setup_config
     restart_nautilus
     echo
 
-    # Verificar
+    # Verify
     verify_installation
     local VERIFY_RESULT=$?
 
-    # Resumen final
+    # Final summary
     echo
     echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
     if [ $VERIFY_RESULT -eq 0 ]; then
-        echo -e "${GREEN}║           ✓ Instalación completada con éxito              ║${NC}"
+        echo -e "${GREEN}║           ✓ Installation completed successfully           ║${NC}"
     else
-        echo -e "${YELLOW}║        ⚠ Instalación completada con advertencias         ║${NC}"
+        echo -e "${YELLOW}║        ⚠ Installation completed with warnings            ║${NC}"
     fi
     echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
     echo
-    echo -e "${CYAN}Próximos pasos:${NC}"
+    echo -e "${CYAN}Next steps:${NC}"
     echo
-    echo -e "  1. ${YELLOW}Configurar TSA:${NC}"
+    echo -e "  1. ${YELLOW}Configure TSA:${NC}"
     echo -e "     nano ~/.config/pdfsigner/config.toml"
     echo
-    echo -e "  2. ${YELLOW}Verificar token USB:${NC}"
+    echo -e "  2. ${YELLOW}Verify USB token:${NC}"
     echo -e "     certutil -L -d ~/.nss"
     echo
-    echo -e "  3. ${YELLOW}Probar GUI standalone:${NC}"
+    echo -e "  3. ${YELLOW}Test standalone GUI:${NC}"
     echo -e "     uv run pdfsigner-gui"
     echo
-    echo -e "  4. ${YELLOW}Probar desde Nautilus:${NC}"
-    echo -e "     Abrir Nautilus → Click derecho en PDF → 'Firmar digitalmente'"
+    echo -e "  4. ${YELLOW}Test from Nautilus:${NC}"
+    echo -e "     Open Nautilus → Right-click on PDF → 'Sign digitally'"
     echo
-    echo -e "  5. ${YELLOW}Probar CLI:${NC}"
-    echo -e "     uv run pdfsigner sign archivo.pdf"
+    echo -e "  5. ${YELLOW}Test CLI:${NC}"
+    echo -e "     uv run pdfsigner sign file.pdf"
     echo -e "     uv run pdfsigner validate document_signed.pdf"
     echo
-    echo -e "${CYAN}Para desinstalar:${NC} ./scripts/uninstall.sh"
+    echo -e "${CYAN}To uninstall:${NC} ./scripts/uninstall.sh"
     echo
 }
 
