@@ -73,6 +73,13 @@ modules:
             ${FLATPAK_DEST}/share/icons/hicolor/${size}x${size}/apps/com.pdfsigner.app.png
         done
 
+      # Install screenshots
+      - |
+        mkdir -p ${FLATPAK_DEST}/share/metainfo/screenshots
+        for img in screenshots/*.png; do
+          install -Dm644 "$img" ${FLATPAK_DEST}/share/metainfo/screenshots/$(basename "$img")
+        done
+
     sources:
       - type: dir
         path: ..
