@@ -373,7 +373,11 @@ git push origin v0.8.3
 
 ---
 
-## Recent Changes (v0.8.6)
+## Recent Changes (v0.8.7)
+
+- **NSS wizard window height** - Increased from 400px to 480px for better button visibility
+
+### Previous (v0.8.6)
 
 - **Hybrid PDF validation fixed** - PDFs with hybrid-reference format now validate correctly
   - Uses `PdfFileReader(strict=False)` to allow mixed xref tables/streams

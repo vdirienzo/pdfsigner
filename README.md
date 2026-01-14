@@ -928,6 +928,11 @@ MIT License - See [LICENSE](LICENSE)
 
 ## 📝 Changelog
 
+### [0.8.7] - 2026-01-14
+
+#### Fixed
+- **NSS setup wizard** - Increased window height (400px → 480px) for better button visibility
+
 ### [0.8.6] - 2026-01-14
 
 #### Added

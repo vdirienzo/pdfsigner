@@ -46,7 +46,7 @@ class NSSSetupWizard(Adw.Window):
             application=application,
             title=_("PDFSigner Setup"),
             default_width=500,
-            default_height=400,
+            default_height=480,
             modal=True,
         )
 
