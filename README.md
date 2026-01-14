@@ -13,10 +13,12 @@ PDFSigner is a tool for digitally signing PDF documents using PKCS#11 cryptograp
 - **PAdES-LTV Signature** - Long Term Validation with TSA timestamp
 - **Multi-Token Support** - SafeNet, YubiKey, Nitrokey, OpenSC, and more via PKCS#11
 - **GTK4 GUI** - Modern graphical interface with drag & drop
+- **Certificate Health Dashboard** - Color-coded expiry warnings with collapsible banner
 - **Complete CLI** - For scripts and automation
 - **Dry-Run Mode** - Simulate signing without token for testing
 - **Visible/invisible signature** - With smart positioning
 - **QR verification code** - Optional QR code in visible signatures for verification
+- **Signature viewer** - View existing signatures when adding PDFs
 - **Batch signing** - Multiple PDFs with a single PIN
 - **Validation** - Verify existing signatures
 - **Multi-signature** - Add additional signatures to already signed PDFs
@@ -67,6 +69,7 @@ PDFSigner is a tool for digitally signing PDF documents using PKCS#11 cryptograp
 9. [Building & Distribution](#-building--distribution)
 10. [Troubleshooting](#-troubleshooting)
 11. [Development](#-development)
+12. [Changelog](#-changelog)
 
 ---
 
@@ -321,7 +324,7 @@ find /usr -name "libeToken.so" 2>/dev/null
 
 ```bash
 # Clone repository
-git clone https://github.com/vdiriern/pdfsigner.git
+git clone https://github.com/vdirienzo/pdfsigner.git
 cd pdfsigner
 
 # Run automatic installer
@@ -348,7 +351,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 source ~/.bashrc
 
 # 3. Clone and install
-git clone https://github.com/vdiriern/pdfsigner.git
+git clone https://github.com/vdirienzo/pdfsigner.git
 cd pdfsigner
 uv sync
 
@@ -843,7 +846,7 @@ python3 -c "import gi; gi.require_version('Adw', '1'); print('OK')"
 ### Setup
 
 ```bash
-git clone https://github.com/vdiriern/pdfsigner.git
+git clone https://github.com/vdirienzo/pdfsigner.git
 cd pdfsigner
 uv sync --all-extras
 echo "/usr/lib/python3/dist-packages" > .venv/lib/python3.*/site-packages/system-packages.pth
@@ -903,14 +906,19 @@ pdfsigner/
 │   ├── cli/                 # CLI commands
 │   ├── config/              # Configuration
 │   ├── core/
+│   │   ├── certificate/     # Health status & expiry tracking
 │   │   ├── mock/            # Dry-run mode
 │   │   ├── pdf_analyzer/    # PDF analysis
+│   │   ├── setup/           # NSS wizard & setup
 │   │   ├── signer/          # PAdES signing
+│   │   ├── stamp/           # QR code generation
 │   │   ├── token/           # NSS/PKCS#11
 │   │   └── validator/       # Validation
 │   ├── gui/                 # GTK4 application
 │   └── ui/                  # Dialogs and widgets
 ├── tests/
+│   ├── unit/                # Unit tests (400+)
+│   └── integration/         # E2E tests (16)
 ├── scripts/
 └── config/
 ```
@@ -930,6 +938,14 @@ MIT License - See [LICENSE](LICENSE)
 ---
 
 ## 📝 Changelog
+
+### [0.9.1] - 2026-01-14
+
+#### Added
+- **Test coverage boost** - 472 total tests (was 393)
+  - 16 E2E tests for dry-run sign → validate flow
+  - 32 tests for certificate health status logic
+  - 13 tests for file list widget business logic
 
 ### [0.9.0] - 2026-01-14
 
@@ -1075,94 +1091,32 @@ MIT License - See [LICENSE](LICENSE)
 - **Default TSA** - Now uses local time by default (no TSA required)
 - **Simplified UI** - Removed help button from header
 
+<details>
+<summary><strong>Earlier Releases (v0.1.0 - v0.4.0)</strong></summary>
+
 ### [0.4.0] - 2026-01-14
-
-#### Added
-- **Multi-token PKCS#11 support** - Auto-detection of multiple token types:
-  - SafeNet/Thales eToken (5110, 5300, Luna HSM)
-  - YubiKey (PIV mode)
-  - Nitrokey Pro/HSM
-  - OpenSC (generic smart cards)
-  - Feitian ePass
-  - SoftHSM (for testing)
-  - nCipher/Entrust HSM
-
-#### Changed
-- **Improved library detection** - Searches multiple paths per token vendor
-- **Better error messages** - Lists all supported tokens when none found
+- **Multi-token PKCS#11 support** - SafeNet, YubiKey, Nitrokey, OpenSC, Feitian, SoftHSM, nCipher
+- Improved library detection and error messages
 
 ### [0.3.1] - 2026-01-13
-
-#### Fixed
-- **TSA timestamp integration** - Corrected HTTPTimeStamper API usage (`timeout` parameter)
-- **FreeTSA verified working** - Real timestamp requests tested and confirmed
-
-#### Added
-- **TSA integration tests** - 9 tests verifying FreeTSA connectivity and timestamp requests
+- Fixed TSA timestamp integration (HTTPTimeStamper API)
+- Added TSA integration tests
 
 ### [0.3.0] - 2026-01-13
-
-#### Added
-- **CI/CD Pipeline** - GitHub Actions for lint, test, security, and build
-- **MIT License** file
-- **Pre-commit hooks** - Automated code quality checks (ruff, mypy, bandit)
-- **CONTRIBUTING.md** - Guidelines for contributors
-- **Expanded test suite** - 170 tests with 31% coverage
-  - Tests for `pdf_signer.py`, `batch_manager.py`, `nss_handler.py`, `pdf_validator.py`
-  - Improved test fixtures with valid PyMuPDF-generated PDFs
-
-#### Changed
-- **Sample PDF fixture** now uses PyMuPDF for better pyHanko compatibility
+- CI/CD Pipeline with GitHub Actions
+- Pre-commit hooks (ruff, mypy, bandit)
+- 170 tests with 31% coverage
 
 ### [0.2.1] - 2026-01-13
-
-#### Added
-- **Comprehensive test suite** with 83 unit tests
-- **Desktop integration** - Application icon in GNOME menu
-- **Code quality tools** - ruff, bandit, safety, mypy
-- **Test coverage reporting** with pytest-cov
-
-#### Fixed
-- **Desktop launcher** now works correctly from GNOME application menu
-- **urllib3 vulnerability** updated to 2.6.3 (CVE-2025-66471, CVE-2025-66418)
-- **Type hints** corrected in pdf_signer.py and stamp_simulator.py
-- **Import ordering** fixed in settings.py
-
-#### Changed
-- **Removed Nautilus integration** - Simplified to standalone GUI + CLI only
+- 83 unit tests, desktop integration
+- Security vulnerability fixes
 
 ### [0.2.0] - 2026-01-13
-
-#### Added
-- **Help dialog** with comprehensive user documentation
-- **Customizable stamp appearance** for real signatures using pyHanko TextStampStyle
-  - Show signer name (`%(signer)s` placeholder)
-  - Show signature date (`%(ts)s` placeholder)
-  - Optional custom image background
-
-#### Fixed
-- **Simulated stamp position** now respects user-selected position preference
-  - Fixed coordinate system handling (PyMuPDF uses top-left origin)
-  - Stamps now appear in correct position during dry-run mode
-- **GitHub repository URL** in About dialog (was pointing to incorrect URL)
-- **Output file suffix** changed from `_firmado` to `_signed` for consistency
-
-#### Changed
-- **All UI messages translated to English** for international users
-  - Help dialog content
-  - Progress messages
-  - Status notifications
-- **Modularized mock code**: extracted `stamp_simulator.py` from `mock_batch.py`
+- Help dialog, customizable stamp appearance
+- Fixed coordinate system for stamp positioning
+- All UI messages translated to English
 
 ### [0.1.0] - 2025-01-13
+- Initial release: PAdES-LTV signatures, GTK4 GUI, CLI, dry-run mode
 
-#### Added
-- PAdES-LTV signature with TSA timestamp
-- SafeNet 5110 support via NSS/PKCS#11
-- Standalone GUI GTK4/libadwaita
-- CLI with subcommands (sign, validate, list-certs)
-- **Dry-run mode** for testing without token
-- Visible signature with smart positioning
-- Batch signing with PIN cache
-- Signature validation
-- Multi-distribution installer
+</details>
