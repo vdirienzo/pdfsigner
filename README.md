@@ -656,14 +656,22 @@ Flatpak is the recommended distribution format because:
 # Build
 ./scripts/build-packages.sh --flatpak
 
-# Install locally
+# Install
 flatpak install --user dist/flatpak/PDFSigner-*.flatpak
 
 # Run
 flatpak run com.pdfsigner.app
+
+# Uninstall
+flatpak uninstall com.pdfsigner.app
 ```
 
 **Requirements:** `flatpak`, `flatpak-builder`, GNOME Platform 49 runtime
+
+```bash
+# Install GNOME 49 runtime if needed
+flatpak install flathub org.gnome.Platform//49 org.gnome.Sdk//49
+```
 
 ### AppImage
 
@@ -673,16 +681,32 @@ Portable format that runs on most Linux distributions.
 # Build
 ./scripts/build-packages.sh --appimage
 
-# Run (no installation needed)
+# Run (requires libfuse2)
 chmod +x dist/appimage/PDFSigner-*.AppImage
 ./dist/appimage/PDFSigner-*.AppImage
+```
+
+**Debian 13+ / Systems without libfuse2:**
+
+Debian 13 (Trixie) removed `libfuse2` from repositories. Use extraction method:
+
+```bash
+# Extract AppImage
+./PDFSigner-*.AppImage --appimage-extract
+
+# Run directly
+./squashfs-root/AppRun
+
+# Or install permanently
+sudo mv squashfs-root /opt/pdfsigner
+sudo ln -s /opt/pdfsigner/AppRun /usr/local/bin/pdfsigner-gui
 ```
 
 **Note:** Requires GTK4 and libadwaita installed on the host system.
 
 ### Debian Package
 
-Native package for Debian, Ubuntu, Linux Mint, and derivatives.
+Native package for Debian 13+, Ubuntu 24.04+, and derivatives.
 
 ```bash
 # Build
@@ -690,13 +714,17 @@ Native package for Debian, Ubuntu, Linux Mint, and derivatives.
 
 # Install
 sudo dpkg -i dist/deb/pdfsigner_*.deb
-sudo apt install -f  # Install dependencies
+sudo apt install -f  # Install dependencies if needed
 
 # Run
-pdfsigner-gui
+pdfsigner-gui        # GUI
+pdfsigner --help     # CLI
+
+# Uninstall
+sudo apt remove pdfsigner
 ```
 
-**Requirements:** `debhelper`, `dh-python`, `dpkg-dev`
+**Build Requirements:** `debhelper`, `dh-python`, `pybuild-plugin-pyproject`, `python3-hatchling`
 
 ### GitHub Releases (CI/CD)
 
@@ -721,6 +749,19 @@ git push origin v0.7.0
 ```bash
 # The venv needs access to system PyGObject
 echo "/usr/lib/python3/dist-packages" > .venv/lib/python3.*/site-packages/system-packages.pth
+```
+
+### AppImage: "dlopen(): error loading libfuse.so.2"
+
+Debian 13+ removed `libfuse2`. Extract and run instead:
+
+```bash
+./PDFSigner-*.AppImage --appimage-extract
+./squashfs-root/AppRun
+
+# Or install permanently
+sudo mv squashfs-root /opt/pdfsigner
+sudo ln -s /opt/pdfsigner/AppRun /usr/local/bin/pdfsigner-gui
 ```
 
 ### "USB token not detected"

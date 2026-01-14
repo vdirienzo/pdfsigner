@@ -284,6 +284,7 @@ GitHub Actions runs on push/PR to `main` and `dev`:
 | GUI won't start | Verify GTK4 and libadwaita are installed |
 | TSA timeout | Check internet connection, try alternate TSA URL |
 | HTTPTimeStamper error | Use `timeout` param, not `https_timeout` |
+| AppImage libfuse error | Debian 13+: use `--appimage-extract` then `./squashfs-root/AppRun` |
 
 ---
 
@@ -299,6 +300,9 @@ GitHub Actions runs on push/PR to `main` and `dev`:
 ./scripts/build-packages.sh --flatpak   # Recommended
 ./scripts/build-packages.sh --deb
 ./scripts/build-packages.sh --appimage
+
+# Clean build directories
+./scripts/build-packages.sh --clean
 ```
 
 ### Output
@@ -308,6 +312,32 @@ dist/
 ├── appimage/PDFSigner-{VERSION}-x86_64.AppImage
 ├── deb/pdfsigner_{VERSION}-1_all.deb
 └── flatpak/PDFSigner-{VERSION}.flatpak
+```
+
+### Installation Commands
+
+**Flatpak (Recommended):**
+```bash
+flatpak install --user dist/flatpak/PDFSigner-*.flatpak
+flatpak run com.pdfsigner.app
+```
+
+**Debian:**
+```bash
+sudo dpkg -i dist/deb/pdfsigner_*.deb
+sudo apt install -f  # if dependencies missing
+pdfsigner-gui
+```
+
+**AppImage:**
+```bash
+# With libfuse2:
+chmod +x PDFSigner-*.AppImage && ./PDFSigner-*.AppImage
+
+# Debian 13+ (no libfuse2):
+./PDFSigner-*.AppImage --appimage-extract
+./squashfs-root/AppRun
+# Or install: sudo mv squashfs-root /opt/pdfsigner
 ```
 
 ### CI/CD Releases
@@ -323,12 +353,22 @@ git push origin v0.7.0
 
 | File | Purpose |
 |------|---------|
-| `scripts/build-packages.sh` | Main build script |
+| `scripts/build-packages.sh` | Main build script (shows install instructions) |
 | `flatpak/com.pdfsigner.app.yaml` | Flatpak manifest (GNOME Platform 49) |
 | `debian/control` | Debian dependencies |
-| `debian/rules` | Debian build rules |
+| `debian/rules` | Debian build rules (skips tests) |
 | `data/com.pdfsigner.app.metainfo.xml` | AppStream metadata |
+| `data/icons/` | Multi-resolution icons (16-512px) |
+| `screenshots/` | App screenshots for software centers |
 | `.github/workflows/release.yml` | CI/CD release workflow |
+
+### Build Dependencies
+
+| Format | Packages |
+|--------|----------|
+| **Flatpak** | `flatpak`, `flatpak-builder`, `org.gnome.Platform//49`, `org.gnome.Sdk//49` |
+| **Debian** | `debhelper`, `dh-python`, `pybuild-plugin-pyproject`, `python3-hatchling` |
+| **AppImage** | `python3`, `pip`, `wget` (downloads appimagetool) |
 
 ---
 
