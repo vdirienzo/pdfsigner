@@ -111,7 +111,7 @@ jobs:
             pybuild-plugin-pyproject \
             dpkg-dev \
             fakeroot
-          pip install pillow  # For icon generation
+          pip install pillow build hatchling  # For icon generation and building
 
       - name: Generate icons
         run: |
