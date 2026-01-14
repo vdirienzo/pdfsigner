@@ -373,6 +373,7 @@ git push origin v0.7.0
 - **Refactored nss_handler.py** - Extracted PKCS#11 paths to `pkcs11_libs.py`
   - nss_handler.py: 382 → 285 lines (better modularity)
 - **Removed CI workflow** - No automated checks on push (release workflow kept)
+- **Updated packaging** - Added `qrcode pillow` to Flatpak/AppImage build scripts
 
 ### Previous (v0.8.0)
 

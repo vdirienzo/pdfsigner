@@ -931,6 +931,7 @@ MIT License - See [LICENSE](LICENSE)
 #### Changed
 - **Refactored nss_handler.py** - Extracted PKCS#11 library paths to `pkcs11_libs.py`
   - nss_handler.py: 382 → 285 lines (better modularity)
+- **Updated packaging scripts** - Added `qrcode` and `pillow` dependencies to Flatpak and AppImage builds
 
 #### Removed
 - **CI workflow** - Removed automated checks on push (release workflow kept for builds)
