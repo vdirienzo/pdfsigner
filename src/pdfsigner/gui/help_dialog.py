@@ -59,6 +59,7 @@ class HelpDialog(Adw.Window):
         content.append(self._create_options_section())
         content.append(self._create_validation_section())
         content.append(self._create_troubleshooting_section())
+        content.append(self._create_about_section())
 
         scroll.set_child(content)
         toolbar.set_content(scroll)
@@ -197,4 +198,17 @@ class HelpDialog(Adw.Window):
             "❌ La firma no aparece\n"
             "   → Abre el PDF en Adobe Reader\n"
             "   → Las firmas invisibles no se ven pero son válidas",
+        )
+
+    def _create_about_section(self) -> Gtk.Box:
+        """Creates the about/links section."""
+        return self._create_section(
+            "Acerca de PDFSigner",
+            "PDFSigner es software libre y de código abierto.\n\n"
+            "📦 Repositorio:\n"
+            "   https://github.com/vdirienzo/pdfsigner\n\n"
+            "🐛 Reportar problemas:\n"
+            "   https://github.com/vdirienzo/pdfsigner/issues\n\n"
+            "📖 Documentación y actualizaciones disponibles en GitHub.\n\n"
+            "Desarrollado con ❤️ usando Python, GTK4 y pyHanko.",
         )
