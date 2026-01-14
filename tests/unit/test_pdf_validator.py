@@ -333,3 +333,65 @@ class TestPDFValidatorWithMockedSignatures:
 
         assert info.status == SignatureStatus.UNKNOWN
         assert "not found" in info.status_message.lower()
+
+
+class TestHybridPDFHandling:
+    """Tests for hybrid-reference PDF handling."""
+
+    def test_create_hybrid_pdf_info_with_cert(self):
+        """Test creating hybrid PDF info when certificate is available."""
+        validator = PDFValidator()
+
+        mock_sig = MagicMock()
+        mock_cert = MagicMock()
+        mock_cert.subject.human_friendly = "CN=John Doe,O=Acme Corp"
+        mock_cert.issuer.human_friendly = "CN=Acme CA"
+        mock_cert.serial_number = 0x123ABC
+        mock_cert.not_valid_before = datetime(2024, 1, 1)
+        mock_cert.not_valid_after = datetime(2025, 12, 31)
+        mock_cert.extensions = []
+        mock_sig.signer_cert = mock_cert
+
+        info = validator._create_hybrid_pdf_info("Signature1", mock_sig)
+
+        assert info.signer_name == "John Doe"
+        assert info.certificate_issuer == "Acme CA"
+        assert info.certificate_serial == "123abc"
+        assert info.status == SignatureStatus.INDETERMINATE
+        assert "hybrid PDF format" in info.status_message
+        assert info.field_name == "Signature1"
+
+    def test_create_hybrid_pdf_info_without_cert(self):
+        """Test creating hybrid PDF info when certificate is not available."""
+        validator = PDFValidator()
+
+        info = validator._create_hybrid_pdf_info("Signature1", None)
+
+        assert info.signer_name == "Unknown"
+        assert info.certificate_issuer == "Unknown"
+        assert info.status == SignatureStatus.INDETERMINATE
+        assert "hybrid PDF format" in info.status_message
+
+    def test_create_hybrid_pdf_info_cert_extraction_fails(self):
+        """Test creating hybrid PDF info when certificate extraction fails."""
+        validator = PDFValidator()
+
+        mock_sig = MagicMock()
+        mock_sig.signer_cert = MagicMock()
+        mock_sig.signer_cert.subject.human_friendly = None  # Will cause exception
+
+        info = validator._create_hybrid_pdf_info("Signature1", mock_sig)
+
+        # Should fall back to Unknown values
+        assert info.signer_name == "Unknown"
+        assert info.status == SignatureStatus.INDETERMINATE
+
+    def test_hybrid_error_message_detection(self):
+        """Test that hybrid-reference error messages are correctly detected."""
+        # Typical pyHanko error message
+        error_msg = "Settings do not permit validation of signatures in hybrid-reference files."
+        assert "hybrid-reference" in error_msg.lower()
+
+        # Variation of the message
+        error_msg2 = "Cannot process HYBRID-REFERENCE PDF structure"
+        assert "hybrid-reference" in error_msg2.lower()

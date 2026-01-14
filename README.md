@@ -928,6 +928,26 @@ MIT License - See [LICENSE](LICENSE)
 
 ## 📝 Changelog
 
+### [0.8.6] - 2026-01-14
+
+#### Added
+- **Signature viewer in GUI** - When adding files with existing signatures:
+  - Shows signature count with status icon (✓/⚠)
+  - Info button (ⓘ) opens dialog with full signature details
+  - Async validation in background (doesn't slow down UI)
+- **TSA integration tests** - Added tests for DigiCert and Sectigo TSA servers
+  - All 15 TSA tests pass (FreeTSA, DigiCert, Sectigo)
+- **New tests** - 17 new tests for file_list_widget and hybrid PDF handling
+
+#### Fixed
+- **Hybrid PDF validation** - PDFs with hybrid-reference format (mixed xref tables/streams) now validate correctly
+  - Uses `PdfFileReader(strict=False)` instead of failing with cryptic error
+- **Word wrap in validation dialog** - Long issuer/signer names now wrap instead of expanding window
+- **GTK4 dialog compatibility** - ValidationResultDialog uses `present()` instead of deprecated `run()`
+
+#### Changed
+- **Simplified main window display** - Shows only signature count, not signer names (prevents window expansion)
+
 ### [0.8.3] - 2026-01-14
 
 #### Added

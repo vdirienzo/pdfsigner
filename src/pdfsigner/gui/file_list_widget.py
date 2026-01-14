@@ -8,13 +8,14 @@ with status and individual actions.
 """
 
 from pathlib import Path
+from threading import Thread
 
 import gi
 
 gi.require_version("Gtk", "4.0")
-from gi.repository import Gtk
+from gi.repository import GLib, Gtk
 
-from pdfsigner.core.validator.pdf_validator import PDFValidator
+from pdfsigner.core.validator.pdf_validator import PDFValidator, ValidationResult
 from pdfsigner.i18n import _
 
 
@@ -32,6 +33,7 @@ class FileRow(Gtk.Box):
 
         self.file_path = file_path
         self.status = "pending"  # pending, signed, error
+        self.validation_result: ValidationResult | None = None
 
         self.set_margin_top(8)
         self.set_margin_bottom(8)
@@ -69,6 +71,14 @@ class FileRow(Gtk.Box):
         self.signature_label.add_css_class("dim-label")
         self.append(self.signature_label)
 
+        # Botón info (oculto hasta que haya firmas)
+        self.info_button = Gtk.Button(icon_name="dialog-information-symbolic")
+        self.info_button.add_css_class("flat")
+        self.info_button.set_tooltip_text(_("View signature details"))
+        self.info_button.connect("clicked", self._on_info_clicked)
+        self.info_button.set_visible(False)
+        self.append(self.info_button)
+
         # Botón quitar
         remove_button = Gtk.Button(icon_name="user-trash-symbolic")
         remove_button.add_css_class("flat")
@@ -85,11 +95,61 @@ class FileRow(Gtk.Box):
             validator = PDFValidator()
             count = validator.get_signature_count(self.file_path)
             if count > 0:
-                self.signature_label.set_label(_("{}signature(s)").format(count))
+                # Quick display (immediate)
+                self.signature_label.set_label(_("{} signature(s)").format(count))
                 self.status_icon.set_label("✓")
                 self.status_icon.add_css_class("success")
+                self.info_button.set_visible(True)
+
+                # Detailed validation (background thread)
+                Thread(target=self._load_signature_details, daemon=True).start()
         except Exception:
             pass
+
+    def _load_signature_details(self) -> None:
+        """Load full signature details in background thread."""
+        try:
+            validator = PDFValidator()
+            self.validation_result = validator.validate(self.file_path)
+            GLib.idle_add(self._update_signature_summary)
+        except Exception:
+            pass
+
+    def _update_signature_summary(self) -> bool:
+        """Update UI with validation status icon (main thread)."""
+        if not self.validation_result:
+            return False
+
+        # Update icon based on validity (keep count text as-is)
+        if self.validation_result.all_valid:
+            icon, css = "✓", "success"
+        else:
+            icon, css = "⚠", "warning"
+
+        # Update status icon only
+        for cls in ["success", "error", "warning"]:
+            self.status_icon.remove_css_class(cls)
+        self.status_icon.set_label(icon)
+        self.status_icon.add_css_class(css)
+
+        return False  # Don't repeat GLib.idle_add
+
+    def _on_info_clicked(self, button: Gtk.Button) -> None:
+        """Open validation dialog with signature details."""
+        from pdfsigner.ui.dialogs.validation_dialog import ValidationResultDialog
+
+        # Validate now if not cached
+        if not self.validation_result:
+            validator = PDFValidator()
+            self.validation_result = validator.validate(self.file_path)
+
+        # Get main window
+        window = self.get_root()
+
+        # Show dialog
+        dialog = ValidationResultDialog(parent=window, result=self.validation_result)
+        dialog.connect("response", lambda d, r: d.destroy())
+        dialog.present()
 
     def _on_remove_clicked(self, button: Gtk.Button) -> None:
         """Removes this file from the list."""

@@ -86,7 +86,8 @@ class PDFValidator:
 
         try:
             with open(pdf_path, "rb") as f:
-                reader = PdfFileReader(f)
+                # strict=False allows hybrid-reference PDFs (mixed xref tables/streams)
+                reader = PdfFileReader(f, strict=False)
 
                 # Get signature fields
                 sig_fields = self._get_signature_fields(reader)
@@ -158,8 +159,9 @@ class PDFValidator:
                 return self._create_error_info(field_name, "Signature not found")
 
             # Validate signature
+            # Note: strict=False in PdfFileReader allows hybrid-reference PDFs
             status = validate_pdf_signature(
-                sig,
+                embedded_sig=sig,
                 key_usage_settings=KeyUsageConstraints(
                     key_usage={"digital_signature", "non_repudiation"},
                 ),
@@ -203,8 +205,58 @@ class PDFValidator:
             )
 
         except Exception as e:
-            logger.warning(f"Error validating signature {field_name}: {e}")
-            return self._create_error_info(field_name, str(e))
+            error_str = str(e)
+            logger.warning(f"Error validating signature {field_name}: {error_str}")
+
+            # Check for hybrid-reference file error and provide clear message
+            if "hybrid-reference" in error_str.lower():
+                return self._create_hybrid_pdf_info(field_name, sig)
+
+            return self._create_error_info(field_name, error_str)
+
+    def _create_hybrid_pdf_info(self, field_name: str, sig) -> SignatureInfo:
+        """Create SignatureInfo for hybrid-reference PDFs.
+
+        Hybrid PDFs mix classic xref tables with xref streams. The signature
+        is present but cannot be fully verified due to this format limitation.
+        We extract what information we can from the certificate.
+        """
+        signer_name = "Unknown"
+        signer_email = None
+        issuer = "Unknown"
+        serial = ""
+        valid_from = None
+        valid_to = None
+
+        # Try to extract certificate info even if validation failed
+        if sig and sig.signer_cert:
+            try:
+                cert = sig.signer_cert
+                signer_name = self._extract_cn(cert.subject.human_friendly)
+                signer_email = self._extract_email(cert)
+                issuer = self._extract_cn(cert.issuer.human_friendly)
+                serial = format(cert.serial_number, "x")
+                valid_from = cert.not_valid_before
+                valid_to = cert.not_valid_after
+            except Exception:
+                pass
+
+        return SignatureInfo(
+            signer_name=signer_name,
+            signer_email=signer_email,
+            signing_time=None,
+            is_timestamp_valid=False,
+            certificate_issuer=issuer,
+            certificate_serial=serial,
+            certificate_valid_from=valid_from,
+            certificate_valid_to=valid_to,
+            status=SignatureStatus.INDETERMINATE,
+            status_message="Cannot fully verify (hybrid PDF format)",
+            field_name=field_name,
+            covers_whole_document=False,
+            is_modification_allowed=False,
+            page_number=None,
+        )
 
     def _create_error_info(self, field_name: str, error: str) -> SignatureInfo:
         """Create SignatureInfo for errors."""
@@ -258,7 +310,8 @@ class PDFValidator:
         """
         try:
             with open(pdf_path, "rb") as f:
-                reader = PdfFileReader(f)
+                # strict=False allows hybrid-reference PDFs (mixed xref tables/streams)
+                reader = PdfFileReader(f, strict=False)
                 return len(list(reader.embedded_signatures))
         except Exception:
             return 0

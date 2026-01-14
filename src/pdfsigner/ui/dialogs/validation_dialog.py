@@ -133,6 +133,8 @@ class ValidationResultDialog(Gtk.Dialog):
         # Info del archivo
         file_label = Gtk.Label(label=_("File: {}").format(result.file_path.name))
         file_label.set_xalign(0)
+        file_label.set_wrap(True)
+        file_label.set_wrap_mode(2)  # WORD_CHAR
         file_label.add_css_class("dim-label")
         content.append(file_label)
 
@@ -167,6 +169,8 @@ class ValidationResultDialog(Gtk.Dialog):
         name_label = Gtk.Label(label=sig.signer_name)
         name_label.set_hexpand(True)
         name_label.set_xalign(0)
+        name_label.set_wrap(True)
+        name_label.set_wrap_mode(2)  # WORD_CHAR
         name_label.add_css_class("heading")
         header.append(name_label)
 
@@ -186,6 +190,8 @@ class ValidationResultDialog(Gtk.Dialog):
         # Estado
         status_label = Gtk.Label(label=sig.status_message)
         status_label.set_xalign(0)
+        status_label.set_wrap(True)
+        status_label.set_wrap_mode(2)  # WORD_CHAR
         if sig.status != SignatureStatus.VALID:
             status_label.add_css_class("warning")
         details_box.append(status_label)
@@ -193,6 +199,8 @@ class ValidationResultDialog(Gtk.Dialog):
         # Emisor
         issuer_label = Gtk.Label(label=_("Issuer: {}").format(sig.certificate_issuer))
         issuer_label.set_xalign(0)
+        issuer_label.set_wrap(True)
+        issuer_label.set_wrap_mode(2)  # WORD_CHAR
         issuer_label.add_css_class("dim-label")
         details_box.append(issuer_label)
 
@@ -203,6 +211,8 @@ class ValidationResultDialog(Gtk.Dialog):
             coverage = _("Covers partial revision")
         coverage_label = Gtk.Label(label=coverage)
         coverage_label.set_xalign(0)
+        coverage_label.set_wrap(True)
+        coverage_label.set_wrap_mode(2)  # WORD_CHAR
         coverage_label.add_css_class("dim-label")
         details_box.append(coverage_label)
 
@@ -224,5 +234,5 @@ def show_validation_result(
         result: Validation result
     """
     dialog = ValidationResultDialog(parent=parent, result=result)
-    dialog.run()
-    dialog.destroy()
+    dialog.connect("response", lambda d, r: d.destroy())
+    dialog.present()

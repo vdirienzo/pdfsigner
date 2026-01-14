@@ -2,7 +2,7 @@
 
 > **Purpose:** This file helps Claude (or any AI assistant) understand the project context quickly.
 > **Last Updated:** 2026-01-14
-> **Version:** 0.8.3
+> **Version:** 0.8.4
 > **Author:** Homero Thompson del Lago del Terror
 
 ---
@@ -18,6 +18,7 @@
 - Dry-run mode for testing without real token
 - Visible signature with smart positioning
 - **QR verification code** - Optional QR in visible signatures (hash, signer, timestamp)
+- **Signature viewer** - Display existing signatures when adding files (signer, timestamp, validity)
 - Batch signing with PIN cache
 - **Multi-token PKCS#11 support**
 
@@ -38,7 +39,7 @@
 | Linting | Ruff |
 | Type Check | mypy |
 | Security | Bandit, Safety |
-| Testing | pytest (343 tests) |
+| Testing | pytest (360 tests) |
 
 ---
 
@@ -195,7 +196,7 @@ uv run pytest tests/unit/test_position_finder.py -v
 ```
 
 ### Current Coverage
-- **343 tests passing** (including 26 GUI tests)
+- **360 tests passing** (including 39 GUI tests)
 - **~45% overall coverage**
 - Key modules:
   - signer/ module: **92%** (lta_handler 100%, signature_field 97%, batch_manager 97%)
@@ -372,7 +373,30 @@ git push origin v0.8.3
 
 ---
 
-## Recent Changes (v0.8.3)
+## Recent Changes (v0.8.6)
+
+- **Hybrid PDF validation fixed** - PDFs with hybrid-reference format now validate correctly
+  - Uses `PdfFileReader(strict=False)` to allow mixed xref tables/streams
+  - Fallback handler extracts signer info even when full validation fails
+- **Simplified signature display** - Main window shows only signature count + icon
+  - No signer name text (prevents window expansion)
+  - Click ⓘ button for full details in dialog
+- **Word wrap in validation dialog** - Long text (issuer, signer) now wraps properly
+- **TSA integration tests** - Added tests for DigiCert and Sectigo TSA servers
+  - All 15 TSA tests pass (FreeTSA, DigiCert, Sectigo)
+
+### Previous (v0.8.4-v0.8.5)
+
+- **Signature viewer in GUI** - When adding files with existing signatures:
+  - Shows signature count: "2 signature(s)"
+  - Info button (ⓘ) opens ValidationResultDialog with full details
+  - Async validation in background (doesn't slow down adding files)
+  - Cached results for instant dialog display
+- **Multiple signatures support** - PDF signatures are incremental (PAdES), adding new signatures doesn't break existing ones
+- **Fixed GTK4 dialog** - ValidationResultDialog now uses `present()` instead of deprecated `run()`
+- **New tests** - 13 tests for file_list_widget logic, 4 tests for hybrid PDF handling
+
+### Previous (v0.8.3)
 
 - **GUI unit tests** - 26 tests for SigningHandler and ValidationHandler
   - Uses GTK mocks (no display required)

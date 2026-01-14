@@ -1,9 +1,13 @@
 """
-test_tsa_integration.py - Integration tests for TSA (FreeTSA)
+test_tsa_integration.py - Integration tests for TSA servers
 
 Author: Homero Thompson del Lago del Terror
 
-Tests real connectivity to FreeTSA timestamp server.
+Tests real connectivity to TSA timestamp servers:
+- FreeTSA (freetsa.org)
+- DigiCert (timestamp.digicert.com)
+- Sectigo (timestamp.sectigo.com)
+
 These tests require internet connection.
 """
 
@@ -173,3 +177,111 @@ class TestTSAConfigValidation:
 
         with pytest.raises(TSAConnectionError):
             handler.validate_tsa_connection()
+
+
+class TestDigiCertTSA:
+    """Tests for DigiCert TSA server connectivity and timestamping."""
+
+    DIGICERT_URL = "http://timestamp.digicert.com"
+
+    def test_digicert_server_reachable(self):
+        """Test that DigiCert TSA server is reachable."""
+        headers = {
+            "User-Agent": "PDFSigner/1.0 (TSA Client)",
+        }
+        response = requests.get(self.DIGICERT_URL, headers=headers, timeout=30)
+
+        # Any response means the server is reachable
+        assert response.status_code is not None
+        print(f"DigiCert response code: {response.status_code}")
+
+    def test_digicert_validate_connection(self):
+        """Test LTAHandler validates DigiCert connection."""
+        config = TSAConfig(url=self.DIGICERT_URL, timeout=30)
+        handler = LTAHandler(config)
+
+        result = handler.validate_tsa_connection()
+
+        assert result is True
+
+    def test_digicert_timestamp_request(self):
+        """Test that DigiCert can provide a valid timestamp."""
+        import asyncio
+
+        config = TSAConfig(url=self.DIGICERT_URL, timeout=30)
+        handler = LTAHandler(config)
+        timestamper = handler.get_timestamper()
+
+        # Create a test digest
+        test_data = b"DigiCert timestamp test data"
+        digest = hashlib.sha256(test_data).digest()
+
+        async def get_timestamp():
+            return await timestamper.async_timestamp(
+                message_digest=digest,
+                md_algorithm="sha256",
+            )
+
+        try:
+            ts_token = asyncio.run(get_timestamp())
+
+            assert ts_token is not None
+            assert ts_token.contents is not None
+            print("✅ Timestamp token received successfully from DigiCert!")
+
+        except Exception as e:
+            pytest.fail(f"Failed to get timestamp from DigiCert: {e}")
+
+
+class TestSectigoTSA:
+    """Tests for Sectigo TSA server connectivity and timestamping."""
+
+    SECTIGO_URL = "http://timestamp.sectigo.com"
+
+    def test_sectigo_server_reachable(self):
+        """Test that Sectigo TSA server is reachable."""
+        headers = {
+            "User-Agent": "PDFSigner/1.0 (TSA Client)",
+        }
+        response = requests.get(self.SECTIGO_URL, headers=headers, timeout=30)
+
+        # Any response means the server is reachable
+        assert response.status_code is not None
+        print(f"Sectigo response code: {response.status_code}")
+
+    def test_sectigo_validate_connection(self):
+        """Test LTAHandler validates Sectigo connection."""
+        config = TSAConfig(url=self.SECTIGO_URL, timeout=30)
+        handler = LTAHandler(config)
+
+        result = handler.validate_tsa_connection()
+
+        assert result is True
+
+    def test_sectigo_timestamp_request(self):
+        """Test that Sectigo can provide a valid timestamp."""
+        import asyncio
+
+        config = TSAConfig(url=self.SECTIGO_URL, timeout=30)
+        handler = LTAHandler(config)
+        timestamper = handler.get_timestamper()
+
+        # Create a test digest
+        test_data = b"Sectigo timestamp test data"
+        digest = hashlib.sha256(test_data).digest()
+
+        async def get_timestamp():
+            return await timestamper.async_timestamp(
+                message_digest=digest,
+                md_algorithm="sha256",
+            )
+
+        try:
+            ts_token = asyncio.run(get_timestamp())
+
+            assert ts_token is not None
+            assert ts_token.contents is not None
+            print("✅ Timestamp token received successfully from Sectigo!")
+
+        except Exception as e:
+            pytest.fail(f"Failed to get timestamp from Sectigo: {e}")
