@@ -123,16 +123,21 @@ class PositionFinder:
         sig_height: float,
         preference: PositionPreference,
     ) -> SignaturePosition:
-        """Calculate position according to preference."""
+        """Calculate position according to preference.
+
+        PDF coordinate system: origin (0,0) at BOTTOM-LEFT, Y increases upward.
+        So low Y = bottom of page, high Y = top of page.
+        """
         w, h = page_info.width, page_info.height
         m = self.PAGE_MARGIN
 
+        # Y coordinates: m = bottom, h - m - sig_height = top
         positions = {
-            PositionPreference.BOTTOM_RIGHT: (w - m - sig_width, h - m - sig_height),
-            PositionPreference.BOTTOM_LEFT: (m, h - m - sig_height),
-            PositionPreference.BOTTOM_CENTER: ((w - sig_width) / 2, h - m - sig_height),
-            PositionPreference.TOP_RIGHT: (w - m - sig_width, m),
-            PositionPreference.TOP_LEFT: (m, m),
+            PositionPreference.BOTTOM_RIGHT: (w - m - sig_width, m),
+            PositionPreference.BOTTOM_LEFT: (m, m),
+            PositionPreference.BOTTOM_CENTER: ((w - sig_width) / 2, m),
+            PositionPreference.TOP_RIGHT: (w - m - sig_width, h - m - sig_height),
+            PositionPreference.TOP_LEFT: (m, h - m - sig_height),
         }
 
         x, y = positions.get(preference, positions[PositionPreference.BOTTOM_RIGHT])
@@ -206,10 +211,10 @@ class PositionFinder:
     def _get_fallback_position(
         self, page_info: PageInfo, sig_width: float, sig_height: float
     ) -> SignaturePosition:
-        """Fallback position when there's no free space."""
+        """Fallback position when there's no free space (bottom right)."""
         return SignaturePosition(
             x=page_info.width - self.PAGE_MARGIN - sig_width,
-            y=page_info.height - self.PAGE_MARGIN - sig_height,
+            y=self.PAGE_MARGIN,  # Bottom of page in PDF coordinates
             width=sig_width,
             height=sig_height,
             page_number=page_info.page_number,
