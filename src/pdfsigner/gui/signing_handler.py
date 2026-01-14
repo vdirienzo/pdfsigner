@@ -77,6 +77,7 @@ class SigningHandler:
         self._current_options = {
             "visible": appearance.visible if appearance else False,
             "page": appearance.page if appearance else "last",
+            "appearance": appearance,  # Store full appearance for position_preference
         }
         dialog.destroy()
         self._request_pin(files)
@@ -177,6 +178,7 @@ class SigningHandler:
                     pin=pin,
                     visible=self._current_options.get("visible", False),
                     page=self._current_options.get("page", "last"),
+                    appearance=self._current_options.get("appearance"),
                     progress_callback=on_progress,
                 )
             else:
