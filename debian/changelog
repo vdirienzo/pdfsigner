@@ -1,3 +1,13 @@
+pdfsigner (0.9.2-1) unstable; urgency=medium
+
+  * Certificate health UI redesign: banner replaced with header popover
+  * New header icon reflects health status dynamically
+  * Click opens popover with certificate details
+  * Cleaner main window UI
+  * First popover widget in the project
+
+ -- Homero Thompson del Lago del Terror <noreply@example.com>  Wed, 15 Jan 2026 23:30:00 +0000
+
 pdfsigner (0.9.1-1) unstable; urgency=medium
 
   * Test coverage boost: 520 total tests (was 393)

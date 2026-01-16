@@ -13,7 +13,7 @@ PDFSigner is a tool for digitally signing PDF documents using PKCS#11 cryptograp
 - **PAdES-LTV Signature** - Long Term Validation with TSA timestamp
 - **Multi-Token Support** - SafeNet, YubiKey, Nitrokey, OpenSC, and more via PKCS#11
 - **GTK4 GUI** - Modern graphical interface with drag & drop
-- **Certificate Health Dashboard** - Color-coded expiry warnings with collapsible banner
+- **Certificate Health Status** - Header icon with popover showing expiry warnings
 - **Complete CLI** - For scripts and automation
 - **Dry-Run Mode** - Simulate signing without token for testing
 - **Visible/invisible signature** - With smart positioning
@@ -943,6 +943,15 @@ MIT License - See [LICENSE](LICENSE)
 ---
 
 ## 📝 Changelog
+
+### [0.9.2] - 2026-01-15
+
+#### Changed
+- **Certificate Health UI Redesign** - Replaced banner with header popover
+  - New header icon button reflects health status dynamically (🔐/⚠️/🔶/🚨/❌)
+  - Click icon to open popover with certificate details
+  - Cleaner main window - no banner taking up space
+  - First popover widget in the project
 
 ### [0.9.1] - 2026-01-14
 

@@ -1,8 +1,8 @@
 # PDFSigner - Project Memory
 
 > **Purpose:** This file helps Claude (or any AI assistant) understand the project context quickly.
-> **Last Updated:** 2026-01-14
-> **Version:** 0.9.1
+> **Last Updated:** 2026-01-15
+> **Version:** 0.9.2
 > **Author:** Homero Thompson del Lago del Terror
 
 ---
@@ -19,7 +19,7 @@
 - Visible signature with smart positioning
 - **QR verification code** - Optional QR in visible signatures (hash, signer, timestamp)
 - **Signature viewer** - Display existing signatures when adding files (signer, timestamp, validity)
-- **Certificate health dashboard** - Collapsible banner with CSS animations and toast notifications (Issue #6)
+- **Certificate health status** - Header icon with popover (cleaner UI), toast notifications for expiring certs
 - Batch signing with PIN cache
 - **Multi-token PKCS#11 support**
 
@@ -376,19 +376,22 @@ git push origin v0.8.3
 
 ---
 
-## Recent Changes (v0.9.1)
+## Recent Changes (v0.9.2)
+
+- **Certificate health UI redesign** - Moved from banner to header popover
+  - New header icon button (🔐/⚠️/🔶/🚨/❌) reflects health status
+  - Click opens popover with certificate details (subject, issuer, expiry, progress)
+  - Cleaner main window - no banner taking up space
+  - New file: `gui/widgets/cert_health_popover.py`
+  - Banner widget (`cert_health_banner.py`) kept as legacy reference
+- **First popover widget** in the project - establishes pattern for future UI
+
+### Previous (v0.9.1)
 
 - **Test coverage boost** - 520 total tests (was 393)
-  - 5 modules now at 100% coverage: `settings.py`, `position_finder.py`, `multi_signer.py`, `lta_handler.py`, `health_status.py`
-  - `content_analyzer.py`: 78% → 97%
-  - `pdf_validator.py`: 73% → 96%
-  - 16 E2E tests for dry-run sign → validate flow
-  - 32 tests for certificate health status logic
-- **Coverage configuration** - Excludes GUI/UI code from coverage reporting
-  - Configured in `pyproject.toml` `[tool.coverage]` sections
-  - Core coverage now reports 87% (realistic for testable code)
-  - Excludes: `gui/*`, `ui/*`, `cli/*`, `i18n/*`
-- **Overall core coverage: ~87%**
+  - 5 modules at 100% coverage: `settings.py`, `position_finder.py`, `multi_signer.py`, `lta_handler.py`, `health_status.py`
+  - `content_analyzer.py`: 78% → 97%, `pdf_validator.py`: 73% → 96%
+- **Coverage configuration** - Excludes GUI/UI code, core coverage: 87%
 
 ### Previous (v0.9.0)
 
