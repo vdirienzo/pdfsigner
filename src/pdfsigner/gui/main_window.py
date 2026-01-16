@@ -64,6 +64,14 @@ class MainWindow(Adw.ApplicationWindow):
         settings_button.connect("clicked", lambda b: self.show_settings())
         header.pack_end(settings_button)
 
+        # Certificate health button
+        self.cert_health_button = Gtk.Button()
+        self.cert_health_button.set_label("🔐")
+        self.cert_health_button.set_tooltip_text(_("Certificate Status"))
+        self.cert_health_button.add_css_class("flat")
+        self.cert_health_button.connect("clicked", self._on_cert_button_clicked)
+        header.pack_end(self.cert_health_button)
+
         # Add files button
         add_button = Gtk.Button(icon_name="list-add-symbolic")
         add_button.set_tooltip_text(_("Add files"))
@@ -74,12 +82,12 @@ class MainWindow(Adw.ApplicationWindow):
         toolbar = Adw.ToolbarView()
         toolbar.add_top_bar(header)
 
+        # Certificate health popover
+        self.cert_popover = self._create_cert_popover()
+        self.cert_popover.set_parent(self.cert_health_button)
+
         # Central area
         content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-
-        # Certificate health banner
-        self.cert_banner = self._create_cert_banner()
-        content_box.append(self.cert_banner)
 
         # File list widget
         self.file_list = FileListWidget()
@@ -257,14 +265,27 @@ class MainWindow(Adw.ApplicationWindow):
         toast.set_timeout(3)
         self.toast_overlay.add_toast(toast)
 
-    def _create_cert_banner(self):
-        """Creates the certificate health banner widget."""
-        from pdfsigner.gui.widgets.cert_health_banner import CertHealthBanner
+    def _create_cert_popover(self):
+        """Creates the certificate health popover widget."""
+        from pdfsigner.gui.widgets.cert_health_popover import CertHealthPopover
 
-        banner = CertHealthBanner()
+        popover = CertHealthPopover()
         # Load certificate data in background
         GLib.idle_add(self._load_certificate_health)
-        return banner
+        return popover
+
+    def _on_cert_button_clicked(self, button: Gtk.Button) -> None:
+        """Show certificate health popover."""
+        self.cert_popover.popup()
+
+    def _update_cert_button(self, health) -> None:
+        """Update certificate health button icon and tooltip."""
+        if health:
+            self.cert_health_button.set_label(health.status_icon)
+            self.cert_health_button.set_tooltip_text(f"{health.subject_cn} - {health.status_text}")
+        else:
+            self.cert_health_button.set_label("🔐")
+            self.cert_health_button.set_tooltip_text(_("No certificate loaded"))
 
     def _load_certificate_health(self) -> bool:
         """Load certificate health data from NSS."""
@@ -283,7 +304,8 @@ class MainWindow(Adw.ApplicationWindow):
 
             checker = NSSChecker()
             if not checker.is_configured():
-                self.cert_banner.set_health(None)
+                self.cert_popover.set_health(None)
+                self._update_cert_button(None)
                 return False
 
             # Get certificates from NSS
@@ -295,7 +317,8 @@ class MainWindow(Adw.ApplicationWindow):
             certs = selector.get_valid_certificates()
 
             if not certs:
-                self.cert_banner.set_health(None)
+                self.cert_popover.set_health(None)
+                self._update_cert_button(None)
                 return False
 
             # Use the first valid certificate
@@ -307,13 +330,15 @@ class MainWindow(Adw.ApplicationWindow):
                 not_after=cert.info.not_after,
                 serial_number=cert.info.serial_number,
             )
-            self.cert_banner.set_health(health)
+            self.cert_popover.set_health(health)
+            self._update_cert_button(health)
 
         except Exception as e:
             from loguru import logger
 
             logger.debug(f"Could not load certificate health: {e}")
-            self.cert_banner.set_health(None)
+            self.cert_popover.set_health(None)
+            self._update_cert_button(None)
 
         return False  # Don't repeat
 
@@ -332,7 +357,8 @@ class MainWindow(Adw.ApplicationWindow):
             not_after=now + timedelta(days=45),
             serial_number="DEMO-12345",
         )
-        self.cert_banner.set_health(health)
+        self.cert_popover.set_health(health)
+        self._update_cert_button(health)
 
     def _extract_cn(self, subject: str) -> str:
         """Extract Common Name from certificate subject."""

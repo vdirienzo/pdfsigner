@@ -183,3 +183,25 @@
         transform: translateY(0);
     }
 }
+
+/* ===========================================
+   Certificate Health Popover Styles
+   =========================================== */
+
+.cert-health-popover {
+    min-width: 280px;
+}
+
+.cert-health-popover .status-icon {
+    font-size: 28px;
+    min-width: 36px;
+}
+
+.cert-health-popover separator {
+    margin-top: 4px;
+    margin-bottom: 4px;
+}
+
+.cert-health-popover button {
+    margin-top: 8px;
+}
