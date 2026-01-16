@@ -18,7 +18,7 @@ NC='\033[0m' # No Color
 
 # Banner
 echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
-echo -e "${GREEN}║              PDFSigner - Installer v0.9.0                  ║${NC}"
+echo -e "${GREEN}║              PDFSigner - Installer v0.9.2                  ║${NC}"
 echo -e "${GREEN}║     Digital PDF signing with USB cryptographic tokens     ║${NC}"
 echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
 echo
