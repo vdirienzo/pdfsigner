@@ -1,9 +1,9 @@
-# PDFSigner - Project Memory
+# CLAUDE.md
 
-> **Purpose:** This file helps Claude (or any AI assistant) understand the project context quickly.
-> **Last Updated:** 2026-01-15
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
 > **Version:** 0.9.2
-> **Author:** Homero Thompson del Lago del Terror
+> **Last Updated:** 2026-01-15
 
 ---
 
@@ -162,6 +162,42 @@ Uses pyHanko's `TextStampStyle` with placeholders:
 
 ---
 
+## Architecture
+
+### Signing Flow (GUI)
+```
+MainWindow → SigningHandler → OptionsDialog (get settings)
+                           → PINDialog (get PIN)
+                           → BatchManager.sign_files()
+                              → PDFSigner.sign() for each file
+                                 → LTAHandler (TSA timestamp)
+                                 → pyHanko PdfSigner
+```
+
+### Dry-Run Mode
+When `dry_run=true`, the system uses mock implementations:
+- `MockBatchManager` replaces `BatchManager`
+- `StampSimulator` generates visible stamps without real crypto
+- No token/PIN required, no TSA calls
+- Output files are real PDFs with simulated stamps
+
+### GUI ↔ Core Communication
+- **Handlers** (`SigningHandler`, `ValidationHandler`) bridge GUI and core
+- Use `GLib.idle_add()` for thread-safe UI updates
+- Progress callbacks via `ProgressDialog`
+- Results shown via `Adw.Toast` notifications
+
+### Certificate Health Monitoring
+```
+MainWindow._load_certificate_health()
+  → NSSHandler.get_certificates()
+  → CertificateHealth (computes days_remaining, health_level)
+  → CertHealthPopover.set_health()
+  → Updates header button icon based on health level
+```
+
+---
+
 ## Configuration
 
 **Location:** `~/.config/pdfsigner/config.toml`
@@ -197,12 +233,9 @@ uv run pytest tests/unit/test_position_finder.py -v
 ```
 
 ### Current Coverage
-- **472 tests passing** (including E2E and GUI logic tests)
-- **~50% overall coverage**
-- Key modules:
-  - signer/ module: **92%** (lta_handler 100%, signature_field 97%, batch_manager 97%)
-  - certificate/health_status: **100%** (32 tests)
-  - exceptions (100%), stamp_simulator (100%), pin_cache (98%)
+- **520 tests passing** (including E2E and GUI logic tests)
+- **87% core coverage** (excludes GUI/UI code)
+- Key modules at 100%: `settings.py`, `position_finder.py`, `multi_signer.py`, `lta_handler.py`, `health_status.py`
 - E2E tests for dry-run sign + validate flow (16 tests)
 - GUI tests use mocks (no display required)
 
@@ -258,12 +291,9 @@ uv run pre-commit run --all-files
 
 ## Pending Features / Ideas
 
-1. **Drag & Drop** - Drop PDFs directly into GUI window
-2. **Signature Profiles** - Save preset configurations
-3. **Verification in GUI** - Button to verify existing signatures
-4. **Preview Position** - Show thumbnail with stamp position before signing
-5. **Certificate Expiry Notification** - Warn when cert is expiring
-6. **Batch from Folder** - Sign all PDFs in a directory
+1. **Signature Profiles** - Save preset configurations
+2. **Preview Position** - Show thumbnail with stamp position before signing
+3. **Batch from Folder** - Sign all PDFs in a directory
 
 ---
 
