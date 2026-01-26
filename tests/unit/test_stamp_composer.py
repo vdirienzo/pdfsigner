@@ -36,7 +36,7 @@ class TestComposeStampWithQR:
         assert "pdfsigner_stamp_" in result.name
 
     def test_image_dimensions(self):
-        """Test default image dimensions."""
+        """Test default image dimensions (300 DPI, 4x scale factor)."""
         qr_data = QRData(
             document_hash="b" * 64,
             signer_name="Test",
@@ -49,8 +49,9 @@ class TestComposeStampWithQR:
         )
 
         img = Image.open(result)
-        assert img.size[0] == 200  # Default width
-        assert img.size[1] == 70  # Default height
+        # Default: 200*4=800px width, 70*4=280px height (300 DPI)
+        assert img.size[0] == 800  # Default width at 300 DPI
+        assert img.size[1] == 280  # Default height at 300 DPI
 
     def test_custom_dimensions(self):
         """Test custom image dimensions."""
@@ -151,15 +152,16 @@ class TestComposeStampTextOnly:
         assert result.suffix == ".png"
 
     def test_default_dimensions(self):
-        """Test default image dimensions."""
+        """Test default image dimensions (300 DPI, 4x scale factor)."""
         result = compose_stamp_text_only(
             signer_name="Test",
             timestamp=datetime.now(UTC),
         )
 
         img = Image.open(result)
-        assert img.size[0] == 200  # Default width
-        assert img.size[1] == 70  # Default height
+        # Default: 200*4=800px width, 70*4=280px height (300 DPI)
+        assert img.size[0] == 800  # Default width at 300 DPI
+        assert img.size[1] == 280  # Default height at 300 DPI
 
     def test_custom_dimensions(self):
         """Test custom dimensions."""
