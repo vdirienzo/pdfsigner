@@ -20,7 +20,6 @@ from pyhanko.sign.fields import SigSeedSubFilter, append_signature_field
 from pdfsigner.config.settings import get_settings
 from pdfsigner.core.pdf_analyzer.position_finder import PositionPreference
 from pdfsigner.core.signer.lta_handler import LTAHandler
-from pdfsigner.core.signer.signature_field import create_signature_field_specs
 from pdfsigner.core.token.nss_handler import NSSHandler
 from pdfsigner.core.validator.pdf_validator import PDFValidator
 from pdfsigner.exceptions import PDFCorruptedError, PDFProtectedError
@@ -195,6 +194,49 @@ class PDFSigner:
         except Exception as e:
             logger.error(f"Failed to render template '{template_name}': {e}")
             return None
+
+    def _add_visual_stamps_to_pdf(
+        self,
+        input_path: Path,
+        output_path: Path,
+        stamp_positions: list,
+        stamp_image_path: Path,
+    ) -> None:
+        """
+        Adds visual stamp images to PDF pages without digital signature.
+
+        Uses PyMuPDF to insert stamp images as annotations on specified pages.
+        This is used for multi-page signing where only the first page gets the
+        actual digital signature, and other pages get visual copies.
+
+        Args:
+            input_path: Source PDF path
+            output_path: Output PDF path (can be same as input for temp files)
+            stamp_positions: List of StampPosition objects with page/coordinates
+            stamp_image_path: Path to the stamp PNG image
+        """
+        import fitz  # PyMuPDF
+
+        doc = fitz.open(input_path)
+
+        for pos in stamp_positions:
+            if pos.page < len(doc):
+                page = doc[pos.page]
+                # PDF coordinates: origin at bottom-left, but fitz uses top-left
+                # The position from position_finder is already in PDF coords (bottom-left)
+                # fitz.Rect uses (x0, y0, x1, y1) with origin at TOP-LEFT
+                page_height = page.rect.height
+                rect = fitz.Rect(
+                    pos.x,
+                    page_height - pos.y - pos.height,  # Convert Y from bottom to top
+                    pos.x + pos.width,
+                    page_height - pos.y,
+                )
+                page.insert_image(rect, filename=str(stamp_image_path))
+                logger.debug(f"Added visual stamp to page {pos.page + 1}")
+
+        doc.save(output_path)
+        doc.close()
 
     def _build_stamp_style(
         self,
@@ -393,72 +435,115 @@ class PDFSigner:
             if self.lta_handler and self.lta_handler.tsa_config.url:
                 timestamper = self.lta_handler.get_timestamper()
 
-            # Open PDF
-            # strict=False allows hybrid-reference PDFs (mixed xref tables/streams)
-            # These are rare but some tools still generate them
-            with open(input_path, "rb") as f:
-                writer = IncrementalPdfFileWriter(f, strict=False)
+            # Extract signer info from certificate for stamp (needed for multi-page stamps)
+            # Note: pyHanko uses asn1crypto, not cryptography.x509
+            signer_name = None
+            organization = None
+            if signer.signing_cert:
+                # asn1crypto API: subject.native returns dict with CN, O, etc.
+                subject_dict = signer.signing_cert.subject.native
+                signer_name = subject_dict.get("common_name")
+                organization = subject_dict.get("organization_name")
 
-                # Add signature field(s) if visible
-                field_specs = create_signature_field_specs(
+            # Get signature field and visual stamp positions
+            from pdfsigner.core.signer.signature_field import create_signature_field_with_stamps
+
+            field_result = create_signature_field_with_stamps(
+                input_path,
+                appearance.visible,
+                appearance.page,
+                appearance.width_mm,
+                appearance.height_mm,
+                appearance.position_preference,
+                existing_signature_count=existing_sig_count,
+            )
+
+            # Determine which file to sign (may need preprocessing for multi-page stamps)
+            pdf_to_sign = input_path
+            temp_pdf_path = None
+
+            # If there are visual stamps for additional pages, add them first
+            if field_result.visual_stamps:
+                import tempfile
+
+                # Render the stamp image for visual copies
+                stamp_image_path = self._render_template_stamp(
+                    template_override or get_settings().signature_template or "default",
+                    signer_name,
                     input_path,
-                    appearance.visible,
-                    appearance.page,
-                    appearance.width_mm,
-                    appearance.height_mm,
-                    appearance.position_preference,
-                    existing_signature_count=existing_sig_count,
-                )
-                for field_spec in field_specs:
-                    append_signature_field(writer, field_spec)
-
-                # Main signature field name (first one, or generate one for invisible)
-                if field_specs:
-                    sig_field_name = field_specs[0].sig_field_name
-                else:
-                    # pyHanko requires a field name even for invisible signatures
-                    # Use unique name based on existing signatures
-                    sig_field_name = f"Signature{existing_sig_count + 1}"
-
-                # Extract signer info from certificate for stamp
-                # Note: pyHanko uses asn1crypto, not cryptography.x509
-                signer_name = None
-                organization = None
-                if signer.signing_cert:
-                    # asn1crypto API: subject.native returns dict with CN, O, etc.
-                    subject_dict = signer.signing_cert.subject.native
-                    signer_name = subject_dict.get("common_name")
-                    organization = subject_dict.get("organization_name")
-
-                # Build stamp style for visible signatures
-                stamp_style = self._build_stamp_style(
                     appearance,
-                    input_path=input_path,
-                    signer_name=signer_name,
                     organization=organization,
-                    template_override=template_override,
                 )
 
-                # Create signature metadata
-                sig_metadata = signers.PdfSignatureMetadata(
-                    field_name=sig_field_name,
-                    md_algorithm="sha256",
-                    subfilter=SigSeedSubFilter.PADES,
-                )
+                if stamp_image_path:
+                    # Create temp file with visual stamps added
+                    temp_fd, temp_pdf_str = tempfile.mkstemp(suffix=".pdf")
+                    temp_pdf_path = Path(temp_pdf_str)
+                    import os
 
-                # Sign using PdfSigner to support stamp_style
-                pdf_signer = signers.PdfSigner(
-                    sig_metadata,
-                    signer=signer,
-                    stamp_style=stamp_style,
-                    timestamper=timestamper,
-                )
+                    os.close(temp_fd)
 
-                with open(output_path, "wb") as out:
-                    pdf_signer.sign_pdf(
-                        writer,
-                        output=out,
+                    self._add_visual_stamps_to_pdf(
+                        input_path,
+                        temp_pdf_path,
+                        field_result.visual_stamps,
+                        stamp_image_path,
                     )
+                    pdf_to_sign = temp_pdf_path
+                    logger.debug(
+                        f"Added visual stamps to {len(field_result.visual_stamps)} "
+                        f"additional page(s)"
+                    )
+
+            try:
+                # Open PDF (original or pre-processed with visual stamps)
+                # strict=False allows hybrid-reference PDFs (mixed xref tables/streams)
+                # These are rare but some tools still generate them
+                with open(pdf_to_sign, "rb") as f:
+                    writer = IncrementalPdfFileWriter(f, strict=False)
+
+                    # Add signature field if visible
+                    if field_result.field_spec:
+                        append_signature_field(writer, field_result.field_spec)
+                        sig_field_name = field_result.field_spec.sig_field_name
+                    else:
+                        # pyHanko requires a field name even for invisible signatures
+                        # Use unique name based on existing signatures
+                        sig_field_name = f"Signature{existing_sig_count + 1}"
+
+                    # Build stamp style for visible signatures
+                    stamp_style = self._build_stamp_style(
+                        appearance,
+                        input_path=input_path,
+                        signer_name=signer_name,
+                        organization=organization,
+                        template_override=template_override,
+                    )
+
+                    # Create signature metadata
+                    sig_metadata = signers.PdfSignatureMetadata(
+                        field_name=sig_field_name,
+                        md_algorithm="sha256",
+                        subfilter=SigSeedSubFilter.PADES,
+                    )
+
+                    # Sign using PdfSigner to support stamp_style
+                    pdf_signer = signers.PdfSigner(
+                        sig_metadata,
+                        signer=signer,
+                        stamp_style=stamp_style,
+                        timestamper=timestamper,
+                    )
+
+                    with open(output_path, "wb") as out:
+                        pdf_signer.sign_pdf(
+                            writer,
+                            output=out,
+                        )
+            finally:
+                # Clean up temp file if created
+                if temp_pdf_path and temp_pdf_path.exists():
+                    temp_pdf_path.unlink()
 
             logger.info(f"PDF signed successfully: {output_path.name}")
 

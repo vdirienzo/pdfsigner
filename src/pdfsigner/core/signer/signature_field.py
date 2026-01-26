@@ -6,6 +6,7 @@ Author: Homero Thompson del Lago del Terror
 Handles signature field positioning and creation for PDF signing.
 """
 
+from dataclasses import dataclass
 from pathlib import Path
 
 from pyhanko.sign.fields import SigFieldSpec
@@ -15,6 +16,17 @@ from pdfsigner.core.pdf_analyzer.position_finder import (
     PositionFinder,
     PositionPreference,
 )
+
+
+@dataclass
+class StampPosition:
+    """Position for a visual stamp on a page."""
+
+    page: int  # 0-based page index
+    x: float  # X coordinate in PDF points
+    y: float  # Y coordinate in PDF points
+    width: float  # Width in PDF points
+    height: float  # Height in PDF points
 
 
 def parse_page_range(page_str: str, total_pages: int) -> list[int]:
@@ -100,6 +112,14 @@ def mm_to_points(mm: float) -> float:
     return mm * 72 / 25.4
 
 
+@dataclass
+class SignatureFieldResult:
+    """Result of creating signature field with optional visual stamps."""
+
+    field_spec: SigFieldSpec | None  # The actual signature field (None if invisible)
+    visual_stamps: list[StampPosition]  # Positions for visual-only stamps on other pages
+
+
 def create_signature_field_specs(
     pdf_path: Path,
     visible: bool,
@@ -112,9 +132,9 @@ def create_signature_field_specs(
     """
     Creates visible signature field specifications.
 
-    For "all" pages, creates a stamp on every page.
-    The first field is the actual signature field,
-    others are visual stamps referencing it.
+    NOTE: This function now returns only ONE SigFieldSpec (the main signature).
+    For multiple pages, use create_signature_field_with_stamps() instead,
+    which returns both the signature field and positions for visual stamps.
 
     Args:
         pdf_path: Path to the PDF
@@ -126,14 +146,60 @@ def create_signature_field_specs(
         existing_signature_count: Number of existing signatures in the PDF
 
     Returns:
-        List of SigFieldSpec (empty if invisible signature)
+        List with one SigFieldSpec (empty if invisible signature)
     """
     if not visible:
         return []
 
-    field_specs = []
+    result = create_signature_field_with_stamps(
+        pdf_path,
+        visible,
+        page_setting,
+        width_mm,
+        height_mm,
+        position_preference,
+        existing_signature_count,
+    )
+
+    if result.field_spec:
+        return [result.field_spec]
+    return []
+
+
+def create_signature_field_with_stamps(
+    pdf_path: Path,
+    visible: bool,
+    page_setting: int | str,
+    width_mm: float,
+    height_mm: float,
+    position_preference: PositionPreference,
+    existing_signature_count: int = 0,
+) -> SignatureFieldResult:
+    """
+    Creates a signature field and positions for visual stamps on other pages.
+
+    For multi-page signing, only ONE signature field is created (pyHanko limitation).
+    Additional pages get visual stamps (PNG images) without digital signature.
+
+    Args:
+        pdf_path: Path to the PDF
+        visible: Whether signature should be visible
+        page_setting: Page specification ("last", "first", "all", number, or range)
+        width_mm: Signature width in millimeters
+        height_mm: Signature height in millimeters
+        position_preference: Position preference strategy
+        existing_signature_count: Number of existing signatures in the PDF
+
+    Returns:
+        SignatureFieldResult with field_spec and visual_stamps positions
+    """
+    if not visible:
+        return SignatureFieldResult(field_spec=None, visual_stamps=[])
+
     # Generate unique field name based on existing signatures
     next_sig_num = existing_signature_count + 1
+    field_spec = None
+    visual_stamps: list[StampPosition] = []
 
     with ContentAnalyzer(pdf_path) as analyzer:
         total_pages = analyzer.page_count
@@ -152,26 +218,29 @@ def create_signature_field_specs(
                 position_preference,
             )
 
-            box = (
-                position.x,
-                position.y,
-                position.x + position.width,
-                position.y + position.height,
-            )
-
-            # First field is the main signature, others are visual copies
-            # Use unique name based on existing signature count
             if idx == 0:
-                field_name = f"Signature{next_sig_num}"
-            else:
-                field_name = f"Signature{next_sig_num}Stamp{idx}"
-
-            field_specs.append(
-                SigFieldSpec(
-                    sig_field_name=field_name,
+                # First page: create the actual signature field
+                box = (
+                    position.x,
+                    position.y,
+                    position.x + position.width,
+                    position.y + position.height,
+                )
+                field_spec = SigFieldSpec(
+                    sig_field_name=f"Signature{next_sig_num}",
                     on_page=page_num,
                     box=box,
                 )
-            )
+            else:
+                # Other pages: save position for visual stamp
+                visual_stamps.append(
+                    StampPosition(
+                        page=page_num,
+                        x=position.x,
+                        y=position.y,
+                        width=position.width,
+                        height=position.height,
+                    )
+                )
 
-    return field_specs
+    return SignatureFieldResult(field_spec=field_spec, visual_stamps=visual_stamps)

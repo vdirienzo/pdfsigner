@@ -200,7 +200,11 @@ class TestCreateSignatureFieldSpecs:
         assert result[0].sig_field_name == "Signature1"
 
     def test_visible_all_pages(self, sample_pdf: Path, mock_analyzer, mock_position):
-        """Test visible signature on all pages."""
+        """Test visible signature on all pages returns only ONE field_spec.
+
+        Note: create_signature_field_specs now returns only the main signature field.
+        Visual stamps for other pages are handled separately via create_signature_field_with_stamps.
+        """
         from pdfsigner.core.pdf_analyzer.position_finder import PositionPreference
 
         with patch("pdfsigner.core.signer.signature_field.ContentAnalyzer") as MockAnalyzer:
@@ -219,10 +223,41 @@ class TestCreateSignatureFieldSpecs:
                     position_preference=PositionPreference.BOTTOM_RIGHT,
                 )
 
-        assert len(result) == 3  # 3 pages
+        # Only returns ONE spec (the main signature field)
+        # Other pages get visual stamps, not signature fields
+        assert len(result) == 1
         assert result[0].sig_field_name == "Signature1"
-        assert result[1].sig_field_name == "Signature1Stamp1"
-        assert result[2].sig_field_name == "Signature1Stamp2"
+
+    def test_visible_all_pages_with_stamps(self, sample_pdf: Path, mock_analyzer, mock_position):
+        """Test create_signature_field_with_stamps returns field + visual stamp positions."""
+        from pdfsigner.core.pdf_analyzer.position_finder import PositionPreference
+        from pdfsigner.core.signer.signature_field import create_signature_field_with_stamps
+
+        with patch("pdfsigner.core.signer.signature_field.ContentAnalyzer") as MockAnalyzer:
+            with patch("pdfsigner.core.signer.signature_field.PositionFinder") as MockFinder:
+                MockAnalyzer.return_value = mock_analyzer
+                mock_finder_instance = MagicMock()
+                mock_finder_instance.find_position.return_value = mock_position
+                MockFinder.return_value = mock_finder_instance
+
+                result = create_signature_field_with_stamps(
+                    pdf_path=sample_pdf,
+                    visible=True,
+                    page_setting="all",
+                    width_mm=50,
+                    height_mm=20,
+                    position_preference=PositionPreference.BOTTOM_RIGHT,
+                )
+
+        # One signature field for first page
+        assert result.field_spec is not None
+        assert result.field_spec.sig_field_name == "Signature1"
+        assert result.field_spec.on_page == 0
+
+        # Visual stamps for pages 2 and 3 (0-indexed: pages 1 and 2)
+        assert len(result.visual_stamps) == 2
+        assert result.visual_stamps[0].page == 1
+        assert result.visual_stamps[1].page == 2
 
     def test_field_spec_has_correct_box(self, sample_pdf: Path, mock_analyzer, mock_position):
         """Test that field spec has correct bounding box."""
