@@ -17,7 +17,7 @@ uv run pdfsigner sign file.pdf          # CLI
 uv run pdfsigner --dry-run sign file.pdf  # Without real token
 
 # Tests
-uv run pytest -v                        # All tests (520)
+uv run pytest -v                        # All tests (622)
 uv run pytest tests/unit/ -v            # Unit only
 uv run pytest -k "test_health" -v       # Pattern match
 uv run pytest tests/unit/test_position_finder.py::test_find_position_avoids_content -v  # Single test
@@ -149,6 +149,7 @@ HTTPTimeStamper(url=tsa_url, https_timeout=30)  # Will fail!
 - **Coverage:** 87% core (excludes `gui/`, `ui/`, `cli/` - see `pyproject.toml`)
 - **GUI tests:** Use mocks in `conftest_gui.py`, no display required
 - **Integration tests:** Require internet (TSA servers)
+- **E2E tests:** Dry-run mode (`tests/e2e/`), covers full signing workflow with all variants
 - **Test naming:** `test_<function>_<scenario>_<expected>`
 
 ## Configuration

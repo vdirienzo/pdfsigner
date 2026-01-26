@@ -16,7 +16,7 @@
   <a href="https://gtk.org/"><img src="https://img.shields.io/badge/GTK-4.0-4A86CF?style=flat-square&logo=gnome&logoColor=white" alt="GTK4"></a>
   <a href="https://github.com/pyhanko/pyhanko"><img src="https://img.shields.io/badge/pyHanko-PAdES--LTV-orange?style=flat-square" alt="pyHanko"></a>
   <br>
-  <img src="https://img.shields.io/badge/tests-519%20passing-success?style=flat-square" alt="Tests">
+  <img src="https://img.shields.io/badge/tests-622%20passing-success?style=flat-square" alt="Tests">
   <img src="https://img.shields.io/badge/coverage-87%25%20core-blue?style=flat-square" alt="Coverage">
 </p>
 
@@ -68,7 +68,7 @@
 
 ### 🧪 Developer Friendly
 - **Dry-run mode** for testing without hardware
-- **519 tests** with 87% coverage
+- **622 tests** with 87% coverage
 - **Modular architecture** for extensibility
 - **Comprehensive logging**
 
@@ -702,7 +702,7 @@ uv run pre-commit run --all-files
 
 ### Test Coverage
 
-**519 tests** with **87% core coverage**
+**622 tests** with **87% core coverage**
 
 | Module | Coverage | Status |
 |--------|----------|--------|
@@ -737,8 +737,9 @@ pdfsigner/
 │   │   └── widgets/         # Custom widgets
 │   └── ui/                  # Dialogs (PIN, options, progress)
 ├── tests/
-│   ├── unit/                # Unit tests (400+)
-│   └── integration/         # E2E tests (16)
+│   ├── unit/                # Unit tests (585)
+│   ├── integration/         # Integration tests (16)
+│   └── e2e/                 # E2E dry-run tests (37)
 ├── scripts/                 # Build & install scripts
 └── config/                  # Example configuration
 ```
@@ -823,6 +824,25 @@ python3 -c "import gi; gi.require_version('Adw', '1'); print('Adwaita OK')"
 ---
 
 ## 📝 Changelog
+
+### [0.9.5] - 2026-01-26
+
+#### Added
+- **E2E Test Suite** - 37 comprehensive tests covering full signing workflow
+  - Single/multi-page signing scenarios
+  - All position preferences (bottom-right, top-left, etc.)
+  - All built-in templates
+  - QR code generation
+  - Batch signing operations
+  - Edge cases and output verification
+
+#### Fixed
+- **Multi-page signing** - Visual stamps now appear on all selected pages
+  - pyHanko limitation: only ONE signature field per operation
+  - Solution: Signature field on first page + visual PNG stamps on remaining pages
+- **Position preference ignored** - User's explicit position choice now always respected
+  - Previously fell back to AUTO search when content detected at preferred location
+  - Now: if user selects BOTTOM_RIGHT, signature goes there regardless of content
 
 ### [0.9.4] - 2026-01-26
 
