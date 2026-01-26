@@ -308,7 +308,7 @@ class TestBuiltinTemplates:
         assert template.width_mm == 60
         assert template.height_mm == 25
 
-        layer_types = [l.type for l in template.layers]
+        layer_types = [layer.type for layer in template.layers]
         assert "background" in layer_types
         assert "border" in layer_types
         assert "text" in layer_types
@@ -324,7 +324,7 @@ class TestBuiltinTemplates:
         """Test with_qr template includes QR layer."""
         template = load_template("with_qr")
 
-        layer_types = [l.type for l in template.layers]
+        layer_types = [layer.type for layer in template.layers]
         assert "qr" in layer_types
 
     def test_all_builtin_templates_valid(self):

@@ -49,7 +49,7 @@ class TestValidationHandlerValidateFiles:
         handler.validate_files([])
 
     @patch("pdfsigner.gui.validation_handler.Thread")
-    def test_validate_files_starts_thread(self, MockThread):
+    def test_validate_files_starts_thread(self, mock_thread_cls):
         """validate_files starts background thread."""
         from pdfsigner.gui.validation_handler import ValidationHandler
 
@@ -57,12 +57,12 @@ class TestValidationHandlerValidateFiles:
         handler = ValidationHandler(window)
 
         mock_thread = MagicMock()
-        MockThread.return_value = mock_thread
+        mock_thread_cls.return_value = mock_thread
 
         files = [Path("/test/doc.pdf")]
         handler.validate_files(files)
 
-        MockThread.assert_called_once()
+        mock_thread_cls.assert_called_once()
         mock_thread.start.assert_called_once()
 
 
@@ -71,12 +71,12 @@ class TestValidationHandlerRunValidation:
 
     @patch("pdfsigner.gui.validation_handler.PDFValidator")
     @patch("pdfsigner.gui.validation_handler.GLib")
-    def test_run_validation_with_valid_signatures(self, MockGLib, MockValidator):
+    def test_run_validation_with_valid_signatures(self, mock_glib, mock_validator_cls):
         """Validation updates status for valid signatures."""
         from pdfsigner.gui.validation_handler import ValidationHandler
 
         # Setup GLib.idle_add to execute immediately
-        MockGLib.idle_add = lambda func, *args: func(*args)
+        mock_glib.idle_add = lambda func, *args: func(*args)
 
         window = create_mock_window()
         handler = ValidationHandler(window)
@@ -88,7 +88,7 @@ class TestValidationHandlerRunValidation:
 
         mock_validator_instance = MagicMock()
         mock_validator_instance.validate.return_value = mock_validation
-        MockValidator.return_value = mock_validator_instance
+        mock_validator_cls.return_value = mock_validator_instance
 
         files = [Path("/test/doc.pdf")]
         handler._run_validation(files)
@@ -98,11 +98,11 @@ class TestValidationHandlerRunValidation:
 
     @patch("pdfsigner.gui.validation_handler.PDFValidator")
     @patch("pdfsigner.gui.validation_handler.GLib")
-    def test_run_validation_with_no_signatures(self, MockGLib, MockValidator):
+    def test_run_validation_with_no_signatures(self, mock_glib, mock_validator_cls):
         """Validation handles files without signatures."""
         from pdfsigner.gui.validation_handler import ValidationHandler
 
-        MockGLib.idle_add = lambda func, *args: func(*args)
+        mock_glib.idle_add = lambda func, *args: func(*args)
 
         window = create_mock_window()
         handler = ValidationHandler(window)
@@ -114,7 +114,7 @@ class TestValidationHandlerRunValidation:
 
         mock_validator_instance = MagicMock()
         mock_validator_instance.validate.return_value = mock_validation
-        MockValidator.return_value = mock_validator_instance
+        mock_validator_cls.return_value = mock_validator_instance
 
         files = [Path("/test/unsigned.pdf")]
         handler._run_validation(files)
@@ -126,11 +126,11 @@ class TestValidationHandlerRunValidation:
 
     @patch("pdfsigner.gui.validation_handler.PDFValidator")
     @patch("pdfsigner.gui.validation_handler.GLib")
-    def test_run_validation_with_invalid_signatures(self, MockGLib, MockValidator):
+    def test_run_validation_with_invalid_signatures(self, mock_glib, mock_validator_cls):
         """Validation handles invalid signatures."""
         from pdfsigner.gui.validation_handler import ValidationHandler
 
-        MockGLib.idle_add = lambda func, *args: func(*args)
+        mock_glib.idle_add = lambda func, *args: func(*args)
 
         window = create_mock_window()
         handler = ValidationHandler(window)
@@ -142,7 +142,7 @@ class TestValidationHandlerRunValidation:
 
         mock_validator_instance = MagicMock()
         mock_validator_instance.validate.return_value = mock_validation
-        MockValidator.return_value = mock_validator_instance
+        mock_validator_cls.return_value = mock_validator_instance
 
         files = [Path("/test/invalid.pdf")]
         handler._run_validation(files)
@@ -154,11 +154,11 @@ class TestValidationHandlerRunValidation:
 
     @patch("pdfsigner.gui.validation_handler.PDFValidator")
     @patch("pdfsigner.gui.validation_handler.GLib")
-    def test_run_validation_handles_exception(self, MockGLib, MockValidator):
+    def test_run_validation_handles_exception(self, mock_glib, mock_validator_cls):
         """Validation handles exceptions gracefully."""
         from pdfsigner.gui.validation_handler import ValidationHandler
 
-        MockGLib.idle_add = lambda func, *args: func(*args)
+        mock_glib.idle_add = lambda func, *args: func(*args)
 
         window = create_mock_window()
         handler = ValidationHandler(window)
@@ -166,7 +166,7 @@ class TestValidationHandlerRunValidation:
         # Mock validator to raise exception
         mock_validator_instance = MagicMock()
         mock_validator_instance.validate.side_effect = Exception("Test error")
-        MockValidator.return_value = mock_validator_instance
+        mock_validator_cls.return_value = mock_validator_instance
 
         files = [Path("/test/bad.pdf")]
         handler._run_validation(files)
@@ -179,11 +179,11 @@ class TestValidationHandlerRunValidation:
 
     @patch("pdfsigner.gui.validation_handler.PDFValidator")
     @patch("pdfsigner.gui.validation_handler.GLib")
-    def test_run_validation_multiple_files(self, MockGLib, MockValidator):
+    def test_run_validation_multiple_files(self, mock_glib, mock_validator_cls):
         """Validation processes multiple files."""
         from pdfsigner.gui.validation_handler import ValidationHandler
 
-        MockGLib.idle_add = lambda func, *args: func(*args)
+        mock_glib.idle_add = lambda func, *args: func(*args)
 
         window = create_mock_window()
         handler = ValidationHandler(window)
@@ -195,7 +195,7 @@ class TestValidationHandlerRunValidation:
 
         mock_validator_instance = MagicMock()
         mock_validator_instance.validate.return_value = mock_validation
-        MockValidator.return_value = mock_validator_instance
+        mock_validator_cls.return_value = mock_validator_instance
 
         files = [
             Path("/test/doc1.pdf"),
@@ -215,11 +215,11 @@ class TestValidationHandlerToastMessages:
 
     @patch("pdfsigner.gui.validation_handler.PDFValidator")
     @patch("pdfsigner.gui.validation_handler.GLib")
-    def test_toast_message_all_valid(self, MockGLib, MockValidator):
+    def test_toast_message_all_valid(self, mock_glib, mock_validator_cls):
         """Toast shows valid count when all valid."""
         from pdfsigner.gui.validation_handler import ValidationHandler
 
-        MockGLib.idle_add = lambda func, *args: func(*args)
+        mock_glib.idle_add = lambda func, *args: func(*args)
 
         window = create_mock_window()
         handler = ValidationHandler(window)
@@ -230,7 +230,7 @@ class TestValidationHandlerToastMessages:
 
         mock_validator_instance = MagicMock()
         mock_validator_instance.validate.return_value = mock_validation
-        MockValidator.return_value = mock_validator_instance
+        mock_validator_cls.return_value = mock_validator_instance
 
         handler._run_validation([Path("/test/doc.pdf")])
 
@@ -239,11 +239,11 @@ class TestValidationHandlerToastMessages:
 
     @patch("pdfsigner.gui.validation_handler.PDFValidator")
     @patch("pdfsigner.gui.validation_handler.GLib")
-    def test_toast_message_no_signatures(self, MockGLib, MockValidator):
+    def test_toast_message_no_signatures(self, mock_glib, mock_validator_cls):
         """Toast shows 'no signatures' message."""
         from pdfsigner.gui.validation_handler import ValidationHandler
 
-        MockGLib.idle_add = lambda func, *args: func(*args)
+        mock_glib.idle_add = lambda func, *args: func(*args)
 
         window = create_mock_window()
         handler = ValidationHandler(window)
@@ -254,7 +254,7 @@ class TestValidationHandlerToastMessages:
 
         mock_validator_instance = MagicMock()
         mock_validator_instance.validate.return_value = mock_validation
-        MockValidator.return_value = mock_validator_instance
+        mock_validator_cls.return_value = mock_validator_instance
 
         handler._run_validation([Path("/test/unsigned.pdf")])
 

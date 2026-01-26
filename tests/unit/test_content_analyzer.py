@@ -294,7 +294,7 @@ class TestContentAnalyzerWithImages:
         # Create PDF (extraction errors are hard to trigger, but the code handles them)
         pdf_path = tmp_path / "test.pdf"
         doc = fitz.open()
-        page = doc.new_page(width=612, height=792)
+        doc.new_page(width=612, height=792)  # Create empty page
         doc.save(str(pdf_path))
         doc.close()
 

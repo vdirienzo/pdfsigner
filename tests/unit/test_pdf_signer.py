@@ -246,7 +246,7 @@ class TestPDFSignerCreateSigner:
         from datetime import datetime, timedelta
 
         from cryptography import x509
-        from cryptography.hazmat.primitives import hashes, serialization
+        from cryptography.hazmat.primitives import hashes
         from cryptography.hazmat.primitives.asymmetric import rsa
         from cryptography.x509.oid import NameOID
 
@@ -257,7 +257,7 @@ class TestPDFSignerCreateSigner:
         )
 
         subject = issuer = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "Test User")])
-        cert = (
+        _ = (  # Certificate built to verify x509 imports work, not used in mock
             x509.CertificateBuilder()
             .subject_name(subject)
             .issuer_name(issuer)
@@ -267,7 +267,6 @@ class TestPDFSignerCreateSigner:
             .not_valid_after(datetime.now(UTC) + timedelta(days=1))
             .sign(private_key, hashes.SHA256())
         )
-        cert_der = cert.public_bytes(encoding=serialization.Encoding.DER)
 
         handler = MagicMock()
         handler._session = MagicMock()

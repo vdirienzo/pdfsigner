@@ -16,7 +16,7 @@
   <a href="https://gtk.org/"><img src="https://img.shields.io/badge/GTK-4.0-4A86CF?style=flat-square&logo=gnome&logoColor=white" alt="GTK4"></a>
   <a href="https://github.com/pyhanko/pyhanko"><img src="https://img.shields.io/badge/pyHanko-PAdES--LTV-orange?style=flat-square" alt="pyHanko"></a>
   <br>
-  <img src="https://img.shields.io/badge/tests-520%20passing-success?style=flat-square" alt="Tests">
+  <img src="https://img.shields.io/badge/tests-519%20passing-success?style=flat-square" alt="Tests">
   <img src="https://img.shields.io/badge/coverage-87%25%20core-blue?style=flat-square" alt="Coverage">
 </p>
 
@@ -68,7 +68,7 @@
 
 ### 🧪 Developer Friendly
 - **Dry-run mode** for testing without hardware
-- **520 tests** with 87% coverage
+- **519 tests** with 87% coverage
 - **Modular architecture** for extensibility
 - **Comprehensive logging**
 
@@ -702,7 +702,7 @@ uv run pre-commit run --all-files
 
 ### Test Coverage
 
-**520 tests** with **87% core coverage**
+**519 tests** with **87% core coverage**
 
 | Module | Coverage | Status |
 |--------|----------|--------|
@@ -824,7 +824,21 @@ python3 -c "import gi; gi.require_version('Adw', '1'); print('Adwaita OK')"
 
 ## 📝 Changelog
 
-### [0.9.3] - 2026-01-26
+### [0.9.4] - 2026-01-26
+
+#### Added
+- **Template Editor Dialog** - Create custom signature templates from GUI
+  - Dynamic text fields with color/size customization
+  - Reorder fields with up/down buttons
+  - Live preview while editing
+  - Support for custom text lines beyond defaults
+- **Per-signing template override** - Select different template for each signing operation
+
+#### Fixed
+- **pyHanko layout imports** - Fixed `SimpleBoxLayoutRule` and `Margins` imports
+- **Ruff linting** - Fixed 43 naming convention issues in tests
+
+### [0.9.3] - 2026-01-25
 
 #### Fixed
 - **PIN cache** not working correctly in batch operations

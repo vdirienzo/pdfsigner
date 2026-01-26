@@ -70,19 +70,19 @@ class TestSigningHandlerSignFiles:
         handler.sign_files([])
 
     @patch("pdfsigner.gui.signing_handler.SignatureOptionsDialog")
-    def test_sign_files_opens_options_dialog(self, MockOptionsDialog):
+    def test_sign_files_opens_options_dialog(self, mock_options_dialog_cls):
         """sign_files opens the options dialog."""
         from pdfsigner.gui.signing_handler import SigningHandler
 
         window = create_mock_window()
         handler = SigningHandler(window)
         mock_dialog = MagicMock()
-        MockOptionsDialog.return_value = mock_dialog
+        mock_options_dialog_cls.return_value = mock_dialog
 
         files = [Path("/test/doc.pdf")]
         handler.sign_files(files)
 
-        MockOptionsDialog.assert_called_once_with(parent=window)
+        mock_options_dialog_cls.assert_called_once_with(parent=window)
         mock_dialog.connect.assert_called_once()
         mock_dialog.present.assert_called_once()
 
@@ -106,7 +106,7 @@ class TestSigningHandlerOptionsResponse:
         mock_dialog.destroy.assert_called_once()
 
     @patch("pdfsigner.gui.signing_handler.PinDialog")
-    def test_options_ok_proceeds_to_pin(self, MockPinDialog):
+    def test_options_ok_proceeds_to_pin(self, mock_pin_dialog_cls):
         """OK response proceeds to PIN request."""
         from pdfsigner.gui.signing_handler import SigningHandler
 
@@ -120,14 +120,14 @@ class TestSigningHandlerOptionsResponse:
         mock_options_dialog.get_appearance.return_value = mock_appearance
 
         mock_pin_dialog = MagicMock()
-        MockPinDialog.return_value = mock_pin_dialog
+        mock_pin_dialog_cls.return_value = mock_pin_dialog
 
         # Simulate OK response (1)
         files = [Path("/test/doc.pdf")]
         handler._on_options_response(mock_options_dialog, 1, files)
 
         mock_options_dialog.destroy.assert_called_once()
-        MockPinDialog.assert_called_once_with(parent=window)
+        mock_pin_dialog_cls.assert_called_once_with(parent=window)
         mock_pin_dialog.present.assert_called_once()
 
 
@@ -318,7 +318,7 @@ class TestSigningHandlerError:
     """Tests for error handling."""
 
     @patch("pdfsigner.gui.signing_handler.Adw")
-    def test_show_error_creates_dialog(self, MockAdw):
+    def test_show_error_creates_dialog(self, mock_adw):
         """Error creates message dialog."""
         from pdfsigner.gui.signing_handler import SigningHandler
 
@@ -326,16 +326,16 @@ class TestSigningHandlerError:
         handler = SigningHandler(window)
 
         mock_dialog = MagicMock()
-        MockAdw.MessageDialog.return_value = mock_dialog
+        mock_adw.MessageDialog.return_value = mock_dialog
 
         handler._show_error("Test Title", "Test Message")
 
-        MockAdw.MessageDialog.assert_called_once()
+        mock_adw.MessageDialog.assert_called_once()
         mock_dialog.add_response.assert_called_once()
         mock_dialog.present.assert_called_once()
 
     @patch("pdfsigner.gui.signing_handler.Adw")
-    def test_show_error_closes_progress_dialog(self, MockAdw):
+    def test_show_error_closes_progress_dialog(self, mock_adw):
         """Error closes any open progress dialog."""
         from pdfsigner.gui.signing_handler import SigningHandler
 
@@ -344,7 +344,7 @@ class TestSigningHandlerError:
         mock_dialog = MagicMock()
         handler._progress_dialog = mock_dialog
 
-        MockAdw.MessageDialog.return_value = MagicMock()
+        mock_adw.MessageDialog.return_value = MagicMock()
 
         handler._show_error("Error", "Message")
 

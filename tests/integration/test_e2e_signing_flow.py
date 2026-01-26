@@ -11,8 +11,7 @@ from pathlib import Path
 
 import pytest
 
-# Import fixtures from conftest
-from tests.conftest import sample_pdf, temp_dir  # noqa: F401
+# Fixtures auto-discovered by pytest from conftest.py
 
 
 class TestDryRunSigningFlow:
@@ -214,7 +213,7 @@ class TestSignAndValidateFlow:
 
         # Step 2: Validate the signed PDF
         validator = PDFValidator()
-        validation_result = validator.validate(signed_path)
+        _ = validator.validate(signed_path)  # Call validates file is readable
 
         # Note: Dry-run signatures are simulated, so they won't
         # appear as real cryptographic signatures
@@ -228,7 +227,7 @@ class TestSignAndValidateFlow:
         from pdfsigner.core.mock.mock_batch import MockBatchManager
         from pdfsigner.core.validator.pdf_validator import PDFValidator
 
-        validator = PDFValidator()
+        _ = PDFValidator()  # noqa: F841 - Verifies import works
 
         # Create and sign multiple PDFs
         for i in range(3):

@@ -51,9 +51,9 @@ class Layer:
     # Common properties
     opacity: float = 1.0
 
-    def to_dict(self) -> dict:
+    def to_dict(self) -> dict[str, object]:
         """Convert layer to dictionary for JSON serialization."""
-        result = {"type": self.type}
+        result: dict[str, object] = {"type": self.type}
 
         # Only include non-default values
         if self.x != 0:

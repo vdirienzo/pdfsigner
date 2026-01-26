@@ -243,9 +243,26 @@ class PDFSigner:
             )
             if stamp_path:
                 try:
+                    from pyhanko.pdf_utils.layout import (
+                        AxisAlignment,
+                        InnerScaling,
+                        Margins,
+                        SimpleBoxLayoutRule,
+                    )
+
+                    # Use layout that fills the box without margins for crisp rendering
+                    bg_layout = SimpleBoxLayoutRule(
+                        x_align=AxisAlignment.ALIGN_MIN,
+                        y_align=AxisAlignment.ALIGN_MIN,
+                        inner_content_scaling=InnerScaling.STRETCH_TO_FIT,
+                        margins=Margins(left=0, right=0, top=0, bottom=0),
+                    )
                     return stamp.TextStampStyle(
                         stamp_text="",
                         background=images.PdfImage(str(stamp_path)),
+                        background_opacity=1.0,  # Full opacity for crisp image
+                        background_layout=bg_layout,
+                        border_width=0,  # No additional border
                     )
                 except Exception as e:
                     logger.warning(f"Failed to use template stamp: {e}, falling back to text")
@@ -280,10 +297,26 @@ class PDFSigner:
 
                 logger.debug(f"Generated QR stamp: {stamp_image_path}")
 
-                # Use composed image as background with minimal text
+                # Use composed image as background with high quality settings
+                from pyhanko.pdf_utils.layout import (
+                    AxisAlignment,
+                    InnerScaling,
+                    Margins,
+                    SimpleBoxLayoutRule,
+                )
+
+                bg_layout = SimpleBoxLayoutRule(
+                    x_align=AxisAlignment.ALIGN_MIN,
+                    y_align=AxisAlignment.ALIGN_MIN,
+                    inner_content_scaling=InnerScaling.STRETCH_TO_FIT,
+                    margins=Margins(left=0, right=0, top=0, bottom=0),
+                )
                 return stamp.TextStampStyle(
                     stamp_text="",
                     background=images.PdfImage(str(stamp_image_path)),
+                    background_opacity=1.0,
+                    background_layout=bg_layout,
+                    border_width=0,
                 )
 
             except Exception as e:
