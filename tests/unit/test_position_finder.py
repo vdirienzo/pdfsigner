@@ -297,12 +297,16 @@ class TestPositionFinderEdgeCases:
         assert position.width == 100
         assert position.height == 50
 
-    def test_preferred_position_collision_triggers_auto_search(self, page_with_collision):
-        """Test that when preferred position collides, AUTO search is used."""
+    def test_preferred_position_respected_even_with_collision(self, page_with_collision):
+        """Test that user's explicit position preference is always respected.
+
+        When user selects a specific position (not AUTO), that position is used
+        even if there's content there. User choice takes precedence.
+        """
         analyzer = MockAnalyzer(page_with_collision)
         finder = PositionFinder(analyzer)
 
-        # Request BOTTOM_RIGHT which has collision
+        # Request BOTTOM_RIGHT which has collision - should still use it
         position = finder.find_position(
             page_number=0,
             sig_width=100,
@@ -310,8 +314,9 @@ class TestPositionFinderEdgeCases:
             preference=PositionPreference.BOTTOM_RIGHT,
         )
 
-        # Should find alternative position or use fallback
-        # The collision block is at bottom-right, so should find different position
+        # User's preference is respected, position is in bottom-right area
         assert position is not None
         assert position.width == 100
         assert position.height == 50
+        # Verify it's actually bottom-right (low Y value in PDF coords)
+        assert position.y < 100  # Bottom of page (PDF coords: y=0 is bottom)

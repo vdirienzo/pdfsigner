@@ -99,21 +99,24 @@ class PositionFinder:
         """
         page_info = self.analyzer.analyze_page(page_number)
 
-        # If there's a specific preference, try that position first
+        # If user selected a specific position (not AUTO), respect it always
+        # User's explicit choice takes precedence over content avoidance
         if preference != PositionPreference.AUTO:
             pos = self._get_preferred_position(page_info, sig_width, sig_height, preference)
             if self._is_position_valid(page_info, pos):
                 logger.debug(f"Using preferred position: {preference.value}")
-                return pos
+            else:
+                logger.debug(f"Using preferred position {preference.value} (may overlap content)")
+            return pos
 
-        # Automatic search for best position
+        # AUTO mode: search for best position avoiding content
         best_pos = self._find_best_position(page_info, sig_width, sig_height)
         if best_pos:
             logger.debug(f"Optimal position found: ({best_pos.x:.1f}, {best_pos.y:.1f})")
             return best_pos
 
-        # Fallback: bottom right corner with possible overlap
-        logger.warning("No free space found, using default position")
+        # Fallback for AUTO mode: bottom right corner
+        logger.warning("No free space found, using default position (bottom right)")
         return self._get_fallback_position(page_info, sig_width, sig_height)
 
     def _get_preferred_position(
