@@ -55,8 +55,8 @@ def calculate_document_hash(pdf_path: Path) -> str:
 
 def generate_qr_image(
     qr_data: QRData,
-    size_px: int = 150,
-    border: int = 2,
+    size_px: int = 240,  # 60px * 4 for 300 DPI
+    border: int = 1,
 ) -> Image.Image:
     """
     Generate QR code image from verification data.

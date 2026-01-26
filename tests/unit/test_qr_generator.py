@@ -100,7 +100,7 @@ class TestGenerateQRImage:
         img = generate_qr_image(qr_data)
 
         assert img is not None
-        assert img.size == (150, 150)  # Default size
+        assert img.size == (240, 240)  # Default size (300 DPI)
 
     def test_custom_size(self):
         """Test QR with custom size."""

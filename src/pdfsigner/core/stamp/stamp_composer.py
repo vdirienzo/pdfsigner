@@ -16,11 +16,13 @@ from PIL import Image, ImageDraw, ImageFont
 
 from pdfsigner.core.stamp.qr_generator import QRData, generate_qr_image
 
-# Default stamp dimensions in pixels (at 72 DPI for PDF)
-DEFAULT_WIDTH_PX = 200
-DEFAULT_HEIGHT_PX = 70
-QR_SIZE_PX = 60
-PADDING_PX = 5
+# Default stamp dimensions in pixels (at 300 DPI for high quality print)
+# PDF uses 72 DPI, so we use 4x scale factor (300/72 ≈ 4.17)
+SCALE_FACTOR = 4
+DEFAULT_WIDTH_PX = 200 * SCALE_FACTOR  # 800px
+DEFAULT_HEIGHT_PX = 70 * SCALE_FACTOR  # 280px
+QR_SIZE_PX = 60 * SCALE_FACTOR  # 240px
+PADDING_PX = 5 * SCALE_FACTOR  # 20px
 
 
 def compose_stamp_with_qr(
@@ -78,13 +80,15 @@ def compose_stamp_with_qr(
     stamp.paste(qr_img, (qr_x, qr_y))
 
     # Try to load a system font, fallback to default
-    font_size = 10
+    # Font sizes scaled for 300 DPI
+    font_size = 10 * SCALE_FACTOR  # 40px
+    small_font_size = 8 * SCALE_FACTOR  # 32px
     try:
         # Try common system fonts
         for font_name in ["DejaVuSans.ttf", "Arial.ttf", "FreeSans.ttf"]:
             try:
                 font = ImageFont.truetype(font_name, font_size)
-                small_font = ImageFont.truetype(font_name, font_size - 2)
+                small_font = ImageFont.truetype(font_name, small_font_size)
                 break
             except OSError:
                 continue
@@ -96,22 +100,22 @@ def compose_stamp_with_qr(
         small_font = font
 
     # Draw text
-    text_y = PADDING_PX + 2
+    text_y = PADDING_PX + 2 * SCALE_FACTOR
 
     # "Digitally Signed" header
-    draw.text((text_x, text_y), "Digitally Signed", fill="black", font=small_font)
-    text_y += font_size + 2
+    draw.text((text_x, text_y), "Digitally Signed", fill="#666666", font=small_font)
+    text_y += small_font_size + 2 * SCALE_FACTOR
 
     # Signer name (truncate if too long)
     display_name = signer_name
     if len(display_name) > 25:
         display_name = display_name[:22] + "..."
     draw.text((text_x, text_y), display_name, fill="black", font=font)
-    text_y += font_size + 4
+    text_y += font_size + 2 * SCALE_FACTOR
 
     # Timestamp
     ts_str = timestamp.strftime("%Y-%m-%d %H:%M")
-    draw.text((text_x, text_y), ts_str, fill="gray", font=small_font)
+    draw.text((text_x, text_y), ts_str, fill="#888888", font=small_font)
 
     # Save to temporary file
     temp_file = tempfile.NamedTemporaryFile(
@@ -159,12 +163,14 @@ def compose_stamp_text_only(
     )
 
     # Try to load a system font, fallback to default
-    font_size = 12
+    # Font sizes scaled for 300 DPI
+    font_size = 12 * SCALE_FACTOR  # 48px
+    small_font_size = 10 * SCALE_FACTOR  # 40px
     try:
         for font_name in ["DejaVuSans.ttf", "Arial.ttf", "FreeSans.ttf"]:
             try:
                 font = ImageFont.truetype(font_name, font_size)
-                small_font = ImageFont.truetype(font_name, font_size - 2)
+                small_font = ImageFont.truetype(font_name, small_font_size)
                 break
             except OSError:
                 continue
@@ -176,22 +182,23 @@ def compose_stamp_text_only(
         small_font = font
 
     # Center text vertically
-    text_y = PADDING_PX + 5
+    text_x = PADDING_PX + 5 * SCALE_FACTOR
+    text_y = PADDING_PX + 5 * SCALE_FACTOR
 
     # "Digitally Signed" header
-    draw.text((PADDING_PX + 5, text_y), "Digitally Signed", fill="black", font=small_font)
-    text_y += font_size + 4
+    draw.text((text_x, text_y), "Digitally Signed", fill="#666666", font=small_font)
+    text_y += small_font_size + 4 * SCALE_FACTOR
 
     # Signer name
     display_name = signer_name
     if len(display_name) > 30:
         display_name = display_name[:27] + "..."
-    draw.text((PADDING_PX + 5, text_y), display_name, fill="black", font=font)
-    text_y += font_size + 4
+    draw.text((text_x, text_y), display_name, fill="black", font=font)
+    text_y += font_size + 4 * SCALE_FACTOR
 
     # Timestamp
     ts_str = timestamp.strftime("%Y-%m-%d %H:%M:%S")
-    draw.text((PADDING_PX + 5, text_y), ts_str, fill="gray", font=small_font)
+    draw.text((text_x, text_y), ts_str, fill="#888888", font=small_font)
 
     # Save to temporary file
     temp_file = tempfile.NamedTemporaryFile(
