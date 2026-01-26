@@ -127,6 +127,7 @@ class PDFSigner:
         signer_name: str | None,
         input_path: Path | None,
         appearance: "SignatureAppearance",
+        organization: str | None = None,
     ) -> Path | None:
         """
         Render a signature stamp using a template.
@@ -136,6 +137,7 @@ class PDFSigner:
             signer_name: Certificate CN for {signer_name} variable
             input_path: PDF path (for QR hash if template has QR layer)
             appearance: Signature appearance config
+            organization: Organization from certificate for {org} variable
 
         Returns:
             Path to rendered PNG or None if failed
@@ -156,7 +158,7 @@ class PDFSigner:
             variables = {
                 "signer_name": signer_name or "Digital Signature",
                 "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
-                "org": "",  # Could be extracted from certificate OU
+                "org": organization or "",
             }
 
             # Check if template has QR layer and generate QR if needed
@@ -199,6 +201,7 @@ class PDFSigner:
         appearance: "SignatureAppearance",
         input_path: Path | None = None,
         signer_name: str | None = None,
+        organization: str | None = None,
         template_override: str | None = None,
     ):
         """
@@ -207,6 +210,7 @@ class PDFSigner:
         Args:
             appearance: Signature appearance configuration
             input_path: Path to PDF (needed for QR hash calculation)
+            organization: Organization name from certificate (for {org} variable)
             signer_name: Name of signer from certificate (for QR)
             template_override: Template name to use instead of settings default
 
@@ -235,6 +239,7 @@ class PDFSigner:
                 signer_name,
                 input_path,
                 appearance,
+                organization=organization,
             )
             if stamp_path:
                 try:
@@ -382,19 +387,22 @@ class PDFSigner:
                     # Use unique name based on existing signatures
                     sig_field_name = f"Signature{existing_sig_count + 1}"
 
-                # Extract signer name from certificate for QR
+                # Extract signer info from certificate for stamp
                 # Note: pyHanko uses asn1crypto, not cryptography.x509
                 signer_name = None
+                organization = None
                 if signer.signing_cert:
-                    # asn1crypto API: subject.native returns dict with 'common_name'
+                    # asn1crypto API: subject.native returns dict with CN, O, etc.
                     subject_dict = signer.signing_cert.subject.native
                     signer_name = subject_dict.get("common_name")
+                    organization = subject_dict.get("organization_name")
 
                 # Build stamp style for visible signatures
                 stamp_style = self._build_stamp_style(
                     appearance,
                     input_path=input_path,
                     signer_name=signer_name,
+                    organization=organization,
                     template_override=template_override,
                 )
 

@@ -147,3 +147,39 @@ def get_template_info(name: str) -> dict | None:
             "height_mm": template.height_mm,
         }
     return None
+
+
+def save_user_template(template: Template) -> Path:
+    """
+    Save a template to the user templates directory.
+
+    Args:
+        template: Template object to save
+
+    Returns:
+        Path to the saved JSON file
+    """
+    USER_TEMPLATES_DIR.mkdir(parents=True, exist_ok=True)
+    path = USER_TEMPLATES_DIR / f"{template.name}.json"
+    template.to_json(path)
+    logger.info(f"User template saved: {path}")
+    return path
+
+
+def delete_user_template(name: str) -> bool:
+    """
+    Delete a user template by name.
+
+    Args:
+        name: Template name (without .json extension)
+
+    Returns:
+        True if deleted, False if not found
+    """
+    path = USER_TEMPLATES_DIR / f"{name}.json"
+    if path.exists():
+        path.unlink()
+        logger.info(f"User template deleted: {name}")
+        return True
+    logger.warning(f"User template not found for deletion: {name}")
+    return False

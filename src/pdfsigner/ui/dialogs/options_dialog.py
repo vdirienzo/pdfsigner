@@ -120,7 +120,7 @@ class SignatureOptionsDialog(Gtk.Dialog):
         for value, label in self._template_choices:
             self.template_combo.append(value, label)
         self.template_combo.set_hexpand(True)
-        self.template_combo.connect("changed", self._on_template_changed)
+        # Note: connect signal AFTER all widgets are created to avoid premature callback
 
         # Set default selection
         self.template_combo.set_active_id(self.default_template)
@@ -187,6 +187,9 @@ class SignatureOptionsDialog(Gtk.Dialog):
         self.options_grid.attach(self.position_combo, 1, 3, 1, 1)
 
         content.append(self.options_grid)
+
+        # Connect template change signal AFTER all widgets exist
+        self.template_combo.connect("changed", self._on_template_changed)
 
         # Update visibility based on initial template
         self._update_position_options_visibility()

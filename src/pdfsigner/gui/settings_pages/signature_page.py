@@ -137,7 +137,7 @@ def create_signature_page(settings, dialog) -> Adw.PreferencesPage:
     template_group.set_title(_("Signature Template"))
     template_group.set_description(_("Choose a visual style for the signature stamp"))
 
-    # Template dropdown
+    # Template dropdown with create button
     template_combo = Adw.ComboRow()
     template_combo.set_title(_("Template"))
 
@@ -156,6 +156,43 @@ def create_signature_page(settings, dialog) -> Adw.PreferencesPage:
 
     # Store choices values for saving
     dialog._template_choices = [c[0] for c in choices]
+
+    # Create custom template button
+    create_btn = Gtk.Button()
+    create_btn.set_icon_name("list-add-symbolic")
+    create_btn.set_tooltip_text(_("Create custom template"))
+    create_btn.set_valign(Gtk.Align.CENTER)
+    create_btn.add_css_class("flat")
+
+    def _on_create_template_clicked(_button):
+        """Open template editor dialog."""
+        from pdfsigner.gui.template_editor_dialog import TemplateEditorDialog
+
+        def _on_template_created(name: str):
+            """Refresh dropdown when new template is created."""
+            # Rebuild choices
+            new_choices = _get_template_choices()
+            new_model = Gtk.StringList.new([c[1] for c in new_choices])
+            template_combo.set_model(new_model)
+            dialog._template_choices = [c[0] for c in new_choices]
+
+            # Select the newly created template
+            for i, (value, _label) in enumerate(new_choices):
+                if value == name:
+                    template_combo.set_selected(i)
+                    break
+
+            # Update preview
+            preview = _create_preview_image(name)
+            if preview:
+                preview_frame.set_child(preview)
+
+        editor = TemplateEditorDialog(on_template_created=_on_template_created)
+        editor.set_transient_for(dialog)
+        editor.present()
+
+    create_btn.connect("clicked", _on_create_template_clicked)
+    template_combo.add_suffix(create_btn)
 
     template_group.add(template_combo)
 
