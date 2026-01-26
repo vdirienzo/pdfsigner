@@ -252,8 +252,10 @@ class PDFSigner:
                 timestamper = self.lta_handler.get_timestamper()
 
             # Open PDF
+            # strict=False allows hybrid-reference PDFs (mixed xref tables/streams)
+            # These are rare but some tools still generate them
             with open(input_path, "rb") as f:
-                writer = IncrementalPdfFileWriter(f)
+                writer = IncrementalPdfFileWriter(f, strict=False)
 
                 # Add signature field(s) if visible
                 field_specs = create_signature_field_specs(
