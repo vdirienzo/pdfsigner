@@ -289,11 +289,16 @@ uv run pdfsigner --help
 
 | Format | Download | Best For |
 |--------|----------|----------|
+| **Snap** | `sudo snap install pdfsigner` | Ubuntu/Snap-enabled distros |
 | **Flatpak** | `PDFSigner-{VERSION}.flatpak` | Sandboxed, recommended |
 | **AppImage** | `PDFSigner-{VERSION}-x86_64.AppImage` | Portable, no install |
 | **Debian** | `pdfsigner_{VERSION}-1_all.deb` | Native Debian/Ubuntu |
 
 ```bash
+# Snap (easiest)
+sudo snap install pdfsigner
+sudo snap connect pdfsigner:raw-usb  # Required for USB token access
+
 # Build packages locally
 ./scripts/build-packages.sh --all
 ```
@@ -647,9 +652,27 @@ User Request
 
 | Format | Command | Output |
 |--------|---------|--------|
+| Snap | `snapcraft` | `pdfsigner_*.snap` |
 | Flatpak | `./scripts/build-packages.sh --flatpak` | `dist/flatpak/*.flatpak` |
 | AppImage | `./scripts/build-packages.sh --appimage` | `dist/appimage/*.AppImage` |
 | Debian | `./scripts/build-packages.sh --deb` | `dist/deb/*.deb` |
+
+### Snap Installation
+
+```bash
+# Build snap locally
+snapcraft
+
+# Install locally-built snap
+sudo snap install pdfsigner_*.snap --dangerous
+
+# Connect USB interface (required for token access)
+sudo snap connect pdfsigner:raw-usb
+
+# Run
+pdfsigner        # CLI
+pdfsigner.gui    # GUI (or use desktop entry)
+```
 
 ### Flatpak Installation
 
@@ -828,6 +851,10 @@ python3 -c "import gi; gi.require_version('Adw', '1'); print('Adwaita OK')"
 ### [0.9.5] - 2026-01-26
 
 #### Added
+- **Snap Package Support** - Native Snap packaging for Ubuntu and Snap-enabled distros
+  - Strict confinement with GNOME extension
+  - USB token access via `raw-usb` interface
+  - Both GUI (`pdfsigner`) and CLI (`pdfsigner.cli`) apps
 - **E2E Test Suite** - 37 comprehensive tests covering full signing workflow
   - Single/multi-page signing scenarios
   - All position preferences (bottom-right, top-left, etc.)

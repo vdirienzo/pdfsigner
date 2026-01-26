@@ -31,10 +31,6 @@ confinement: strict
 platforms:
   amd64:
 
-# Use GNOME extension for GTK4/libadwaita
-extensions:
-  - gnome
-
 layout:
   # NSS database access
   /usr/lib/x86_64-linux-gnu/nss:
@@ -45,6 +41,7 @@ layout:
 
 apps:
   pdfsigner:
+    extensions: [gnome]
     command: bin/pdfsigner-gui
     desktop: share/applications/com.pdfsigner.app.desktop
     common-id: com.pdfsigner.app
@@ -57,11 +54,8 @@ apps:
       - mount-observe
       - removable-media
     environment:
-      # Python path
       PYTHONPATH: $SNAP/lib/python3.12/site-packages:$PYTHONPATH
-      # NSS database default location
       NSS_DEFAULT_DB_TYPE: sql
-      # GTK settings
       GTK_USE_PORTAL: "1"
 
   cli:
@@ -99,9 +93,6 @@ parts:
       - qrcode
       - pillow
     stage-packages:
-      # GTK4 and libadwaita (provided by gnome extension, but ensure deps)
-      - libgtk-4-1
-      - libadwaita-1-0
       # NSS/PKCS#11 support
       - libnss3
       - libnss3-tools
@@ -111,8 +102,7 @@ parts:
       - opensc
       - opensc-pkcs11
       - libpcsclite1
-      - pcscd
-      # GObject introspection
+      # GObject introspection (GTK provided by gnome extension)
       - gir1.2-gtk-4.0
       - gir1.2-adw-1
       - python3-gi
@@ -142,17 +132,7 @@ parts:
            $CRAFT_PART_INSTALL/share/icons/hicolor/${size}x${size}/apps/
       done
     prime:
-      # Exclude unnecessary files
       - -lib/python3.12/site-packages/*.dist-info
       - -lib/python3.12/site-packages/__pycache__
       - -usr/share/doc
       - -usr/share/man
-
-  # Copy PKCS#11 library configurations
-  pkcs11-config:
-    plugin: dump
-    source: .
-    organize:
-      src/pdfsigner/core/token/pkcs11_libs.py: share/pdfsigner/pkcs11_libs.py
-    prime:
-      - share/pdfsigner/pkcs11_libs.py
