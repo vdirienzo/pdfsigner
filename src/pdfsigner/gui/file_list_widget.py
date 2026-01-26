@@ -146,8 +146,10 @@ class FileRow(Gtk.Box):
         # Get main window
         window = self.get_root()
 
-        # Show dialog (Adw.Dialog handles its own lifecycle)
-        ValidationResultDialog(parent=window, result=self.validation_result)
+        # Show dialog
+        dialog = ValidationResultDialog(parent=window, result=self.validation_result)
+        dialog.connect("response", lambda d, r: d.destroy())
+        dialog.present()
 
     def _on_remove_clicked(self, button: Gtk.Button) -> None:
         """Removes this file from the list."""
