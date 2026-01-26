@@ -194,6 +194,123 @@ def create_signature_page(settings, dialog) -> Adw.PreferencesPage:
     create_btn.connect("clicked", _on_create_template_clicked)
     template_combo.add_suffix(create_btn)
 
+    # Edit template button (only visible for user templates)
+    edit_btn = Gtk.Button()
+    edit_btn.set_icon_name("document-edit-symbolic")
+    edit_btn.set_tooltip_text(_("Edit template"))
+    edit_btn.set_valign(Gtk.Align.CENTER)
+    edit_btn.add_css_class("flat")
+    edit_btn.set_visible(False)  # Initially hidden
+
+    def _on_edit_template_clicked(_button):
+        """Open template editor in edit mode."""
+        from pdfsigner.core.signature import load_template
+        from pdfsigner.gui.template_editor_dialog import TemplateEditorDialog
+
+        idx = template_combo.get_selected()
+        template_name = dialog._template_choices[idx] if idx < len(dialog._template_choices) else ""
+
+        if not template_name:
+            return
+
+        template = load_template(template_name)
+        if not template:
+            return
+
+        def _on_template_updated(name: str):
+            """Refresh preview when template is updated."""
+            preview = _create_preview_image(name)
+            if preview:
+                preview_frame.set_child(preview)
+
+        editor = TemplateEditorDialog(
+            on_template_created=_on_template_updated,
+            edit_template=template,
+        )
+        editor.set_transient_for(dialog)
+        editor.present()
+
+    edit_btn.connect("clicked", _on_edit_template_clicked)
+    template_combo.add_suffix(edit_btn)
+
+    # Delete template button (only visible for user templates)
+    delete_btn = Gtk.Button()
+    delete_btn.set_icon_name("user-trash-symbolic")
+    delete_btn.set_tooltip_text(_("Delete template"))
+    delete_btn.set_valign(Gtk.Align.CENTER)
+    delete_btn.add_css_class("flat")
+    delete_btn.set_visible(False)  # Initially hidden
+
+    def _on_delete_template_clicked(_button):
+        """Delete user template with confirmation."""
+        from pdfsigner.core.signature import delete_user_template
+
+        idx = template_combo.get_selected()
+        template_name = dialog._template_choices[idx] if idx < len(dialog._template_choices) else ""
+
+        if not template_name:
+            return
+
+        # Create confirmation dialog
+        confirm = Adw.MessageDialog(
+            transient_for=dialog,
+            heading=_("Delete Template?"),
+            body=_("Are you sure you want to delete the template '{}'?").format(template_name),
+        )
+        confirm.add_response("cancel", _("Cancel"))
+        confirm.add_response("delete", _("Delete"))
+        confirm.set_response_appearance("delete", Adw.ResponseAppearance.DESTRUCTIVE)
+        confirm.set_default_response("cancel")
+        confirm.set_close_response("cancel")
+
+        def on_response(_dialog, response):
+            if response == "delete":
+                if delete_user_template(template_name):
+                    # Refresh template list
+                    new_choices = _get_template_choices()
+                    new_model = Gtk.StringList.new([c[1] for c in new_choices])
+                    template_combo.set_model(new_model)
+                    dialog._template_choices = [c[0] for c in new_choices]
+                    template_combo.set_selected(0)  # Select invisible
+                    _update_edit_delete_visibility()
+
+        confirm.connect("response", on_response)
+        confirm.present()
+
+    delete_btn.connect("clicked", _on_delete_template_clicked)
+    template_combo.add_suffix(delete_btn)
+
+    def _update_edit_delete_visibility():
+        """Show edit/delete buttons only for user templates."""
+        idx = template_combo.get_selected()
+        template_name = dialog._template_choices[idx] if idx < len(dialog._template_choices) else ""
+
+        # Check if it's a user template
+        is_user_template = False
+        if template_name:
+            try:
+                from pdfsigner.core.signature import list_all_templates
+
+                templates = list_all_templates()
+                for name, source in templates:
+                    if name == template_name and source == "user":
+                        is_user_template = True
+                        break
+            except ImportError:
+                pass
+
+        edit_btn.set_visible(is_user_template)
+        delete_btn.set_visible(is_user_template)
+
+    # Update visibility on template change
+    def on_template_changed_for_buttons(combo, _pspec):
+        _update_edit_delete_visibility()
+
+    template_combo.connect("notify::selected", on_template_changed_for_buttons)
+
+    # Initial visibility check
+    GLib.idle_add(_update_edit_delete_visibility)
+
     template_group.add(template_combo)
 
     # Preview container
@@ -251,6 +368,19 @@ def create_signature_page(settings, dialog) -> Adw.PreferencesPage:
 
     template_combo.connect("notify::selected", on_template_changed)
 
+    # Default organization (used if certificate lacks one)
+    org_row = Adw.EntryRow()
+    org_row.set_title(_("Default organization"))
+    org_row.set_text(settings.default_organization or "")
+    org_row.set_show_apply_button(True)
+    template_group.add(org_row)
+
+    # Help text for organization
+    org_help = Adw.ActionRow()
+    org_help.set_title(_("Used when certificate has no organization"))
+    org_help.add_css_class("dim-label")
+    template_group.add(org_help)
+
     # Default page for visible signatures
     page_combo = Adw.ComboRow()
     page_combo.set_title(_("Default page"))
@@ -277,6 +407,7 @@ def create_signature_page(settings, dialog) -> Adw.PreferencesPage:
 
     # Store references for saving
     dialog.template_combo = template_combo
+    dialog.org_row = org_row
     dialog.page_combo = page_combo
     dialog.suffix_row = suffix_row
 

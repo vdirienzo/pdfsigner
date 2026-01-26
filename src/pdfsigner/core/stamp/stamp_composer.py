@@ -117,13 +117,13 @@ def compose_stamp_with_qr(
     ts_str = timestamp.strftime("%Y-%m-%d %H:%M")
     draw.text((text_x, text_y), ts_str, fill="#888888", font=small_font)
 
-    # Save to temporary file
+    # Save to temporary file with 300 DPI metadata
     temp_file = tempfile.NamedTemporaryFile(
         suffix=".png",
         delete=False,
         prefix="pdfsigner_stamp_",
     )
-    stamp.save(temp_file.name, "PNG")
+    stamp.save(temp_file.name, "PNG", dpi=(300, 300))
     temp_file.close()
 
     logger.debug(f"Composed stamp saved to: {temp_file.name}")
@@ -200,13 +200,13 @@ def compose_stamp_text_only(
     ts_str = timestamp.strftime("%Y-%m-%d %H:%M:%S")
     draw.text((text_x, text_y), ts_str, fill="#888888", font=small_font)
 
-    # Save to temporary file
+    # Save to temporary file with 300 DPI metadata
     temp_file = tempfile.NamedTemporaryFile(
         suffix=".png",
         delete=False,
         prefix="pdfsigner_stamp_",
     )
-    stamp.save(temp_file.name, "PNG")
+    stamp.save(temp_file.name, "PNG", dpi=(300, 300))
     temp_file.close()
 
     logger.debug(f"Composed text stamp saved to: {temp_file.name}")
