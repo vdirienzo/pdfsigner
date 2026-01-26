@@ -1,5 +1,5 @@
 <p align="center">
-  <img src="icons/hicolor/128x128/apps/com.pdfsigner.app.png" alt="PDFSigner Logo" width="128" height="128">
+  <img src="src/pdfsigner/ui/icon/icon512.png" alt="PDFSigner Logo" width="128" height="128">
 </p>
 
 <h1 align="center">PDFSigner</h1>
