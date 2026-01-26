@@ -182,6 +182,37 @@ class Settings(BaseSettings):
             raise ValueError(f"Signature image does not exist: {v}")
         return v
 
+    @field_validator("output_suffix")
+    @classmethod
+    def validate_output_suffix(cls, v: str) -> str:
+        """Validate output suffix to prevent path traversal."""
+        from pdfsigner.core.security.path_sanitizer import (
+            PathTraversalError,
+            sanitize_output_suffix,
+        )
+
+        try:
+            return sanitize_output_suffix(v)
+        except PathTraversalError as e:
+            raise ValueError(str(e)) from e
+
+    @field_validator("signature_template")
+    @classmethod
+    def validate_signature_template(cls, v: str) -> str:
+        """Validate signature template name to prevent path traversal."""
+        if not v:
+            return v  # Empty string is valid (means default template)
+
+        from pdfsigner.core.security.path_sanitizer import (
+            PathTraversalError,
+            sanitize_filename,
+        )
+
+        try:
+            return sanitize_filename(v, allow_subdirs=False)
+        except PathTraversalError as e:
+            raise ValueError(str(e)) from e
+
 
 # Configuration singleton
 _settings: Settings | None = None

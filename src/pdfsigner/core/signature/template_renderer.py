@@ -5,6 +5,7 @@ Author: Homero Thompson del Lago del Terror
 
 Renders Template objects to PNG images using PIL,
 with variable substitution and 300 DPI for print quality.
+Includes path sanitization to prevent path traversal attacks.
 """
 
 from __future__ import annotations
@@ -17,6 +18,8 @@ from typing import TYPE_CHECKING
 
 from loguru import logger
 from PIL import Image, ImageDraw, ImageFont
+
+from pdfsigner.core.security.path_sanitizer import PathTraversalError, sanitize_path
 
 if TYPE_CHECKING:
     from pdfsigner.core.signature.template import Layer, Template
@@ -111,6 +114,29 @@ def _substitute_variables(text: str, variables: dict[str, str]) -> str:
     return result
 
 
+def _sanitize_image_path(image_path: str, templates_dir: Path) -> Path | None:
+    """
+    Sanitize and validate an image path from a template layer.
+
+    Args:
+        image_path: Relative image path from template
+        templates_dir: Base directory for template assets
+
+    Returns:
+        Sanitized absolute path or None if invalid
+    """
+    try:
+        return sanitize_path(
+            image_path,
+            base_dir=templates_dir,
+            must_exist=True,
+            path_description="template image",
+        )
+    except (PathTraversalError, FileNotFoundError) as e:
+        logger.warning(f"Invalid image path in template: {e}")
+        return None
+
+
 def _render_layer(
     draw: ImageDraw.ImageDraw,
     layer: Layer,
@@ -182,35 +208,36 @@ def _render_layer(
         draw.text((x, y), text, fill=color_with_opacity, font=font)
 
     elif layer.type == "image" and layer.image_path and templates_dir:
-        image_path = templates_dir / layer.image_path
-        if image_path.exists():
-            try:
-                img = Image.open(image_path).convert("RGBA")
+        # Sanitize image path to prevent path traversal attacks
+        image_path = _sanitize_image_path(layer.image_path, templates_dir)
+        if image_path is None:
+            return base_image
 
-                # Resize if dimensions specified
-                if layer_w and layer_h:
-                    img = img.resize((layer_w, layer_h), Image.Resampling.LANCZOS)
-                elif layer_w:
-                    ratio = layer_w / img.width
-                    img = img.resize((layer_w, int(img.height * ratio)), Image.Resampling.LANCZOS)
-                elif layer_h:
-                    ratio = layer_h / img.height
-                    img = img.resize((int(img.width * ratio), layer_h), Image.Resampling.LANCZOS)
+        try:
+            img = Image.open(image_path).convert("RGBA")
 
-                # Apply opacity
-                if layer.opacity < 1.0:
-                    alpha = img.split()[3]
-                    alpha = alpha.point(lambda p: int(p * layer.opacity))
-                    img.putalpha(alpha)
+            # Resize if dimensions specified
+            if layer_w and layer_h:
+                img = img.resize((layer_w, layer_h), Image.Resampling.LANCZOS)
+            elif layer_w:
+                ratio = layer_w / img.width
+                img = img.resize((layer_w, int(img.height * ratio)), Image.Resampling.LANCZOS)
+            elif layer_h:
+                ratio = layer_h / img.height
+                img = img.resize((int(img.width * ratio), layer_h), Image.Resampling.LANCZOS)
 
-                # Paste onto base image
-                if base_image:
-                    base_image.paste(img, (x, y), img)
-                    return base_image
-            except Exception as e:
-                logger.warning(f"Could not load image {image_path}: {e}")
-        else:
-            logger.warning(f"Image not found: {image_path}")
+            # Apply opacity
+            if layer.opacity < 1.0:
+                alpha = img.split()[3]
+                alpha = alpha.point(lambda p: int(p * layer.opacity))
+                img.putalpha(alpha)
+
+            # Paste onto base image
+            if base_image:
+                base_image.paste(img, (x, y), img)
+                return base_image
+        except Exception as e:
+            logger.warning(f"Could not load image {image_path}: {e}")
 
     elif layer.type == "qr":
         # QR code generation requires document hash, handled separately
@@ -329,7 +356,7 @@ def render_preview(
 
     # Sample variables for preview
     variables = {
-        "signer_name": "Juan P\u00e9rez Garc\u00eda",
+        "signer_name": "Juan Pérez García",
         "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
         "org": "Empresa S.A.",
     }
@@ -395,24 +422,27 @@ def render_preview(
                         )
 
         elif layer.type == "image" and layer.image_path and templates_dir:
-            image_path = templates_dir / layer.image_path
-            if image_path.exists():
-                try:
-                    img = Image.open(image_path).convert("RGBA")
-                    img_x = int(layer.x / 100 * width_px)
-                    img_y = int(layer.y / 100 * height_px)
-                    img_w: int | None = (
-                        int((layer.width or 20) / 100 * width_px) if layer.width else None
-                    )
-                    img_h: int | None = (
-                        int((layer.height or 20) / 100 * height_px) if layer.height else None
-                    )
+            # Sanitize image path to prevent path traversal attacks
+            safe_image_path = _sanitize_image_path(layer.image_path, templates_dir)
+            if safe_image_path is None:
+                continue
 
-                    if img_w and img_h:
-                        img = img.resize((img_w, img_h), Image.Resampling.LANCZOS)
+            try:
+                img = Image.open(safe_image_path).convert("RGBA")
+                img_x = int(layer.x / 100 * width_px)
+                img_y = int(layer.y / 100 * height_px)
+                img_w: int | None = (
+                    int((layer.width or 20) / 100 * width_px) if layer.width else None
+                )
+                img_h: int | None = (
+                    int((layer.height or 20) / 100 * height_px) if layer.height else None
+                )
 
-                    image.paste(img, (img_x, img_y), img)
-                except Exception as e:
-                    logger.warning(f"Preview: could not load image {image_path}: {e}")
+                if img_w and img_h:
+                    img = img.resize((img_w, img_h), Image.Resampling.LANCZOS)
+
+                image.paste(img, (img_x, img_y), img)
+            except Exception as e:
+                logger.warning(f"Preview: could not load image {safe_image_path}: {e}")
 
     return image.convert("RGB")

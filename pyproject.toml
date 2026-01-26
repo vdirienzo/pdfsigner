@@ -19,6 +19,8 @@ dependencies = [
     "babel>=2.17.0",
     "qrcode[pil]>=7.4.0",
     "pillow>=10.0.0",
+    "jsonschema>=4.20.0",
+    "keyring>=25.0.0",
 ]
 # Note: PyGObject is used from system (python3-gi) for GTK4 bindings
 
