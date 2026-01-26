@@ -1,0 +1,158 @@
+name: pdfsigner
+title: PDFSigner
+version: '0.9.5'
+summary: Sign PDF documents with USB cryptographic tokens
+description: |
+  PDFSigner is a GTK4 application for digitally signing PDF documents
+  using USB cryptographic tokens (PKCS#11).
+
+  **Features:**
+  - PAdES-LTV signatures with TSA timestamps
+  - Support for SafeNet, YubiKey, Nitrokey, and OpenSC tokens
+  - Batch signing with PIN cache
+  - Visible signature stamps with smart positioning
+  - QR verification codes in signatures
+  - Signature validation
+  - Dry-run mode for testing
+
+  **Note:** After installation, connect the raw-usb interface to access
+  USB tokens:
+    sudo snap connect pdfsigner:raw-usb
+
+license: MIT
+icon: data/icons/256x256/apps/com.pdfsigner.app.png
+source-code: https://github.com/vdirienzo/pdfsigner
+issues: https://github.com/vdirienzo/pdfsigner/issues
+
+base: core24
+grade: stable
+confinement: strict
+
+platforms:
+  amd64:
+
+# Use GNOME extension for GTK4/libadwaita
+extensions:
+  - gnome
+
+layout:
+  # NSS database access
+  /usr/lib/x86_64-linux-gnu/nss:
+    symlink: $SNAP/usr/lib/x86_64-linux-gnu/nss
+  # PKCS#11 libraries
+  /usr/lib/x86_64-linux-gnu/pkcs11:
+    symlink: $SNAP/usr/lib/x86_64-linux-gnu/pkcs11
+
+apps:
+  pdfsigner:
+    command: bin/pdfsigner-gui
+    desktop: share/applications/com.pdfsigner.app.desktop
+    common-id: com.pdfsigner.app
+    plugs:
+      - home
+      - network
+      - network-bind
+      - raw-usb
+      - hardware-observe
+      - mount-observe
+      - removable-media
+    environment:
+      # Python path
+      PYTHONPATH: $SNAP/lib/python3.12/site-packages:$PYTHONPATH
+      # NSS database default location
+      NSS_DEFAULT_DB_TYPE: sql
+      # GTK settings
+      GTK_USE_PORTAL: "1"
+
+  cli:
+    command: bin/pdfsigner
+    plugs:
+      - home
+      - network
+      - raw-usb
+      - hardware-observe
+      - removable-media
+    environment:
+      PYTHONPATH: $SNAP/lib/python3.12/site-packages:$PYTHONPATH
+
+  validate:
+    command: bin/pdfsigner validate
+    plugs:
+      - home
+    environment:
+      PYTHONPATH: $SNAP/lib/python3.12/site-packages:$PYTHONPATH
+
+parts:
+  pdfsigner:
+    plugin: python
+    source: .
+    python-packages:
+      - pyhanko[pkcs11]
+      - python-pkcs11
+      - pymupdf
+      - pydantic-settings
+      - loguru
+      - cryptography
+      - certifi
+      - urllib3
+      - babel
+      - qrcode
+      - pillow
+    stage-packages:
+      # GTK4 and libadwaita (provided by gnome extension, but ensure deps)
+      - libgtk-4-1
+      - libadwaita-1-0
+      # NSS/PKCS#11 support
+      - libnss3
+      - libnss3-tools
+      - libnspr4
+      - libsoftokn3
+      # OpenSC for smart card support
+      - opensc
+      - opensc-pkcs11
+      - libpcsclite1
+      - pcscd
+      # GObject introspection
+      - gir1.2-gtk-4.0
+      - gir1.2-adw-1
+      - python3-gi
+      - python3-gi-cairo
+      # Fonts
+      - fonts-dejavu-core
+    build-packages:
+      - python3-dev
+      - python3-pip
+      - python3-venv
+      - libffi-dev
+      - libcairo2-dev
+      - pkg-config
+      - libgirepository1.0-dev
+    override-build: |
+      craftctl default
+      # Install desktop file
+      mkdir -p $CRAFT_PART_INSTALL/share/applications
+      cp data/com.pdfsigner.app.desktop $CRAFT_PART_INSTALL/share/applications/
+      # Install metainfo
+      mkdir -p $CRAFT_PART_INSTALL/share/metainfo
+      cp data/com.pdfsigner.app.metainfo.xml $CRAFT_PART_INSTALL/share/metainfo/
+      # Install icons
+      for size in 16 32 48 64 128 256 512; do
+        mkdir -p $CRAFT_PART_INSTALL/share/icons/hicolor/${size}x${size}/apps
+        cp data/icons/${size}x${size}/apps/com.pdfsigner.app.png \
+           $CRAFT_PART_INSTALL/share/icons/hicolor/${size}x${size}/apps/
+      done
+    prime:
+      # Exclude unnecessary files
+      - -lib/python3.12/site-packages/*.dist-info
+      - -lib/python3.12/site-packages/__pycache__
+      - -usr/share/doc
+      - -usr/share/man
+
+  # Copy PKCS#11 library configurations
+  pkcs11-config:
+    plugin: dump
+    source: .
+    organize:
+      src/pdfsigner/core/token/pkcs11_libs.py: share/pdfsigner/pkcs11_libs.py
+    prime:
+      - share/pdfsigner/pkcs11_libs.py

@@ -2,19 +2,21 @@
 # build-packages.sh - Main packaging script for PDFSigner
 # Author: Homero Thompson del Lago del Terror
 #
-# Builds distribution packages: AppImage, .deb, and Flatpak
+# Builds distribution packages: AppImage, .deb, Flatpak, and Snap
 #
 # Usage:
 #   ./build-packages.sh --all          # Build all formats
 #   ./build-packages.sh --appimage     # Build AppImage only
 #   ./build-packages.sh --deb          # Build .deb only
 #   ./build-packages.sh --flatpak      # Build Flatpak only
+#   ./build-packages.sh --snap         # Build Snap only
 #   ./build-packages.sh --clean        # Clean build directories
 #
 # Requirements vary by format:
 #   AppImage: Python 3.12+, pip
 #   Debian:   debhelper, dh-python, dpkg-dev
 #   Flatpak:  flatpak, flatpak-builder
+#   Snap:     snapcraft, LXD or Multipass
 
 set -euo pipefail
 
@@ -59,25 +61,29 @@ ${BOLD}Options:${NC}
     --appimage      Build AppImage
     --deb           Build Debian package (.deb)
     --flatpak       Build Flatpak bundle
-    --all           Build all formats
+    --snap          Build Snap package
+    --all           Build all formats (except Snap)
+    --all-with-snap Build all formats including Snap
     --clean         Clean build directories
     -h, --help      Show this help message
 
 ${BOLD}Examples:${NC}
-    $0 --all                    # Build everything
+    $0 --all                    # Build AppImage, .deb, Flatpak
     $0 --appimage --deb         # Build AppImage and .deb
-    $0 --flatpak                # Build Flatpak only
+    $0 --snap                   # Build Snap only
     $0 --clean && $0 --all      # Clean rebuild
 
 ${BOLD}Output:${NC}
     dist/appimage/PDFSigner-{VERSION}-x86_64.AppImage
     dist/deb/pdfsigner_{VERSION}-1_all.deb
     dist/flatpak/PDFSigner-{VERSION}.flatpak
+    dist/snap/pdfsigner_{VERSION}_amd64.snap
 
 ${BOLD}Requirements:${NC}
     AppImage: Python 3.12+, pip, wget/curl
     Debian:   debhelper, dh-python, python3-build, dpkg-dev
     Flatpak:  flatpak, flatpak-builder, GNOME runtime
+    Snap:     snapcraft, LXD or Multipass
 
 EOF
 }
@@ -140,6 +146,17 @@ build_flatpak() {
     bash "$SCRIPT_DIR/flatpak/build-flatpak.sh"
 }
 
+build_snap() {
+    log_header "Building Snap"
+
+    if [[ ! -f "$SCRIPT_DIR/snap/build-snap.sh" ]]; then
+        log_error "Snap build script not found"
+        return 1
+    fi
+
+    bash "$SCRIPT_DIR/snap/build-snap.sh"
+}
+
 show_summary() {
     log_header "Build Summary"
 
@@ -148,12 +165,14 @@ show_summary() {
     local found_appimage=""
     local found_deb=""
     local found_flatpak=""
+    local found_snap=""
 
     # Find generated packages
     if [[ -d "$PROJECT_ROOT/dist" ]]; then
         found_appimage=$(find "$PROJECT_ROOT/dist" -name "*.AppImage" 2>/dev/null | head -1)
         found_deb=$(find "$PROJECT_ROOT/dist" -name "*.deb" 2>/dev/null | head -1)
         found_flatpak=$(find "$PROJECT_ROOT/dist" -name "*.flatpak" 2>/dev/null | head -1)
+        found_snap=$(find "$PROJECT_ROOT/dist" -name "*.snap" 2>/dev/null | head -1)
     fi
 
     # Show packages and installation instructions
@@ -213,7 +232,30 @@ show_summary() {
         echo ""
     fi
 
-    if [[ -z "$found_appimage" && -z "$found_deb" && -z "$found_flatpak" ]]; then
+    if [[ -n "$found_snap" ]]; then
+        local size=$(du -h "$found_snap" | cut -f1)
+        echo -e "${RED}┌─────────────────────────────────────────────────────────────────┐${NC}"
+        echo -e "${RED}│${NC} ${BOLD}Snap Package${NC}                                                    ${RED}│${NC}"
+        echo -e "${RED}├─────────────────────────────────────────────────────────────────┤${NC}"
+        echo -e "${RED}│${NC} File: $(basename "$found_snap") ($size)"
+        echo -e "${RED}│${NC} Path: $found_snap"
+        echo -e "${RED}│${NC}"
+        echo -e "${RED}│${NC} ${BOLD}Install:${NC}"
+        echo -e "${RED}│${NC}   sudo snap install --dangerous $(basename "$found_snap")"
+        echo -e "${RED}│${NC}"
+        echo -e "${RED}│${NC} ${BOLD}Connect USB access:${NC}"
+        echo -e "${RED}│${NC}   sudo snap connect pdfsigner:raw-usb"
+        echo -e "${RED}│${NC}"
+        echo -e "${RED}│${NC} ${BOLD}Run:${NC}"
+        echo -e "${RED}│${NC}   pdfsigner"
+        echo -e "${RED}│${NC}"
+        echo -e "${RED}│${NC} ${BOLD}Uninstall:${NC}"
+        echo -e "${RED}│${NC}   sudo snap remove pdfsigner"
+        echo -e "${RED}└─────────────────────────────────────────────────────────────────┘${NC}"
+        echo ""
+    fi
+
+    if [[ -z "$found_appimage" && -z "$found_deb" && -z "$found_flatpak" && -z "$found_snap" ]]; then
         echo -e "  ${YELLOW}No packages found${NC}"
         echo ""
     fi
@@ -230,6 +272,7 @@ main() {
     local build_appimage=false
     local build_deb=false
     local build_flatpak=false
+    local build_snap=false
     local do_clean=false
 
     if [[ $# -eq 0 ]]; then
@@ -251,10 +294,22 @@ main() {
                 build_flatpak=true
                 shift
                 ;;
+            --snap)
+                build_snap=true
+                shift
+                ;;
             --all)
                 build_appimage=true
                 build_deb=true
                 build_flatpak=true
+                # Note: Snap not included in --all (slower build)
+                shift
+                ;;
+            --all-with-snap)
+                build_appimage=true
+                build_deb=true
+                build_flatpak=true
+                build_snap=true
                 shift
                 ;;
             --clean)
@@ -281,7 +336,7 @@ main() {
     if $do_clean; then
         clean_build
         # If only --clean was specified, exit
-        if ! $build_appimage && ! $build_deb && ! $build_flatpak; then
+        if ! $build_appimage && ! $build_deb && ! $build_flatpak && ! $build_snap; then
             exit 0
         fi
     fi
@@ -316,6 +371,13 @@ main() {
     if $build_flatpak; then
         if ! build_flatpak; then
             log_error "Flatpak build failed"
+            ((failed++))
+        fi
+    fi
+
+    if $build_snap; then
+        if ! build_snap; then
+            log_error "Snap build failed"
             ((failed++))
         fi
     fi
