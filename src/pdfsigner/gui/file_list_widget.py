@@ -153,20 +153,26 @@ class FileRow(Gtk.Box):
 
     def _on_remove_clicked(self, button: Gtk.Button) -> None:
         """Removes this file from the list."""
-        # En GTK4, el widget está envuelto en un ListBoxRow
-        # Necesitamos obtener el ListBox (abuelo) para remover
+        # Find the FileListWidget by traversing up the widget tree
+        widget = self.get_parent()
+        file_list_widget = None
+
+        # Navigate up: FileRow → ListBoxRow → ListBox → Frame → FileListWidget
+        while widget is not None:
+            if isinstance(widget, FileListWidget):
+                file_list_widget = widget
+                break
+            widget = widget.get_parent()
+
+        # Remove from the path set first (before removing from UI)
+        if file_list_widget is not None:
+            file_list_widget._file_paths.discard(self.file_path)
+
+        # Remove from UI
         row = self.get_parent()  # ListBoxRow
         if row:
             listbox = row.get_parent()  # ListBox
             if listbox and hasattr(listbox, "remove"):
-                # Also remove from the parent FileListWidget's path set
-                file_list_widget = listbox.get_parent()  # Frame
-                if file_list_widget:
-                    file_list_widget = (
-                        file_list_widget.get_parent()
-                    )  # ScrolledWindow (FileListWidget)
-                    if file_list_widget and hasattr(file_list_widget, "_file_paths"):
-                        file_list_widget._file_paths.discard(self.file_path)
                 listbox.remove(row)
 
     def set_status(self, status: str, message: str = "") -> None:

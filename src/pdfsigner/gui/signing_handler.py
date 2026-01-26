@@ -90,9 +90,14 @@ class SigningHandler:
 
     def _request_pin_or_use_cache(self, files: list[Path]) -> None:
         """Requests PIN or uses cached PIN if available and enabled."""
+        # Reload settings to get current configuration
+        from pdfsigner.config.settings import get_settings
+
+        settings = get_settings()
+
         # Check if PIN cache is enabled and has a valid PIN
-        if self.settings.pin_cache_enabled:
-            pin_cache = get_pin_cache(self.settings.pin_cache_timeout_seconds)
+        if settings.pin_cache_enabled:
+            pin_cache = get_pin_cache(settings.pin_cache_timeout_seconds)
             cached_pin = pin_cache.get()
             if cached_pin:
                 # Use cached PIN directly
@@ -133,9 +138,10 @@ class SigningHandler:
 
         self._current_pin = pin
 
-        # Store in cache if enabled
-        if self.settings.pin_cache_enabled:
-            pin_cache = get_pin_cache(self.settings.pin_cache_timeout_seconds)
+        # Store in cache if enabled (get fresh settings)
+        settings = get_settings()
+        if settings.pin_cache_enabled:
+            pin_cache = get_pin_cache(settings.pin_cache_timeout_seconds)
             pin_cache.store(pin)
 
         Thread(
