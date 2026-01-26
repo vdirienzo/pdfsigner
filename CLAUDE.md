@@ -50,8 +50,54 @@ MainWindow → SigningHandler → OptionsDialog → PINDialog
 | `core/signer/lta_handler.py` | TSA timestamp (HTTPTimeStamper) |
 | `core/token/nss_handler.py` | PKCS#11 multi-token communication |
 | `core/pdf_analyzer/position_finder.py` | Smart signature positioning |
+| `core/signature/` | Template system (template.py, template_renderer.py, template_loader.py) |
 | `core/mock/` | Dry-run simulation (MockBatchManager, stamp_simulator) |
 | `gui/handlers/` | Bridge GUI ↔ Core (SigningHandler, ValidationHandler) |
+
+### Template System
+Templates control signature visibility: no template = invisible, with template = visible stamp.
+
+```
+config/builtin_templates/
+├── default.json      # Simple text (signer + date)
+├── corporate.json    # Logo + signer + org + date
+├── minimal.json      # Single line compact
+└── with_qr.json      # QR verification code
+```
+
+Template JSON structure:
+```json
+{
+  "name": "template_name",
+  "width_mm": 60, "height_mm": 25,
+  "layers": [
+    {"type": "background", "color": "#ffffff"},
+    {"type": "text", "x": 5, "y": 30, "text": "{signer_name}", "font_size": 10}
+  ]
+}
+```
+- Layer types: `background`, `border`, `text`, `image`, `qr`
+- Variables: `{signer_name}`, `{date}`, `{org}`
+- Coordinates: relative (0-100% of dimensions)
+
+### Template Override Flow
+Users can override default template per-signing in OptionsDialog:
+```
+SignatureOptionsDialog.get_selected_template()
+  → SigningHandler._current_options["template"]
+  → BatchManager.sign_batch(template_override=...)
+  → PDFSigner.sign_pdf(template_override=...)
+  → _build_stamp_style(template_override=...)
+```
+
+### Settings Auto-Save
+Settings dialog uses debounced auto-save (no manual save button):
+```python
+# Debounce pattern in SettingsDialog
+GLib.timeout_add(500, self._auto_save)  # 500ms debounce
+```
+- All widgets connected via `notify::selected`, `notify::active`, `changed` signals
+- Writes to `~/.config/pdfsigner/config.toml` after 500ms of no changes
 
 ### Dry-Run Mode
 When `dry_run=true`: `MockBatchManager` replaces `BatchManager`, no token/PIN/TSA needed, outputs real PDFs with simulated stamps.
@@ -118,6 +164,7 @@ Location: `~/.config/pdfsigner/config.toml`
 | `log_level` | `"INFO"` | DEBUG/INFO/WARNING/ERROR |
 | `pin_cache_enabled` | `false` | Cache PIN for batch signing |
 | `pin_cache_timeout_seconds` | `300` | Cache expiry (60-3600s) |
+| `signature_template` | `""` | Template name (empty = invisible) |
 
 ## Adding New Token Support
 

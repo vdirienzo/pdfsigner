@@ -104,6 +104,16 @@ class Settings(BaseSettings):
         description="QR code position in stamp (left or right)",
     )
 
+    # --- Signature Template ---
+    signature_template: str = Field(
+        default="",
+        description="Name of signature template (empty = default text stamp)",
+    )
+    custom_template_path: Path | None = Field(
+        default=None,
+        description="Path to custom template JSON file",
+    )
+
     # --- Output ---
     output_suffix: str = Field(
         default="_signed",

@@ -15,14 +15,13 @@ from gi.repository import Adw, Gtk
 from pdfsigner.i18n import _
 
 
-def create_advanced_page(settings, dialog, on_save_clicked) -> Adw.PreferencesPage:
+def create_advanced_page(settings, dialog) -> Adw.PreferencesPage:
     """
     Creates the advanced settings page.
 
     Args:
         settings: Settings object with current configuration
         dialog: Parent dialog for storing widget references
-        on_save_clicked: Callback for save button click
 
     Returns:
         Configured PreferencesPage
@@ -66,17 +65,6 @@ def create_advanced_page(settings, dialog, on_save_clicked) -> Adw.PreferencesPa
     log_group.add(log_level_combo)
 
     page.add(log_group)
-
-    # Grupo: Acciones
-    actions_group = Adw.PreferencesGroup()
-
-    # Botón guardar
-    save_button = Gtk.Button(label=_("Save settings"))
-    save_button.add_css_class("suggested-action")
-    save_button.connect("clicked", on_save_clicked)
-    actions_group.add(save_button)
-
-    page.add(actions_group)
 
     # Store references for saving
     dialog.pin_cache_switch = pin_cache_switch

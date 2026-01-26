@@ -1,0 +1,44 @@
+{
+  "name": "default",
+  "description": "Simple text signature with signer name and date",
+  "width_mm": 50,
+  "height_mm": 20,
+  "layers": [
+    {
+      "type": "background",
+      "color": "#ffffff"
+    },
+    {
+      "type": "border",
+      "color": "#666666",
+      "border_width": 1
+    },
+    {
+      "type": "text",
+      "x": 5,
+      "y": 8,
+      "text": "Digitally Signed",
+      "font_size": 7,
+      "color": "#666666",
+      "font_family": "sans-serif"
+    },
+    {
+      "type": "text",
+      "x": 5,
+      "y": 30,
+      "text": "{signer_name}",
+      "font_size": 10,
+      "color": "#000000",
+      "font_family": "sans-serif"
+    },
+    {
+      "type": "text",
+      "x": 5,
+      "y": 60,
+      "text": "{date}",
+      "font_size": 8,
+      "color": "#888888",
+      "font_family": "sans-serif"
+    }
+  ]
+}

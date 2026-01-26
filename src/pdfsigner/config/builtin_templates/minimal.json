@@ -1,0 +1,27 @@
+{
+  "name": "minimal",
+  "description": "Clean, minimalist single-line signature",
+  "width_mm": 60,
+  "height_mm": 12,
+  "layers": [
+    {
+      "type": "background",
+      "color": "#ffffff"
+    },
+    {
+      "type": "border",
+      "color": "#cccccc",
+      "border_width": 1
+    },
+    {
+      "type": "text",
+      "x": 5,
+      "y": 25,
+      "text": "{signer_name}  |  {date}",
+      "font_size": 9,
+      "color": "#333333",
+      "font_family": "sans-serif",
+      "alignment": "left"
+    }
+  ]
+}

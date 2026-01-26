@@ -43,6 +43,7 @@ packages = ["src/pdfsigner"]
 
 [tool.hatch.build.targets.wheel.force-include]
 "src/pdfsigner/gui/styles.css" = "pdfsigner/gui/styles.css"
+"src/pdfsigner/config/builtin_templates" = "pdfsigner/config/builtin_templates"
 
 [tool.ruff]
 target-version = "py312"

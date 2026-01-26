@@ -121,11 +121,85 @@ class PDFSigner:
         suffix = settings.output_suffix
         return input_path.with_stem(f"{input_path.stem}{suffix}")
 
+    def _render_template_stamp(
+        self,
+        template_name: str,
+        signer_name: str | None,
+        input_path: Path | None,
+        appearance: "SignatureAppearance",
+    ) -> Path | None:
+        """
+        Render a signature stamp using a template.
+
+        Args:
+            template_name: Name of template to use
+            signer_name: Certificate CN for {signer_name} variable
+            input_path: PDF path (for QR hash if template has QR layer)
+            appearance: Signature appearance config
+
+        Returns:
+            Path to rendered PNG or None if failed
+        """
+        try:
+            from pdfsigner.core.signature import (
+                get_builtin_templates_dir,
+                load_template,
+                render_template,
+            )
+
+            template = load_template(template_name)
+            if not template:
+                logger.warning(f"Template not found: {template_name}")
+                return None
+
+            # Prepare variables for substitution
+            variables = {
+                "signer_name": signer_name or "Digital Signature",
+                "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                "org": "",  # Could be extracted from certificate OU
+            }
+
+            # Check if template has QR layer and generate QR if needed
+            qr_image = None
+            has_qr_layer = any(layer.type == "qr" for layer in template.layers)
+            if has_qr_layer and input_path:
+                try:
+                    from pdfsigner.core.stamp.qr_generator import (
+                        QRData,
+                        calculate_document_hash,
+                        generate_qr_image,
+                    )
+
+                    doc_hash = calculate_document_hash(input_path)
+                    qr_data = QRData(
+                        document_hash=doc_hash,
+                        signer_name=signer_name or "Digital Signature",
+                    )
+                    qr_image = generate_qr_image(qr_data)
+                except Exception as e:
+                    logger.warning(f"Could not generate QR for template: {e}")
+
+            templates_dir = get_builtin_templates_dir()
+            stamp_path = render_template(
+                template,
+                variables=variables,
+                templates_dir=templates_dir,
+                qr_image=qr_image,
+            )
+
+            logger.debug(f"Rendered template stamp: {stamp_path}")
+            return stamp_path
+
+        except Exception as e:
+            logger.error(f"Failed to render template '{template_name}': {e}")
+            return None
+
     def _build_stamp_style(
         self,
         appearance: "SignatureAppearance",
         input_path: Path | None = None,
         signer_name: str | None = None,
+        template_override: str | None = None,
     ):
         """
         Builds the visual stamp style for visible signatures.
@@ -134,6 +208,7 @@ class PDFSigner:
             appearance: Signature appearance configuration
             input_path: Path to PDF (needed for QR hash calculation)
             signer_name: Name of signer from certificate (for QR)
+            template_override: Template name to use instead of settings default
 
         Returns:
             TextStampStyle if visible signature, None otherwise
@@ -145,8 +220,35 @@ class PDFSigner:
         from pyhanko import stamp
         from pyhanko.pdf_utils import images
 
-        # If QR is enabled, generate composed stamp image
-        if appearance.qr_enabled and input_path:
+        # Use override template if provided, otherwise check settings
+        if template_override is not None:
+            template_name = template_override
+        else:
+            settings = get_settings()
+            template_name = settings.signature_template
+
+        has_template = bool(template_name)
+
+        if has_template:
+            stamp_path = self._render_template_stamp(
+                template_name,
+                signer_name,
+                input_path,
+                appearance,
+            )
+            if stamp_path:
+                try:
+                    return stamp.TextStampStyle(
+                        stamp_text="",
+                        background=images.PdfImage(str(stamp_path)),
+                    )
+                except Exception as e:
+                    logger.warning(f"Failed to use template stamp: {e}, falling back to text")
+            # If template fails, fall through to text-only (NOT QR manual)
+
+        # If QR is enabled (and no template), generate composed stamp image
+        # Note: When using templates, QR is controlled by template layers, not this code
+        if not has_template and appearance.qr_enabled and input_path:
             try:
                 from pdfsigner.core.stamp.qr_generator import QRData, calculate_document_hash
                 from pdfsigner.core.stamp.stamp_composer import compose_stamp_with_qr
@@ -216,6 +318,7 @@ class PDFSigner:
         output_path: Path | None = None,
         appearance: SignatureAppearance | None = None,
         cert_id: bytes | None = None,
+        template_override: str | None = None,
     ) -> SigningResult:
         """
         Signs a PDF.
@@ -225,6 +328,7 @@ class PDFSigner:
             output_path: Output path (None = automatic)
             appearance: Appearance configuration
             cert_id: Certificate ID to use (None = default)
+            template_override: Template name to use instead of settings default
 
         Returns:
             Signing operation result
@@ -291,6 +395,7 @@ class PDFSigner:
                     appearance,
                     input_path=input_path,
                     signer_name=signer_name,
+                    template_override=template_override,
                 )
 
                 # Create signature metadata

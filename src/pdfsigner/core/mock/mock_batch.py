@@ -90,6 +90,7 @@ class MockBatchManager:
         cert_id: bytes | None = None,
         progress_callback=None,
         qr_enabled: bool = False,
+        template_override: str | None = None,
     ) -> MockBatchResult:
         """
         Simulates batch file signing.
@@ -107,6 +108,7 @@ class MockBatchManager:
             cert_id: Certificate ID
             progress_callback: Progress callback
             qr_enabled: Include QR verification code in stamp
+            template_override: Template name to use instead of settings default
 
         Returns:
             Simulated signing result

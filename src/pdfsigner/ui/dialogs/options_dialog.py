@@ -1,12 +1,10 @@
 """
-options_dialog.py - Diálogo de opciones de firma
+options_dialog.py - Signature options dialog
 
 Author: Homero Thompson del Lago del Terror
 
-GTK4 dialog to configure signature options:
-- Firma visible/invisible
-- Selección de página
-- Position preference
+GTK4 dialog to configure signature options.
+Allows overriding template selection before signing.
 """
 
 import gi
@@ -14,19 +12,52 @@ import gi
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk
 
+from pdfsigner.config.settings import get_settings
 from pdfsigner.core.pdf_analyzer.position_finder import PositionPreference
 from pdfsigner.core.signer.pdf_signer import SignatureAppearance
 from pdfsigner.i18n import _
+
+
+def _get_template_choices() -> list[tuple[str, str]]:
+    """
+    Get available template choices for dropdown.
+
+    Returns:
+        List of (value, display_name) tuples
+    """
+    try:
+        from pdfsigner.core.signature import list_all_templates
+
+        templates = list_all_templates()
+    except ImportError:
+        templates = []
+
+    # Start with "invisible" option (no stamp)
+    choices = [("", _("Invisible (metadata only)"))]
+
+    # Add builtin templates with friendly names
+    template_labels = {
+        "default": _("Default (simple text)"),
+        "corporate": _("Corporate"),
+        "minimal": _("Minimal"),
+        "with_qr": _("With QR Code"),
+    }
+
+    for name, source in templates:
+        label = template_labels.get(name, name.replace("_", " ").title())
+        if source == "user":
+            label = f"{label} ({_('custom')})"
+        choices.append((name, label))
+
+    return choices
 
 
 class SignatureOptionsDialog(Gtk.Dialog):
     """
     Signature options dialog.
 
-    Allows configuring:
-    - Visible or invisible signature
-    - Page where to place the signature
-    - Preferred position
+    Allows selecting template and position options before signing.
+    Template can be overridden from the default in Settings.
     """
 
     def __init__(
@@ -36,7 +67,7 @@ class SignatureOptionsDialog(Gtk.Dialog):
         default_appearance: SignatureAppearance | None = None,
     ):
         """
-        Initializes the options dialog.
+        Initialize the options dialog.
 
         Args:
             parent: Parent window
@@ -52,97 +83,97 @@ class SignatureOptionsDialog(Gtk.Dialog):
         self.total_pages = total_pages
         self.default_appearance = default_appearance or SignatureAppearance()
 
-        self.set_default_size(450, 350)
+        # Get default template from settings
+        settings = get_settings()
+        self.default_template = settings.signature_template or ""
 
-        # Botones
+        # Load template choices
+        self._template_choices = _get_template_choices()
+
+        self.set_default_size(420, -1)
+
+        # Buttons
         self.add_button(_("Cancel"), Gtk.ResponseType.CANCEL)
         ok_button = self.add_button(_("Sign"), Gtk.ResponseType.OK)
         ok_button.add_css_class("suggested-action")
 
-        # Contenido
+        # Content
         content = self.get_content_area()
-        content.set_spacing(18)
-        content.set_margin_top(18)
-        content.set_margin_bottom(18)
-        content.set_margin_start(18)
-        content.set_margin_end(18)
+        content.set_spacing(12)
+        content.set_margin_top(16)
+        content.set_margin_bottom(8)
+        content.set_margin_start(16)
+        content.set_margin_end(16)
 
-        # === Sección: Tipo de firma ===
-        type_frame = self._create_section(_("Signature Type"))
-        type_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        # Main grid for all options
+        self.options_grid = Gtk.Grid()
+        self.options_grid.set_row_spacing(12)
+        self.options_grid.set_column_spacing(16)
 
-        # Radio: Invisible
-        self.radio_invisible = Gtk.CheckButton(label=_("Invisible signature (metadata only)"))
-        self.radio_invisible.set_active(not self.default_appearance.visible)
+        # === Template selector ===
+        template_label = Gtk.Label(label=_("Stamp"))
+        template_label.set_xalign(0)
+        template_label.add_css_class("dim-label")
+        self.options_grid.attach(template_label, 0, 0, 1, 1)
 
-        # Radio: Visible
-        self.radio_visible = Gtk.CheckButton(label=_("Visible signature (stamp on document)"))
-        self.radio_visible.set_group(self.radio_invisible)
-        self.radio_visible.set_active(self.default_appearance.visible)
-        self.radio_visible.connect("toggled", self._on_visible_toggled)
+        self.template_combo = Gtk.ComboBoxText()
+        for value, label in self._template_choices:
+            self.template_combo.append(value, label)
+        self.template_combo.set_hexpand(True)
+        self.template_combo.connect("changed", self._on_template_changed)
 
-        type_box.append(self.radio_invisible)
-        type_box.append(self.radio_visible)
-        type_frame.set_child(type_box)
-        content.append(type_frame)
+        # Set default selection
+        self.template_combo.set_active_id(self.default_template)
+        if self.template_combo.get_active_id() is None:
+            self.template_combo.set_active(0)
 
-        # === Sección: Opciones de firma visible ===
-        self.visible_frame = self._create_section(_("Visible Signature Options"))
-        visible_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=12)
+        self.options_grid.attach(self.template_combo, 1, 0, 1, 1)
 
-        # Selector de página
-        page_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-
-        page_combo_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-        page_label = Gtk.Label(label=_("Page:"))
-        page_label.set_xalign(0)
-        page_label.set_size_request(100, -1)
+        # === Page selector ===
+        self.page_label = Gtk.Label(label=_("Page"))
+        self.page_label.set_xalign(0)
+        self.page_label.add_css_class("dim-label")
+        self.options_grid.attach(self.page_label, 0, 1, 1, 1)
 
         self.page_combo = Gtk.ComboBoxText()
         self.page_combo.append("last", _("Last page"))
         self.page_combo.append("first", _("First page"))
         self.page_combo.append("all", _("All pages"))
         self.page_combo.append("custom", _("Custom..."))
+        self.page_combo.set_hexpand(True)
         self.page_combo.connect("changed", self._on_page_combo_changed)
-
-        page_combo_box.append(page_label)
-        page_combo_box.append(self.page_combo)
-        page_box.append(page_combo_box)
+        self.options_grid.attach(self.page_combo, 1, 1, 1, 1)
 
         # Custom page entry (initially hidden)
-        self.custom_page_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-        custom_label = Gtk.Label(label=_("Pages:"))
-        custom_label.set_xalign(0)
-        custom_label.set_size_request(100, -1)
+        self.custom_label = Gtk.Label(label=_("Pages"))
+        self.custom_label.set_xalign(0)
+        self.custom_label.add_css_class("dim-label")
+        self.custom_label.set_visible(False)
+        self.options_grid.attach(self.custom_label, 0, 2, 1, 1)
 
         self.custom_page_entry = Gtk.Entry()
-        self.custom_page_entry.set_placeholder_text(_("e.g., 1,3,5 or 1-3 or 1-3,5,7"))
+        self.custom_page_entry.set_placeholder_text(_("e.g., 1,3,5 or 1-3"))
         self.custom_page_entry.set_hexpand(True)
+        self.custom_page_entry.set_visible(False)
+        self.options_grid.attach(self.custom_page_entry, 1, 2, 1, 1)
 
-        self.custom_page_box.append(custom_label)
-        self.custom_page_box.append(self.custom_page_entry)
-        self.custom_page_box.set_visible(False)
-        page_box.append(self.custom_page_box)
-
-        # Set default selection
+        # Set default page selection
         default_page = self.default_appearance.page
         if default_page in ("last", "first", "all"):
             self.page_combo.set_active_id(default_page)
         elif isinstance(default_page, str) and any(c in default_page for c in ",-"):
-            # Custom range
             self.page_combo.set_active_id("custom")
             self.custom_page_entry.set_text(default_page)
-            self.custom_page_box.set_visible(True)
+            self.custom_label.set_visible(True)
+            self.custom_page_entry.set_visible(True)
         else:
             self.page_combo.set_active_id("last")
 
-        visible_box.append(page_box)
-
-        # Selector de posición
-        pos_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
-        pos_label = Gtk.Label(label=_("Position:"))
-        pos_label.set_xalign(0)
-        pos_label.set_size_request(100, -1)
+        # === Position selector ===
+        self.pos_label = Gtk.Label(label=_("Position"))
+        self.pos_label.set_xalign(0)
+        self.pos_label.add_css_class("dim-label")
+        self.options_grid.attach(self.pos_label, 0, 3, 1, 1)
 
         self.position_combo = Gtk.ComboBoxText()
         self.position_combo.append("auto", _("Automatic (find free space)"))
@@ -151,73 +182,78 @@ class SignatureOptionsDialog(Gtk.Dialog):
         self.position_combo.append("bottom_center", _("Bottom center"))
         self.position_combo.append("top_right", _("Top right"))
         self.position_combo.append("top_left", _("Top left"))
+        self.position_combo.set_hexpand(True)
         self.position_combo.set_active_id(self.default_appearance.position_preference.value)
+        self.options_grid.attach(self.position_combo, 1, 3, 1, 1)
 
-        pos_box.append(pos_label)
-        pos_box.append(self.position_combo)
-        visible_box.append(pos_box)
+        content.append(self.options_grid)
 
-        # QR Code section
-        qr_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
-        qr_box.set_margin_top(12)
+        # Update visibility based on initial template
+        self._update_position_options_visibility()
 
-        # QR checkbox
-        self.qr_checkbox = Gtk.CheckButton(label=_("Include QR verification code"))
-        self.qr_checkbox.set_active(self.default_appearance.qr_enabled)
-        qr_box.append(self.qr_checkbox)
+    def _on_template_changed(self, combo: Gtk.ComboBoxText) -> None:
+        """Handle template selection change."""
+        self._update_position_options_visibility()
 
-        visible_box.append(qr_box)
+    def _update_position_options_visibility(self) -> None:
+        """Show/hide position options based on template selection."""
+        template_id = self.template_combo.get_active_id()
+        is_visible = bool(template_id)  # Empty = invisible signature
 
-        self.visible_frame.set_child(visible_box)
-        content.append(self.visible_frame)
+        self.page_label.set_visible(is_visible)
+        self.page_combo.set_visible(is_visible)
+        self.pos_label.set_visible(is_visible)
+        self.position_combo.set_visible(is_visible)
 
-        # Estado inicial
-        self._on_visible_toggled(self.radio_visible)
-
-    def _create_section(self, title: str) -> Gtk.Frame:
-        """Creates a section frame."""
-        frame = Gtk.Frame()
-        frame.set_label(title)
-        return frame
-
-    def _on_visible_toggled(self, button: Gtk.CheckButton) -> None:
-        """Shows/hides visible signature options."""
-        self.visible_frame.set_sensitive(button.get_active())
+        # Also hide custom page if not visible
+        if not is_visible:
+            self.custom_label.set_visible(False)
+            self.custom_page_entry.set_visible(False)
 
     def _on_page_combo_changed(self, combo: Gtk.ComboBoxText) -> None:
-        """Shows/hides custom page entry based on selection."""
+        """Show/hide custom page entry based on selection."""
         is_custom = combo.get_active_id() == "custom"
-        self.custom_page_box.set_visible(is_custom)
+        self.custom_label.set_visible(is_custom)
+        self.custom_page_entry.set_visible(is_custom)
         if is_custom:
             self.custom_page_entry.grab_focus()
 
-    def get_appearance(self) -> SignatureAppearance:
-        """Gets the selected configuration."""
-        visible = self.radio_visible.get_active()
+    def get_selected_template(self) -> str:
+        """Get the selected template name."""
+        return self.template_combo.get_active_id() or ""
 
-        # Page selection: "last", "first", "all", or custom range
+    def get_appearance(self) -> SignatureAppearance:
+        """Get the selected configuration."""
+        template_id = self.get_selected_template()
+        is_visible = bool(template_id)
+
+        if not is_visible:
+            # Invisible signature
+            return SignatureAppearance(
+                visible=False,
+                page="last",
+                width_mm=self.default_appearance.width_mm,
+                height_mm=self.default_appearance.height_mm,
+            )
+
+        # Visible signature with template
         page_id = self.page_combo.get_active_id() or "last"
         if page_id == "custom":
-            # Get custom page range from entry
             page = self.custom_page_entry.get_text().strip() or "last"
         else:
             page = page_id
 
-        # Position preference
         pos_id = self.position_combo.get_active_id()
         position = PositionPreference(pos_id)
 
-        # QR option
-        qr_enabled = self.qr_checkbox.get_active()
-
         return SignatureAppearance(
-            visible=visible,
+            visible=True,
             page=page,
             width_mm=self.default_appearance.width_mm,
             height_mm=self.default_appearance.height_mm,
             position_preference=position,
             image_path=self.default_appearance.image_path,
-            qr_enabled=qr_enabled,
+            qr_enabled=False,  # QR is controlled by template
         )
 
 
@@ -225,17 +261,17 @@ def ask_signature_options(
     parent: Gtk.Window | None = None,
     total_pages: int = 1,
     default_appearance: SignatureAppearance | None = None,
-) -> SignatureAppearance | None:
+) -> tuple[SignatureAppearance, str] | None:
     """
     Convenience function to request signature options.
 
     Args:
         parent: Parent window
-        total_pages: Número de páginas del PDF
+        total_pages: Number of pages in PDF
         default_appearance: Default configuration
 
     Returns:
-        Configured SignatureAppearance or None if cancelled
+        Tuple of (SignatureAppearance, template_name) or None if cancelled
     """
     dialog = SignatureOptionsDialog(
         parent=parent,
@@ -244,7 +280,10 @@ def ask_signature_options(
     )
 
     response = dialog.run()
-    appearance = dialog.get_appearance() if response == Gtk.ResponseType.OK else None
-    dialog.destroy()
+    if response == Gtk.ResponseType.OK:
+        result = (dialog.get_appearance(), dialog.get_selected_template())
+    else:
+        result = None
 
-    return appearance
+    dialog.destroy()
+    return result

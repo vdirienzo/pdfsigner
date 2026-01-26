@@ -6,6 +6,26 @@ Format: [SemVer](https://semver.org/) with `Added | Changed | Fixed | Security` 
 
 ---
 
+## [0.9.4] - 2026-01-26
+
+### Added
+- **Template override in signing dialog** - Dropdown to select template before signing
+  - Override default template without going to Settings
+  - Shows all available templates: built-in + custom
+  - "Invisible (metadata only)" option for hidden signatures
+  - Dynamic visibility: Page/Position options hide when invisible selected
+- **Settings auto-save with debounce** - Changes save automatically after 500ms
+  - Removed manual "Save" button from Advanced page
+  - Uses `GLib.timeout_add()` for debounced saves
+
+### Changed
+- **Options dialog redesign** - Cleaner layout with compact header
+  - Template selector as primary option
+  - Grid-based Page/Position selectors
+  - Template name passed through entire signing pipeline
+
+---
+
 ## [0.9.3] - 2026-01-26
 
 ### Added

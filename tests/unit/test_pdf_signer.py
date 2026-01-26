@@ -395,8 +395,15 @@ class TestPDFSignerStampWithImage:
             image_path=image_path,
         )
 
+        # Mock settings to ensure no template is configured
+        mock_settings = MagicMock()
+        mock_settings.signature_template = ""
+
         # Mock the PdfImage class from pyhanko.pdf_utils.images
-        with patch("pyhanko.pdf_utils.images.PdfImage") as mock_img:
+        with (
+            patch("pdfsigner.core.signer.pdf_signer.get_settings", return_value=mock_settings),
+            patch("pyhanko.pdf_utils.images.PdfImage") as mock_img,
+        ):
             mock_img.return_value = MagicMock()
             style = signer._build_stamp_style(appearance)
 

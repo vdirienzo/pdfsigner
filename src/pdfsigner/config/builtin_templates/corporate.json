@@ -1,0 +1,44 @@
+{
+  "name": "corporate",
+  "description": "Professional signature with logo area and structured data",
+  "width_mm": 60,
+  "height_mm": 25,
+  "layers": [
+    {
+      "type": "background",
+      "color": "#ffffff"
+    },
+    {
+      "type": "border",
+      "color": "#333333",
+      "border_width": 1
+    },
+    {
+      "type": "text",
+      "x": 5,
+      "y": 12,
+      "text": "{signer_name}",
+      "font_size": 11,
+      "color": "#000000",
+      "font_family": "sans-serif"
+    },
+    {
+      "type": "text",
+      "x": 5,
+      "y": 40,
+      "text": "{org}",
+      "font_size": 9,
+      "color": "#666666",
+      "font_family": "sans-serif"
+    },
+    {
+      "type": "text",
+      "x": 5,
+      "y": 68,
+      "text": "{date}",
+      "font_size": 8,
+      "color": "#888888",
+      "font_family": "sans-serif"
+    }
+  ]
+}

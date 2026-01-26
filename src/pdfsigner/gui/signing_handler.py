@@ -80,10 +80,13 @@ class SigningHandler:
             return
 
         appearance = dialog.get_appearance()
+        selected_template = dialog.get_selected_template()
+
         self._current_options = {
             "visible": appearance.visible if appearance else False,
             "page": appearance.page if appearance else "last",
             "appearance": appearance,  # Store full appearance for position_preference
+            "template": selected_template,  # Store selected template for override
         }
         dialog.destroy()
         self._request_pin_or_use_cache(files)
@@ -223,6 +226,7 @@ class SigningHandler:
                     page=self._current_options.get("page", "last"),
                     appearance=self._current_options.get("appearance"),
                     progress_callback=on_progress,
+                    template_override=self._current_options.get("template"),
                 )
             else:
                 from pdfsigner.core.signer.batch_manager import BatchManager
@@ -240,6 +244,7 @@ class SigningHandler:
                     pdf_files=files,
                     appearance=self._current_options.get("appearance"),
                     progress_callback=on_progress_real,
+                    template_override=self._current_options.get("template"),
                 )
 
             GLib.idle_add(self._signing_complete, results, files, self.settings.dry_run)

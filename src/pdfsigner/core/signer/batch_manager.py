@@ -125,6 +125,7 @@ class BatchManager:
         appearance: SignatureAppearance | None = None,
         cert_id: bytes | None = None,
         progress_callback: ProgressCallback | None = None,
+        template_override: str | None = None,
     ) -> BatchResult:
         """
         Signs a batch of PDFs.
@@ -134,6 +135,7 @@ class BatchManager:
             appearance: Appearance configuration
             cert_id: Certificate ID to use
             progress_callback: Callback to update progress
+            template_override: Template name to use instead of settings default
 
         Returns:
             Batch result with statistics and details
@@ -176,6 +178,7 @@ class BatchManager:
                 input_path=pdf_path,
                 appearance=appearance,
                 cert_id=cert_id,
+                template_override=template_override,
             )
 
             result.results.append(signing_result)
