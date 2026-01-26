@@ -98,6 +98,7 @@ def get_translation() -> Callable[[str], str]:
     if _current_translation is None:
         set_language(get_system_language())
 
+    assert _current_translation is not None  # set_language always sets this
     return _current_translation.gettext
 
 
@@ -136,6 +137,7 @@ def ngettext(singular: str, plural: str, n: int) -> str:
     if _current_translation is None:
         set_language(get_system_language())
 
+    assert _current_translation is not None  # set_language always sets this
     return _current_translation.ngettext(singular, plural, n)
 
 

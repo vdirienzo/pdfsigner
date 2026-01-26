@@ -249,7 +249,7 @@ class NSSSetupWizard(Adw.Window):
         # Update UI on main thread
         GLib.idle_add(self._on_setup_complete, result)
 
-    def _on_setup_complete(self, result: SetupResult) -> None:
+    def _on_setup_complete(self, result: SetupResult) -> bool:
         """Handle setup completion on main thread."""
         self._setup_running = False
 

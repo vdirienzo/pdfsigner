@@ -8,8 +8,11 @@ executing operations in separate threads.
 Supports dry-run mode for testing without real token.
 """
 
+from __future__ import annotations
+
 from pathlib import Path
 from threading import Thread
+from typing import TYPE_CHECKING
 
 import gi
 
@@ -24,6 +27,10 @@ from pdfsigner.i18n import _
 from pdfsigner.ui.dialogs.options_dialog import SignatureOptionsDialog
 from pdfsigner.ui.dialogs.pin_dialog import PinDialog
 from pdfsigner.ui.dialogs.progress_dialog import ProgressDialog
+
+if TYPE_CHECKING:
+    from pdfsigner.core.mock import MockNSSHandler
+    from pdfsigner.core.token.nss_handler import NSSHandler
 
 
 class SigningHandler:
@@ -49,7 +56,7 @@ class SigningHandler:
         self._current_pin: str | None = None
         self._progress_dialog: ProgressDialog | None = None
         self._current_options: dict = {}
-        self._nss_handler = None  # Reutilizable entre verificación y firma
+        self._nss_handler: NSSHandler | MockNSSHandler | None = None
 
     def sign_files(self, files: list[Path]) -> None:
         """
@@ -161,20 +168,20 @@ class SigningHandler:
             if self.settings.dry_run:
                 from pdfsigner.core.mock import MockNSSHandler
 
-                nss = MockNSSHandler()
-                nss.initialize()
-                nss.connect_token()
-                nss.authenticate(pin)
-                self._nss_handler = nss  # Guardar para reutilizar en _run_signing
+                mock_nss = MockNSSHandler()
+                mock_nss.initialize()
+                mock_nss.connect_token()
+                mock_nss.authenticate(pin)
+                self._nss_handler = mock_nss
                 GLib.idle_add(self.window.show_toast, _("⚠️ Simulation mode (dry-run)"))
             else:
                 from pdfsigner.core.token.nss_handler import NSSHandler
 
-                nss = NSSHandler()
-                nss.initialize()
-                nss.connect_token()
-                nss.authenticate(pin)
-                self._nss_handler = nss  # Guardar para reutilizar en _run_signing
+                real_nss = NSSHandler()
+                real_nss.initialize()
+                real_nss.connect_token()
+                real_nss.authenticate(pin)
+                self._nss_handler = real_nss
 
             GLib.idle_add(self._start_signing, files)
 
@@ -214,12 +221,12 @@ class SigningHandler:
             if self.settings.dry_run:
                 from pdfsigner.core.mock import MockBatchManager
 
-                batch_manager = MockBatchManager()
+                mock_batch = MockBatchManager()
 
                 def on_progress(progress) -> None:
                     GLib.idle_add(self._update_progress, progress)
 
-                results = batch_manager.sign_batch(
+                mock_results = mock_batch.sign_batch(
                     files=files,
                     pin=pin,
                     visible=self._current_options.get("visible", False),
@@ -228,26 +235,29 @@ class SigningHandler:
                     progress_callback=on_progress,
                     template_override=self._current_options.get("template"),
                 )
+                GLib.idle_add(self._signing_complete, mock_results, files, self.settings.dry_run)
             else:
                 from pdfsigner.core.signer.batch_manager import BatchManager
+                from pdfsigner.core.token.nss_handler import NSSHandler as RealNSSHandler
 
                 # Reutilizar el nss_handler ya autenticado en _verify_pin_and_sign
                 if self._nss_handler is None:
                     raise PDFSignerError(_("Token session not available"))
 
-                batch_manager = BatchManager(self._nss_handler)
+                # In non-dry-run mode, _nss_handler is always RealNSSHandler
+                assert isinstance(self._nss_handler, RealNSSHandler)
+                real_batch = BatchManager(self._nss_handler)
 
                 def on_progress_real(progress) -> None:
                     GLib.idle_add(self._update_progress, progress)
 
-                results = batch_manager.sign_batch(
+                real_results = real_batch.sign_batch(
                     pdf_files=files,
                     appearance=self._current_options.get("appearance"),
                     progress_callback=on_progress_real,
                     template_override=self._current_options.get("template"),
                 )
-
-            GLib.idle_add(self._signing_complete, results, files, self.settings.dry_run)
+                GLib.idle_add(self._signing_complete, real_results, files, self.settings.dry_run)
 
         except PDFSignerError as e:
             GLib.idle_add(self._show_error, _("Signature error"), str(e))

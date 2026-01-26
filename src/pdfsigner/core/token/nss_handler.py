@@ -114,6 +114,7 @@ class NSSHandler:
         if self._lib is None:
             self.initialize()
 
+        assert self._lib is not None  # initialize() sets this
         tokens = []
         for slot in self._lib.get_slots(token_present=True):
             token = slot.get_token()
@@ -135,6 +136,7 @@ class NSSHandler:
         if self._lib is None:
             self.initialize()
 
+        assert self._lib is not None  # initialize() sets this
         for slot in self._lib.get_slots(token_present=True):
             token = slot.get_token()
             if token_label is None or token.label.strip() == token_label:
@@ -189,7 +191,10 @@ class NSSHandler:
                 can_sign = False
                 try:
                     key_usage = cert.extensions.get_extension_for_class(x509.KeyUsage)
-                    can_sign = key_usage.value.digital_signature or key_usage.value.non_repudiation
+                    # content_commitment is the RFC 5280 name for non_repudiation
+                    can_sign = (
+                        key_usage.value.digital_signature or key_usage.value.content_commitment
+                    )
                 except x509.ExtensionNotFound:
                     can_sign = True  # If no extension, assume it can sign
 

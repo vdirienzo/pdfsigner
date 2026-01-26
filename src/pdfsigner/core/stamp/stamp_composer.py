@@ -83,6 +83,8 @@ def compose_stamp_with_qr(
     # Font sizes scaled for 300 DPI
     font_size = 10 * SCALE_FACTOR  # 40px
     small_font_size = 8 * SCALE_FACTOR  # 32px
+    font: ImageFont.FreeTypeFont | ImageFont.ImageFont = ImageFont.load_default()
+    small_font: ImageFont.FreeTypeFont | ImageFont.ImageFont = font
     try:
         # Try common system fonts
         for font_name in ["DejaVuSans.ttf", "Arial.ttf", "FreeSans.ttf"]:
@@ -92,12 +94,8 @@ def compose_stamp_with_qr(
                 break
             except OSError:
                 continue
-        else:
-            font = ImageFont.load_default()
-            small_font = font
     except Exception:
-        font = ImageFont.load_default()
-        small_font = font
+        pass  # Keep default font
 
     # Draw text
     text_y = PADDING_PX + 2 * SCALE_FACTOR
@@ -166,6 +164,8 @@ def compose_stamp_text_only(
     # Font sizes scaled for 300 DPI
     font_size = 12 * SCALE_FACTOR  # 48px
     small_font_size = 10 * SCALE_FACTOR  # 40px
+    font: ImageFont.FreeTypeFont | ImageFont.ImageFont = ImageFont.load_default()
+    small_font: ImageFont.FreeTypeFont | ImageFont.ImageFont = font
     try:
         for font_name in ["DejaVuSans.ttf", "Arial.ttf", "FreeSans.ttf"]:
             try:
@@ -174,12 +174,8 @@ def compose_stamp_text_only(
                 break
             except OSError:
                 continue
-        else:
-            font = ImageFont.load_default()
-            small_font = font
     except Exception:
-        font = ImageFont.load_default()
-        small_font = font
+        pass  # Keep default font
 
     # Center text vertically
     text_x = PADDING_PX + 5 * SCALE_FACTOR

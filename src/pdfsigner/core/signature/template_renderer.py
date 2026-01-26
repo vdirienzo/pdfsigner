@@ -173,11 +173,11 @@ def _render_layer(
         if layer.alignment == "center" and layer_w:
             bbox = draw.textbbox((0, 0), text, font=font)
             text_width = bbox[2] - bbox[0]
-            x = x + (layer_w - text_width) // 2
+            x = int(x + (layer_w - text_width) // 2)
         elif layer.alignment == "right" and layer_w:
             bbox = draw.textbbox((0, 0), text, font=font)
             text_width = bbox[2] - bbox[0]
-            x = x + layer_w - text_width
+            x = int(x + layer_w - text_width)
 
         draw.text((x, y), text, fill=color_with_opacity, font=font)
 
@@ -399,15 +399,19 @@ def render_preview(
             if image_path.exists():
                 try:
                     img = Image.open(image_path).convert("RGBA")
-                    x = int(layer.x / 100 * width_px)
-                    y = int(layer.y / 100 * height_px)
-                    w = int((layer.width or 20) / 100 * width_px) if layer.width else None
-                    h = int((layer.height or 20) / 100 * height_px) if layer.height else None
+                    img_x = int(layer.x / 100 * width_px)
+                    img_y = int(layer.y / 100 * height_px)
+                    img_w: int | None = (
+                        int((layer.width or 20) / 100 * width_px) if layer.width else None
+                    )
+                    img_h: int | None = (
+                        int((layer.height or 20) / 100 * height_px) if layer.height else None
+                    )
 
-                    if w and h:
-                        img = img.resize((w, h), Image.Resampling.LANCZOS)
+                    if img_w and img_h:
+                        img = img.resize((img_w, img_h), Image.Resampling.LANCZOS)
 
-                    image.paste(img, (x, y), img)
+                    image.paste(img, (img_x, img_y), img)
                 except Exception as e:
                     logger.warning(f"Preview: could not load image {image_path}: {e}")
 
