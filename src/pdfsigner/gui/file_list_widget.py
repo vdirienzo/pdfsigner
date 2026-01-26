@@ -159,6 +159,14 @@ class FileRow(Gtk.Box):
         if row:
             listbox = row.get_parent()  # ListBox
             if listbox and hasattr(listbox, "remove"):
+                # Also remove from the parent FileListWidget's path set
+                file_list_widget = listbox.get_parent()  # Frame
+                if file_list_widget:
+                    file_list_widget = (
+                        file_list_widget.get_parent()
+                    )  # ScrolledWindow (FileListWidget)
+                    if file_list_widget and hasattr(file_list_widget, "_file_paths"):
+                        file_list_widget._file_paths.discard(self.file_path)
                 listbox.remove(row)
 
     def set_status(self, status: str, message: str = "") -> None:

@@ -209,7 +209,7 @@ class SigningHandler:
                     progress_callback=on_progress_real,
                 )
 
-            GLib.idle_add(self._signing_complete, results, self.settings.dry_run)
+            GLib.idle_add(self._signing_complete, results, files, self.settings.dry_run)
 
         except PDFSignerError as e:
             GLib.idle_add(self._show_error, _("Signature error"), str(e))
@@ -235,7 +235,7 @@ class SigningHandler:
                 file_path = Path(progress.current_file)
                 self.window.file_list.update_file_status(file_path, "processing", _("Signing..."))
 
-    def _signing_complete(self, results, dry_run: bool = False) -> None:
+    def _signing_complete(self, results, files: list[Path], dry_run: bool = False) -> None:
         """Callback when signing completes."""
         if self._progress_dialog:
             self._progress_dialog.destroy()
@@ -244,10 +244,25 @@ class SigningHandler:
         if hasattr(results, "successful"):
             success = results.successful
             failed = results.failed
+            # Get list of successful files from results
+            successful_files = set()
+            if hasattr(results, "results"):
+                for r in results.results:
+                    if r.success:
+                        successful_files.add(r.input_path)
         else:
             success = results.get("success", 0)
             failed = results.get("failed", 0)
+            successful_files = set(files) if failed == 0 else set()
+
         total = success + failed
+
+        # Update file status in the UI for successful files
+        for file_path in files:
+            if file_path in successful_files or failed == 0:
+                self.window.file_list.update_file_status(file_path, "signed", _("Signed"))
+            else:
+                self.window.file_list.update_file_status(file_path, "error", _("Error"))
 
         prefix = _("[SIMULATED] ") if dry_run else ""
         suffix = _(" (dry-run)") if dry_run else ""

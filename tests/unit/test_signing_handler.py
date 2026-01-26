@@ -232,7 +232,8 @@ class TestSigningHandlerComplete:
         results.successful = 3
         results.failed = 0
 
-        handler._signing_complete(results, dry_run=False)
+        files = [Path("/test/doc1.pdf"), Path("/test/doc2.pdf"), Path("/test/doc3.pdf")]
+        handler._signing_complete(results, files, dry_run=False)
 
         # Dialog is set to None after destroy, so check the saved reference
         mock_dialog.destroy.assert_called_once()
@@ -251,7 +252,8 @@ class TestSigningHandlerComplete:
         results.successful = 2
         results.failed = 1
 
-        handler._signing_complete(results, dry_run=False)
+        files = [Path("/test/doc1.pdf"), Path("/test/doc2.pdf"), Path("/test/doc3.pdf")]
+        handler._signing_complete(results, files, dry_run=False)
 
         window.show_toast.assert_called_once()
         toast_msg = window.show_toast.call_args[0][0]
@@ -266,8 +268,9 @@ class TestSigningHandlerComplete:
         handler._progress_dialog = MagicMock()
 
         results = {"success": 1, "failed": 0}
+        files = [Path("/test/doc.pdf")]
 
-        handler._signing_complete(results, dry_run=True)
+        handler._signing_complete(results, files, dry_run=True)
 
         window.show_toast.assert_called_once()
 
