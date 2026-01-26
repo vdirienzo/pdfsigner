@@ -18,6 +18,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, GLib, Gtk
 
 from pdfsigner.config.settings import get_settings
+from pdfsigner.core.token.pin_cache import get_pin_cache
 from pdfsigner.exceptions import PDFSignerError, TokenError
 from pdfsigner.i18n import _
 from pdfsigner.ui.dialogs.options_dialog import SignatureOptionsDialog
@@ -85,10 +86,29 @@ class SigningHandler:
             "appearance": appearance,  # Store full appearance for position_preference
         }
         dialog.destroy()
+        self._request_pin_or_use_cache(files)
+
+    def _request_pin_or_use_cache(self, files: list[Path]) -> None:
+        """Requests PIN or uses cached PIN if available and enabled."""
+        # Check if PIN cache is enabled and has a valid PIN
+        if self.settings.pin_cache_enabled:
+            pin_cache = get_pin_cache(self.settings.pin_cache_timeout_seconds)
+            cached_pin = pin_cache.get()
+            if cached_pin:
+                # Use cached PIN directly
+                self._current_pin = cached_pin
+                Thread(
+                    target=self._verify_pin_and_sign,
+                    args=(files,),
+                    daemon=True,
+                ).start()
+                return
+
+        # No cache or cache disabled, request PIN
         self._request_pin(files)
 
     def _request_pin(self, files: list[Path]) -> None:
-        """Requests the token PIN."""
+        """Requests the token PIN via dialog."""
         pin_dialog = PinDialog(parent=self.window)
         pin_dialog.connect("response", self._on_pin_response, files)
         pin_dialog.present()
@@ -112,6 +132,12 @@ class SigningHandler:
             return
 
         self._current_pin = pin
+
+        # Store in cache if enabled
+        if self.settings.pin_cache_enabled:
+            pin_cache = get_pin_cache(self.settings.pin_cache_timeout_seconds)
+            pin_cache.store(pin)
+
         Thread(
             target=self._verify_pin_and_sign,
             args=(files,),
@@ -238,42 +264,27 @@ class SigningHandler:
 
     def _signing_complete(self, results, files: list[Path], dry_run: bool = False) -> None:
         """Callback when signing completes."""
-        if self._progress_dialog:
-            self._progress_dialog.destroy()
-            self._progress_dialog = None
+        # Get list of successful files from results
+        successful_files: set[Path] = set()
+        if hasattr(results, "results") and results.results:
+            for r in results.results:
+                if r.success:
+                    successful_files.add(r.input_path)
+        elif hasattr(results, "failed"):
+            # Fallback: if no individual results but failed == 0, all were successful
+            if results.failed == 0:
+                successful_files = set(files)
 
-        if hasattr(results, "successful"):
-            success = results.successful
-            failed = results.failed
-            # Get list of successful files from results
-            successful_files = set()
-            if hasattr(results, "results"):
-                for r in results.results:
-                    if r.success:
-                        successful_files.add(r.input_path)
-        else:
-            success = results.get("success", 0)
-            failed = results.get("failed", 0)
-            successful_files = set(files) if failed == 0 else set()
-
-        total = success + failed
-
-        # Update file status in the UI for successful files
+        # Update file status in the UI for each file
         for file_path in files:
-            if file_path in successful_files or failed == 0:
+            if file_path in successful_files:
                 self.window.file_list.update_file_status(file_path, "signed", _("Signed"))
             else:
                 self.window.file_list.update_file_status(file_path, "error", _("Error"))
 
-        prefix = _("[SIMULATED] ") if dry_run else ""
-        suffix = _(" (dry-run)") if dry_run else ""
-
-        if failed == 0:
-            self.window.show_toast(_("✓ {}{}file(s) signed{}").format(prefix, success, suffix))
-        else:
-            self.window.show_toast(
-                _("{}Signed: {}/{} (Errors: {}){}").format(prefix, success, total, failed, suffix)
-            )
+        # Show results in progress dialog (don't auto-close)
+        if self._progress_dialog and hasattr(results, "results") and results.results:
+            self._progress_dialog.show_result(results)
 
     def _show_error(self, title: str, message: str) -> None:
         """Shows an error dialog."""

@@ -201,8 +201,20 @@ class PDFSignerApp(Adw.Application):
         self.quit()
 
 
+def setup_logging() -> None:
+    """Configure logging for GUI from settings."""
+    from loguru import logger
+
+    from pdfsigner.config.settings import get_settings
+
+    settings = get_settings()
+    logger.remove()
+    logger.add(sys.stderr, level=settings.log_level)
+
+
 def run_gui() -> int:
     """Entry point for the GUI."""
+    setup_logging()
     Adw.init()
     app = PDFSignerApp()
     return app.run(sys.argv)

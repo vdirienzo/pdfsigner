@@ -104,5 +104,17 @@ class SettingsDialog(Adw.PreferencesWindow):
         # Reload configuration
         reload_settings()
 
+        # Apply log level immediately
+        self._apply_log_level(levels[self.log_level_combo.get_selected()])
+
         # Show confirmation
         self.add_toast(Adw.Toast(title=_("Settings saved")))
+
+    def _apply_log_level(self, level: str) -> None:
+        """Apply log level to loguru immediately."""
+        import sys
+
+        from loguru import logger
+
+        logger.remove()
+        logger.add(sys.stderr, level=level)

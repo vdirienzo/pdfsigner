@@ -122,7 +122,7 @@ class Settings(BaseSettings):
 
     # --- PIN Cache ---
     pin_cache_enabled: bool = Field(
-        default=True,
+        default=False,
         description="Cache PIN during batch signing",
     )
     pin_cache_timeout_seconds: int = Field(

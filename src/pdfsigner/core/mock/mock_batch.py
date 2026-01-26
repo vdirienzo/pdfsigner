@@ -8,7 +8,8 @@ Uses stamp_simulator for visual stamp generation.
 """
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from datetime import datetime
 from pathlib import Path
 
 from loguru import logger
@@ -38,13 +39,25 @@ class MockBatchProgress:
 
 
 @dataclass
+class MockSigningResult:
+    """Simulated signing result (compatible with SigningResult)."""
+
+    success: bool
+    input_path: Path
+    output_path: Path | None
+    error: str | None = None
+    signed_at: datetime | None = None
+
+
+@dataclass
 class MockBatchResult:
-    """Simulated batch signing result."""
+    """Simulated batch signing result (compatible with BatchResult)."""
 
     successful: int
     failed: int
     all_successful: bool
     errors: dict[Path, str]
+    results: list[MockSigningResult] = field(default_factory=list)
 
     def get_failed_files(self):
         """Returns failed files."""
@@ -117,6 +130,7 @@ class MockBatchManager:
         successful = 0
         failed = 0
         errors = {}
+        results: list[MockSigningResult] = []
 
         logger.info(f"[DRY-RUN] Simulating signing of {total} file(s)...")
         if visible:
@@ -157,6 +171,16 @@ class MockBatchManager:
                 logger.info(f"[DRY-RUN] Signed: {pdf_path.name} → {output_path.name}")
                 successful += 1
 
+                # Add result
+                results.append(
+                    MockSigningResult(
+                        success=True,
+                        input_path=pdf_path,
+                        output_path=output_path,
+                        signed_at=datetime.now(),
+                    )
+                )
+
                 # Notify success
                 if progress_callback:
                     progress = MockBatchProgress(
@@ -172,6 +196,16 @@ class MockBatchManager:
                 logger.error(f"[DRY-RUN] Error processing {pdf_path}: {e}")
                 failed += 1
                 errors[pdf_path] = str(e)
+
+                # Add failed result
+                results.append(
+                    MockSigningResult(
+                        success=False,
+                        input_path=pdf_path,
+                        output_path=None,
+                        error=str(e),
+                    )
+                )
 
                 if progress_callback:
                     progress = MockBatchProgress(
@@ -190,6 +224,7 @@ class MockBatchManager:
             failed=failed,
             all_successful=(failed == 0),
             errors=errors,
+            results=results,
         )
 
 

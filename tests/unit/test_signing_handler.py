@@ -219,8 +219,8 @@ class TestSigningHandlerProgress:
 class TestSigningHandlerComplete:
     """Tests for signing completion."""
 
-    def test_signing_complete_all_success(self):
-        """Completion with all files successful."""
+    def test_signing_complete_all_success_shows_result(self):
+        """Completion with all files successful calls show_result on dialog."""
         from pdfsigner.gui.signing_handler import SigningHandler
 
         window = create_mock_window()
@@ -228,51 +228,90 @@ class TestSigningHandlerComplete:
         mock_dialog = MagicMock()
         handler._progress_dialog = mock_dialog
 
-        results = MagicMock()
-        results.successful = 3
-        results.failed = 0
+        # Create results with individual file results
+        result1 = MagicMock()
+        result1.success = True
+        result1.input_path = Path("/test/doc1.pdf")
+        result1.output_path = Path("/test/doc1_signed.pdf")
 
-        files = [Path("/test/doc1.pdf"), Path("/test/doc2.pdf"), Path("/test/doc3.pdf")]
-        handler._signing_complete(results, files, dry_run=False)
-
-        # Dialog is set to None after destroy, so check the saved reference
-        mock_dialog.destroy.assert_called_once()
-        window.show_toast.assert_called_once()
-        assert handler._progress_dialog is None
-
-    def test_signing_complete_with_failures(self):
-        """Completion with some failures shows count."""
-        from pdfsigner.gui.signing_handler import SigningHandler
-
-        window = create_mock_window()
-        handler = SigningHandler(window)
-        handler._progress_dialog = MagicMock()
+        result2 = MagicMock()
+        result2.success = True
+        result2.input_path = Path("/test/doc2.pdf")
+        result2.output_path = Path("/test/doc2_signed.pdf")
 
         results = MagicMock()
         results.successful = 2
-        results.failed = 1
+        results.failed = 0
+        results.results = [result1, result2]
 
-        files = [Path("/test/doc1.pdf"), Path("/test/doc2.pdf"), Path("/test/doc3.pdf")]
+        files = [Path("/test/doc1.pdf"), Path("/test/doc2.pdf")]
         handler._signing_complete(results, files, dry_run=False)
 
-        window.show_toast.assert_called_once()
-        toast_msg = window.show_toast.call_args[0][0]
-        assert "2" in toast_msg or "1" in toast_msg
+        # Dialog shows results instead of being destroyed
+        mock_dialog.show_result.assert_called_once_with(results)
+        # Dialog is NOT destroyed (user closes it manually)
+        mock_dialog.destroy.assert_not_called()
 
-    def test_signing_complete_dry_run_message(self):
-        """Dry-run completion includes simulation indicator."""
+    def test_signing_complete_with_failures_shows_result(self):
+        """Completion with some failures still shows result dialog."""
+        from pdfsigner.gui.signing_handler import SigningHandler
+
+        window = create_mock_window()
+        handler = SigningHandler(window)
+        mock_dialog = MagicMock()
+        handler._progress_dialog = mock_dialog
+
+        result1 = MagicMock()
+        result1.success = True
+        result1.input_path = Path("/test/doc1.pdf")
+        result1.output_path = Path("/test/doc1_signed.pdf")
+
+        result2 = MagicMock()
+        result2.success = False
+        result2.input_path = Path("/test/doc2.pdf")
+        result2.output_path = None
+
+        results = MagicMock()
+        results.successful = 1
+        results.failed = 1
+        results.results = [result1, result2]
+
+        files = [Path("/test/doc1.pdf"), Path("/test/doc2.pdf")]
+        handler._signing_complete(results, files, dry_run=False)
+
+        mock_dialog.show_result.assert_called_once_with(results)
+        # File statuses are updated correctly
+        assert window.file_list.update_file_status.call_count == 2
+
+    def test_signing_complete_updates_file_statuses(self):
+        """File list statuses are updated based on individual results."""
         from pdfsigner.gui.signing_handler import SigningHandler
 
         window = create_mock_window()
         handler = SigningHandler(window)
         handler._progress_dialog = MagicMock()
 
-        results = {"success": 1, "failed": 0}
-        files = [Path("/test/doc.pdf")]
+        result1 = MagicMock()
+        result1.success = True
+        result1.input_path = Path("/test/doc1.pdf")
 
-        handler._signing_complete(results, files, dry_run=True)
+        result2 = MagicMock()
+        result2.success = False
+        result2.input_path = Path("/test/doc2.pdf")
 
-        window.show_toast.assert_called_once()
+        results = MagicMock()
+        results.results = [result1, result2]
+
+        files = [Path("/test/doc1.pdf"), Path("/test/doc2.pdf")]
+        handler._signing_complete(results, files, dry_run=False)
+
+        # Check correct statuses are set
+        calls = window.file_list.update_file_status.call_args_list
+        assert len(calls) == 2
+        # First file should be marked as signed
+        assert calls[0][0][1] == "signed"
+        # Second file should be marked as error
+        assert calls[1][0][1] == "error"
 
 
 class TestSigningHandlerError:
