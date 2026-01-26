@@ -833,9 +833,9 @@ python3 -c "import gi; gi.require_version('Adw', '1'); print('Adwaita OK')"
 ### [0.9.2] - 2026-01-15
 
 #### Changed
-- **Certificate Health UI Redesign** - Replaced banner with header popover
-  - New header icon reflects status dynamically (🔐/⚠️/🔶/🚨/❌)
-  - Click icon opens popover with certificate details
+- **Certificate Health UI** - Banner widget for certificate status
+  - Color-coded status icons (🔐/⚠️/🔶/🚨/❌) based on expiry
+  - Shows certificate details (subject, issuer, expiry date)
 
 ### [0.9.1] - 2026-01-14
 

@@ -28,13 +28,10 @@ Format: [SemVer](https://semver.org/) with `Added | Changed | Fixed | Security` 
 ## [0.9.2] - 2026-01-15
 
 ### Changed
-- **Certificate health UI redesign** - Moved from banner to header popover
-  - New header icon button (🔐/⚠️/🔶/🚨/❌) reflects health status
-  - Click opens popover with certificate details (subject, issuer, expiry, progress)
-  - Cleaner main window - no banner taking up space
-  - New file: `gui/widgets/cert_health_popover.py`
-  - Banner widget (`cert_health_banner.py`) kept as legacy reference
-- **First popover widget** in the project - establishes pattern for future UI
+- **Certificate health UI** - Uses banner widget for certificate status display
+  - Color-coded status (🔐/⚠️/🔶/🚨/❌) based on expiry
+  - Shows certificate details (subject, issuer, expiry date)
+  - Banner widget: `gui/widgets/cert_health_banner.py`
 
 ---
 

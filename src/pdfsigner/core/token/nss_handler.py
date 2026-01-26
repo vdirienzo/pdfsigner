@@ -180,7 +180,7 @@ class NSSHandler:
             raise TokenAuthenticationError("You must authenticate first")
 
         certs = []
-        for obj in self._session.get_objects({ObjectClass.CERTIFICATE}):
+        for obj in self._session.get_objects({pkcs11.Attribute.CLASS: ObjectClass.CERTIFICATE}):
             try:
                 cert_der = obj[pkcs11.Attribute.VALUE]
                 cert = x509.load_der_x509_certificate(cert_der)
