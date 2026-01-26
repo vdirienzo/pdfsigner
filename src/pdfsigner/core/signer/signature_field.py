@@ -107,6 +107,7 @@ def create_signature_field_specs(
     width_mm: float,
     height_mm: float,
     position_preference: PositionPreference,
+    existing_signature_count: int = 0,
 ) -> list[SigFieldSpec]:
     """
     Creates visible signature field specifications.
@@ -122,6 +123,7 @@ def create_signature_field_specs(
         width_mm: Signature width in millimeters
         height_mm: Signature height in millimeters
         position_preference: Position preference strategy
+        existing_signature_count: Number of existing signatures in the PDF
 
     Returns:
         List of SigFieldSpec (empty if invisible signature)
@@ -130,6 +132,8 @@ def create_signature_field_specs(
         return []
 
     field_specs = []
+    # Generate unique field name based on existing signatures
+    next_sig_num = existing_signature_count + 1
 
     with ContentAnalyzer(pdf_path) as analyzer:
         total_pages = analyzer.page_count
@@ -156,7 +160,11 @@ def create_signature_field_specs(
             )
 
             # First field is the main signature, others are visual copies
-            field_name = "Signature1" if idx == 0 else f"SignatureStamp{idx}"
+            # Use unique name based on existing signature count
+            if idx == 0:
+                field_name = f"Signature{next_sig_num}"
+            else:
+                field_name = f"Signature{next_sig_num}Stamp{idx}"
 
             field_specs.append(
                 SigFieldSpec(

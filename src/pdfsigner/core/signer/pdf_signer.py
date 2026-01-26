@@ -11,18 +11,18 @@ from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
-from cryptography import x509
 from loguru import logger
 from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
 from pyhanko.pdf_utils.reader import PdfFileReader
 from pyhanko.sign import signers
-from pyhanko.sign.fields import append_signature_field
+from pyhanko.sign.fields import SigSeedSubFilter, append_signature_field
 
 from pdfsigner.config.settings import get_settings
 from pdfsigner.core.pdf_analyzer.position_finder import PositionPreference
 from pdfsigner.core.signer.lta_handler import LTAHandler
 from pdfsigner.core.signer.signature_field import create_signature_field_specs
 from pdfsigner.core.token.nss_handler import NSSHandler
+from pdfsigner.core.validator.pdf_validator import PDFValidator
 from pdfsigner.exceptions import PDFCorruptedError, PDFProtectedError
 
 
@@ -79,18 +79,14 @@ class PDFSigner:
 
     def _create_signer(self, cert_id: bytes | None = None) -> signers.Signer:
         """Creates the pyHanko signer with the token certificate."""
-        priv_key, cert_der = self.nss_handler.get_signing_key_and_cert(cert_id)
+        # Import here to avoid linter removing unused import
+        from pyhanko.sign.pkcs11 import PKCS11Signer
 
-        # Load certificate
-        cert = x509.load_der_x509_certificate(cert_der)
-
-        # Create PKCS#11 signer
-        # pyHanko expects a SimpleSigner or PKCS11Signer
-        # Since we're using python-pkcs11, we create a wrapper
-        signer = signers.SimpleSigner(
-            signing_cert=cert,
-            signing_key=priv_key,
-            cert_registry=None,
+        # Use pyHanko's PKCS11Signer with our authenticated session
+        # This properly handles the PKCS#11 protocol
+        signer = PKCS11Signer(
+            pkcs11_session=self.nss_handler._session,
+            cert_id=cert_id,
         )
 
         return signer
@@ -243,16 +239,17 @@ class PDFSigner:
             # Validate PDF
             self._validate_pdf(input_path)
 
+            # Count existing signatures to generate unique field names
+            validator = PDFValidator()
+            existing_sig_count = validator.get_signature_count(input_path)
+
             # Create signer
             signer = self._create_signer(cert_id)
 
-            # Configure signature
-            sig_kwargs = {}
-
-            # Add timestamper if available
+            # Get timestamper if available
+            timestamper = None
             if self.lta_handler and self.lta_handler.tsa_config.url:
-                sig_kwargs["timestamper"] = self.lta_handler.get_timestamper()
-                sig_kwargs["embed_validation_info"] = True
+                timestamper = self.lta_handler.get_timestamper()
 
             # Open PDF
             with open(input_path, "rb") as f:
@@ -266,21 +263,26 @@ class PDFSigner:
                     appearance.width_mm,
                     appearance.height_mm,
                     appearance.position_preference,
+                    existing_signature_count=existing_sig_count,
                 )
                 for field_spec in field_specs:
                     append_signature_field(writer, field_spec)
 
-                # Main signature field name (first one, or None for invisible)
-                sig_field_name = field_specs[0].sig_field_name if field_specs else None
+                # Main signature field name (first one, or generate one for invisible)
+                if field_specs:
+                    sig_field_name = field_specs[0].sig_field_name
+                else:
+                    # pyHanko requires a field name even for invisible signatures
+                    # Use unique name based on existing signatures
+                    sig_field_name = f"Signature{existing_sig_count + 1}"
 
                 # Extract signer name from certificate for QR
+                # Note: pyHanko uses asn1crypto, not cryptography.x509
                 signer_name = None
                 if signer.signing_cert:
-                    cn_attrs = signer.signing_cert.subject.get_attributes_for_oid(
-                        x509.oid.NameOID.COMMON_NAME
-                    )
-                    if cn_attrs:
-                        signer_name = cn_attrs[0].value
+                    # asn1crypto API: subject.native returns dict with 'common_name'
+                    subject_dict = signer.signing_cert.subject.native
+                    signer_name = subject_dict.get("common_name")
 
                 # Build stamp style for visible signatures
                 stamp_style = self._build_stamp_style(
@@ -293,7 +295,7 @@ class PDFSigner:
                 sig_metadata = signers.PdfSignatureMetadata(
                     field_name=sig_field_name,
                     md_algorithm="sha256",
-                    subfilter=signers.SigSeedSubFilter.PADES,
+                    subfilter=SigSeedSubFilter.PADES,
                 )
 
                 # Sign using PdfSigner to support stamp_style
@@ -301,13 +303,13 @@ class PDFSigner:
                     sig_metadata,
                     signer=signer,
                     stamp_style=stamp_style,
+                    timestamper=timestamper,
                 )
 
                 with open(output_path, "wb") as out:
                     pdf_signer.sign_pdf(
                         writer,
                         output=out,
-                        **sig_kwargs,
                     )
 
             logger.info(f"PDF signed successfully: {output_path.name}")
@@ -328,7 +330,9 @@ class PDFSigner:
                 error=str(e),
             )
         except Exception as e:
-            logger.error(f"Error signing PDF: {e}")
+            import traceback
+
+            logger.error(f"Error signing PDF: {e}\n{traceback.format_exc()}")
             return SigningResult(
                 success=False,
                 input_path=input_path,

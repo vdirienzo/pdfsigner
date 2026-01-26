@@ -13,7 +13,6 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from datetime import UTC
 
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
@@ -42,7 +41,6 @@ class MainWindow(Adw.ApplicationWindow):
         self.set_default_size(700, 500)
 
         self.signing_handler = SigningHandler(self)
-        self.validation_handler = self._create_validation_handler()
 
         self._setup_ui()
         self._setup_drag_drop()
@@ -64,14 +62,6 @@ class MainWindow(Adw.ApplicationWindow):
         settings_button.connect("clicked", lambda b: self.show_settings())
         header.pack_end(settings_button)
 
-        # Certificate health button
-        self.cert_health_button = Gtk.Button()
-        self.cert_health_button.set_label("🔐")
-        self.cert_health_button.set_tooltip_text(_("Certificate Status"))
-        self.cert_health_button.add_css_class("flat")
-        self.cert_health_button.connect("clicked", self._on_cert_button_clicked)
-        header.pack_end(self.cert_health_button)
-
         # Add files button
         add_button = Gtk.Button(icon_name="list-add-symbolic")
         add_button.set_tooltip_text(_("Add files"))
@@ -81,10 +71,6 @@ class MainWindow(Adw.ApplicationWindow):
         # Toolbar box
         toolbar = Adw.ToolbarView()
         toolbar.add_top_bar(header)
-
-        # Certificate health popover
-        self.cert_popover = self._create_cert_popover()
-        self.cert_popover.set_parent(self.cert_health_button)
 
         # Central area
         content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
@@ -138,12 +124,6 @@ class MainWindow(Adw.ApplicationWindow):
         clear_button = Gtk.Button(label=_("Clear"))
         clear_button.connect("clicked", self._on_clear_clicked)
         bar.append(clear_button)
-
-        # Validate button
-        validate_button = Gtk.Button(label=_("Validate"))
-        validate_button.add_css_class("suggested-action")
-        validate_button.connect("clicked", self._on_validate_clicked)
-        bar.append(validate_button)
 
         # Sign button
         self.sign_button = Gtk.Button(label=_("Sign"))
@@ -204,21 +184,6 @@ class MainWindow(Adw.ApplicationWindow):
         self.file_list.clear()
         self._update_info_label()
 
-    def _create_validation_handler(self):
-        """Creates the validation handler (lazy import to avoid circular)."""
-        from pdfsigner.gui.validation_handler import ValidationHandler
-
-        return ValidationHandler(self)
-
-    def _on_validate_clicked(self, button: Gtk.Button) -> None:
-        """Validates the selected files."""
-        files = self.file_list.get_files()
-        if not files:
-            self.show_toast(_("No files to validate"))
-            return
-
-        self.validation_handler.validate_files(files)
-
     def _on_sign_clicked(self, button: Gtk.Button) -> None:
         """Signs the selected files."""
         files = self.file_list.get_files()
@@ -264,110 +229,3 @@ class MainWindow(Adw.ApplicationWindow):
         toast = Adw.Toast(title=message)
         toast.set_timeout(3)
         self.toast_overlay.add_toast(toast)
-
-    def _create_cert_popover(self):
-        """Creates the certificate health popover widget."""
-        from pdfsigner.gui.widgets.cert_health_popover import CertHealthPopover
-
-        popover = CertHealthPopover()
-        # Load certificate data in background
-        GLib.idle_add(self._load_certificate_health)
-        return popover
-
-    def _on_cert_button_clicked(self, button: Gtk.Button) -> None:
-        """Show certificate health popover."""
-        self.cert_popover.popup()
-
-    def _update_cert_button(self, health) -> None:
-        """Update certificate health button icon and tooltip."""
-        if health:
-            self.cert_health_button.set_label(health.status_icon)
-            self.cert_health_button.set_tooltip_text(f"{health.subject_cn} - {health.status_text}")
-        else:
-            self.cert_health_button.set_label("🔐")
-            self.cert_health_button.set_tooltip_text(_("No certificate loaded"))
-
-    def _load_certificate_health(self) -> bool:
-        """Load certificate health data from NSS."""
-        from pdfsigner.config.settings import get_settings
-        from pdfsigner.core.certificate.health_status import CertificateHealth
-
-        try:
-            # Check if we're in dry-run mode
-            settings = get_settings()
-            if settings.dry_run:
-                self._load_mock_certificate()
-                return False
-
-            # Try to load real certificate
-            from pdfsigner.core.setup import NSSChecker
-
-            checker = NSSChecker()
-            if not checker.is_configured():
-                self.cert_popover.set_health(None)
-                self._update_cert_button(None)
-                return False
-
-            # Get certificates from NSS
-            from pdfsigner.core.token.cert_selector import CertificateSelector
-            from pdfsigner.core.token.nss_handler import NSSHandler
-
-            nss = NSSHandler()
-            selector = CertificateSelector(nss)
-            certs = selector.get_valid_certificates()
-
-            if not certs:
-                self.cert_popover.set_health(None)
-                self._update_cert_button(None)
-                return False
-
-            # Use the first valid certificate
-            cert = certs[0]
-            health = CertificateHealth(
-                subject_cn=cert.display_name,
-                issuer_cn=self._extract_cn(cert.info.issuer),
-                not_before=cert.info.not_before,
-                not_after=cert.info.not_after,
-                serial_number=cert.info.serial_number,
-            )
-            self.cert_popover.set_health(health)
-            self._update_cert_button(health)
-
-        except Exception as e:
-            from loguru import logger
-
-            logger.debug(f"Could not load certificate health: {e}")
-            self.cert_popover.set_health(None)
-            self._update_cert_button(None)
-
-        return False  # Don't repeat
-
-    def _load_mock_certificate(self) -> None:
-        """Load mock certificate data for dry-run mode."""
-        from datetime import datetime, timedelta
-
-        from pdfsigner.core.certificate.health_status import CertificateHealth
-
-        # Create a mock certificate that expires in 45 days
-        now = datetime.now(UTC)
-        health = CertificateHealth(
-            subject_cn="Demo User (Dry Run)",
-            issuer_cn="Demo Certificate Authority",
-            not_before=now - timedelta(days=320),
-            not_after=now + timedelta(days=45),
-            serial_number="DEMO-12345",
-        )
-        self.cert_popover.set_health(health)
-        self._update_cert_button(health)
-
-    def _extract_cn(self, subject: str) -> str:
-        """Extract Common Name from certificate subject."""
-        for part in subject.split(","):
-            part = part.strip()
-            if part.startswith("CN="):
-                return part[3:]
-        return subject
-
-    def refresh_certificate_status(self) -> None:
-        """Refresh certificate health status."""
-        GLib.idle_add(self._load_certificate_health)

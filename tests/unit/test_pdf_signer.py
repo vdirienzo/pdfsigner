@@ -270,51 +270,35 @@ class TestPDFSignerCreateSigner:
         cert_der = cert.public_bytes(encoding=serialization.Encoding.DER)
 
         handler = MagicMock()
-        handler.get_signing_key_and_cert.return_value = (private_key, cert_der)
+        handler._session = MagicMock()
 
-        signer = PDFSigner(handler)
-        result = signer._create_signer()
+        with patch("pyhanko.sign.pkcs11.PKCS11Signer") as mock_pkcs11:
+            mock_pkcs11.return_value = MagicMock()
+            signer = PDFSigner(handler)
+            result = signer._create_signer()
 
-        assert result is not None
-        handler.get_signing_key_and_cert.assert_called_once_with(None)
+            assert result is not None
+            mock_pkcs11.assert_called_once_with(
+                pkcs11_session=handler._session,
+                cert_id=None,
+            )
 
     def test_create_signer_with_cert_id(self):
         """Test signer creation with specific cert ID."""
-        from datetime import datetime, timedelta
-
-        from cryptography import x509
-        from cryptography.hazmat.primitives import hashes, serialization
-        from cryptography.hazmat.primitives.asymmetric import rsa
-        from cryptography.x509.oid import NameOID
-
-        private_key = rsa.generate_private_key(
-            public_exponent=65537,
-            key_size=2048,
-        )
-
-        subject = issuer = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "Test User")])
-        cert = (
-            x509.CertificateBuilder()
-            .subject_name(subject)
-            .issuer_name(issuer)
-            .public_key(private_key.public_key())
-            .serial_number(x509.random_serial_number())
-            .not_valid_before(datetime.now(UTC))
-            .not_valid_after(datetime.now(UTC) + timedelta(days=1))
-            .sign(private_key, hashes.SHA256())
-        )
-        cert_der = cert.public_bytes(encoding=serialization.Encoding.DER)
-
         handler = MagicMock()
-        handler.get_signing_key_and_cert.return_value = (private_key, cert_der)
-
-        signer = PDFSigner(handler)
+        handler._session = MagicMock()
         cert_id = b"test-cert-id"
 
-        result = signer._create_signer(cert_id)
+        with patch("pyhanko.sign.pkcs11.PKCS11Signer") as mock_pkcs11:
+            mock_pkcs11.return_value = MagicMock()
+            signer = PDFSigner(handler)
+            result = signer._create_signer(cert_id)
 
-        assert result is not None
-        handler.get_signing_key_and_cert.assert_called_once_with(cert_id)
+            assert result is not None
+            mock_pkcs11.assert_called_once_with(
+                pkcs11_session=handler._session,
+                cert_id=cert_id,
+            )
 
 
 class TestPDFSignerValidation:

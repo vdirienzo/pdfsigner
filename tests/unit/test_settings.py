@@ -17,7 +17,17 @@ class TestSettings:
         nss_dir = temp_dir / ".nss"
         nss_dir.mkdir()
 
-        settings = Settings(nss_db_path=nss_dir)
+        # Create Settings with explicit defaults (not from config file)
+        settings = Settings(
+            nss_db_path=nss_dir,
+            tsa_url="",
+            output_suffix="_signed",
+            default_visible=False,
+            pin_cache_enabled=True,
+            pin_cache_timeout_seconds=300,
+            log_level="INFO",
+            dry_run=False,
+        )
 
         assert settings.tsa_url == ""  # Empty by default, user must configure
         assert settings.output_suffix == "_signed"

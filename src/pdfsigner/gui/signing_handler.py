@@ -48,10 +48,14 @@ class SigningHandler:
         self._current_pin: str | None = None
         self._progress_dialog: ProgressDialog | None = None
         self._current_options: dict = {}
+        self._nss_handler = None  # Reutilizable entre verificación y firma
 
     def sign_files(self, files: list[Path]) -> None:
         """
         Starts the signing process for the given files.
+
+        Documents that already have signatures can receive additional signatures.
+        Unique field names are generated to avoid conflicts.
 
         Args:
             files: Lista de archivos PDF a firmar
@@ -124,20 +128,26 @@ class SigningHandler:
 
                 nss = MockNSSHandler()
                 nss.initialize()
-                nss.login(pin)
+                nss.connect_token()
+                nss.authenticate(pin)
+                self._nss_handler = nss  # Guardar para reutilizar en _run_signing
                 GLib.idle_add(self.window.show_toast, _("⚠️ Simulation mode (dry-run)"))
             else:
                 from pdfsigner.core.token.nss_handler import NSSHandler
 
                 nss = NSSHandler()
                 nss.initialize()
-                nss.login(pin)
+                nss.connect_token()
+                nss.authenticate(pin)
+                self._nss_handler = nss  # Guardar para reutilizar en _run_signing
 
             GLib.idle_add(self._start_signing, files)
 
         except TokenError as e:
+            self._nss_handler = None
             GLib.idle_add(self._show_error, _("Token error"), str(e))
         except Exception as e:
+            self._nss_handler = None
             GLib.idle_add(self._show_error, _("Error"), str(e))
 
     def _start_signing(self, files: list[Path]) -> None:
@@ -184,14 +194,12 @@ class SigningHandler:
                 )
             else:
                 from pdfsigner.core.signer.batch_manager import BatchManager
-                from pdfsigner.core.token.nss_handler import NSSHandler
 
-                # Para firma real, necesitamos el nss_handler
-                nss = NSSHandler()
-                nss.initialize()
-                nss.authenticate(pin)
+                # Reutilizar el nss_handler ya autenticado en _verify_pin_and_sign
+                if self._nss_handler is None:
+                    raise PDFSignerError(_("Token session not available"))
 
-                batch_manager = BatchManager(nss)
+                batch_manager = BatchManager(self._nss_handler)
 
                 def on_progress_real(progress) -> None:
                     GLib.idle_add(self._update_progress, progress)
@@ -209,22 +217,23 @@ class SigningHandler:
             GLib.idle_add(self._show_error, _("Unexpected error"), str(e))
         finally:
             self._current_pin = None
+            # Cerrar la sesión PKCS#11 al terminar
+            if self._nss_handler is not None:
+                try:
+                    self._nss_handler.close()
+                except Exception:
+                    pass
+                self._nss_handler = None
 
     def _update_progress(self, progress) -> None:
         """Updates the progress dialog."""
         if self._progress_dialog:
             self._progress_dialog.update_progress(progress)
 
+            # Show current file being processed
             if progress.current_file:
                 file_path = Path(progress.current_file)
-                if progress.status == "success":
-                    self.window.file_list.update_file_status(file_path, "signed", _("Signed"))
-                elif progress.status == "error":
-                    msg = getattr(progress, "message", None) or _("Error")
-                    self.window.file_list.update_file_status(file_path, "error", msg)
-                else:
-                    status_msg = _("Signing...")
-                    self.window.file_list.update_file_status(file_path, "processing", status_msg)
+                self.window.file_list.update_file_status(file_path, "processing", _("Signing..."))
 
     def _signing_complete(self, results, dry_run: bool = False) -> None:
         """Callback when signing completes."""

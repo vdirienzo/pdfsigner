@@ -288,20 +288,47 @@ class FileListWidget(Gtk.ScrolledWindow):
                 break
             self.listbox.remove(child)
 
+        # Re-establecer el placeholder (GTK lo pierde al remover children)
+        self.listbox.set_placeholder(self._create_placeholder())
+
     def get_files(self) -> list[Path]:
         """Gets the list of files."""
         return list(self._file_paths)
+
+    def get_unsigned_files(self) -> list[Path]:
+        """Gets the list of files that don't have signatures yet."""
+        unsigned = []
+        for row in self.get_rows():
+            # A file is unsigned if validation_result is None and status_icon is not "✓"
+            # OR if it's pending status
+            if row.status_icon.get_label() == "○":
+                unsigned.append(row.file_path)
+        return unsigned
+
+    def get_signed_count(self) -> int:
+        """Gets the count of already signed files."""
+        return sum(1 for row in self.get_rows() if row.status_icon.get_label() in ("✓", "⚠"))
 
     def get_file_count(self) -> int:
         """Gets the number of files."""
         return len(self._file_paths)
 
     def get_rows(self) -> list[FileRow]:
-        """Gets all rows."""
+        """Gets all rows.
+
+        Note: In GTK4, ListBox.append() wraps widgets in Gtk.ListBoxRow,
+        so we need to get the child of each ListBoxRow.
+        """
         rows = []
         child = self.listbox.get_first_child()
         while child:
-            if isinstance(child, FileRow):
+            # GTK4 wraps our FileRow in a ListBoxRow
+            if isinstance(child, Gtk.ListBoxRow):
+                inner = child.get_child()
+                if isinstance(inner, FileRow):
+                    rows.append(inner)
+            elif isinstance(child, FileRow):
+                # Direct child (shouldn't happen but handle anyway)
                 rows.append(child)
             child = child.get_next_sibling()
         return rows

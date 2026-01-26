@@ -221,8 +221,8 @@ class TestCreateSignatureFieldSpecs:
 
         assert len(result) == 3  # 3 pages
         assert result[0].sig_field_name == "Signature1"
-        assert result[1].sig_field_name == "SignatureStamp1"
-        assert result[2].sig_field_name == "SignatureStamp2"
+        assert result[1].sig_field_name == "Signature1Stamp1"
+        assert result[2].sig_field_name == "Signature1Stamp2"
 
     def test_field_spec_has_correct_box(self, sample_pdf: Path, mock_analyzer, mock_position):
         """Test that field spec has correct bounding box."""
