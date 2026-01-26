@@ -1,3 +1,31 @@
+pdfsigner (0.9.5-1) unstable; urgency=medium
+
+  * E2E Test Suite: 37 comprehensive tests covering full signing workflow
+  * Single/multi-page signing scenarios
+  * All position preferences and built-in templates
+  * QR code generation tests
+  * Batch signing operations
+  * Edge cases and output verification
+
+ -- Homero Thompson del Lago del Terror <noreply@example.com>  Sun, 26 Jan 2026 17:00:00 +0000
+
+pdfsigner (0.9.4-1) unstable; urgency=medium
+
+  * Template Editor Dialog: create custom signature templates from GUI
+  * Dynamic text fields with color/size customization
+  * Reorder fields with up/down buttons
+  * Live preview while editing
+  * Per-signing template override: select different template for each operation
+
+ -- Homero Thompson del Lago del Terror <noreply@example.com>  Sun, 26 Jan 2026 12:00:00 +0000
+
+pdfsigner (0.9.3-1) unstable; urgency=medium
+
+  * Fixed PIN cache not working correctly in batch operations
+  * Fixed file list not clearing properly after signing
+
+ -- Homero Thompson del Lago del Terror <noreply@example.com>  Sat, 25 Jan 2026 18:00:00 +0000
+
 pdfsigner (0.9.2-1) unstable; urgency=medium
 
   * Certificate health UI redesign: banner replaced with header popover
