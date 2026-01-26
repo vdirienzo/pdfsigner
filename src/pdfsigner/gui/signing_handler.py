@@ -206,6 +206,7 @@ class SigningHandler:
 
                 results = batch_manager.sign_batch(
                     pdf_files=files,
+                    appearance=self._current_options.get("appearance"),
                     progress_callback=on_progress_real,
                 )
 
