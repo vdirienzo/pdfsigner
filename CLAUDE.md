@@ -17,7 +17,7 @@ uv run pdfsigner sign file.pdf          # CLI
 uv run pdfsigner --dry-run sign file.pdf  # Without real token
 
 # Tests
-uv run pytest -v                        # All tests (622)
+uv run pytest -v                        # All tests (764)
 uv run pytest tests/unit/ -v            # Unit only
 uv run pytest -k "test_health" -v       # Pattern match
 uv run pytest tests/unit/test_position_finder.py::test_find_position_avoids_content -v  # Single test
@@ -45,12 +45,14 @@ MainWindow → SigningHandler → OptionsDialog → PINDialog
 
 | Module | Purpose |
 |--------|---------|
-| `core/signer/pdf_signer.py` | Main signing logic with pyHanko |
+| `core/signer/pdf_signer.py` | Main signing logic with pyHanko (refactored into phases) |
 | `core/signer/batch_manager.py` | Batch orchestration, progress callbacks |
 | `core/signer/lta_handler.py` | TSA timestamp (HTTPTimeStamper) |
-| `core/token/nss_handler.py` | PKCS#11 multi-token communication |
+| `core/token/nss_handler.py` | PKCS#11 multi-token communication (specific exceptions) |
+| `core/token/cert_selector.py` | Certificate filtering by expiry and key usage |
 | `core/pdf_analyzer/position_finder.py` | Smart signature positioning |
 | `core/signature/` | Template system (template.py, template_renderer.py, template_loader.py) |
+| `core/audit/` | Audit trail system (audit_logger.py, audit_event.py) - JSON Lines format |
 | `core/mock/` | Dry-run simulation (MockBatchManager, stamp_simulator) |
 | `gui/handlers/` | Bridge GUI ↔ Core (SigningHandler, ValidationHandler) |
 
@@ -80,6 +82,16 @@ Template JSON structure:
 - Variables: `{signer_name}`, `{date}`, `{org}`
 - Coordinates: relative (0-100% of dimensions)
 
+### PDFSigner Sign Flow (Refactored)
+The `sign_pdf()` method is divided into 4 phases for testability:
+```
+PDFSigner.sign_pdf()
+  ├─ Phase 1: _prepare_signing_context()     # Validate, create signer, get timestamper
+  ├─ Phase 2: create_signature_field_with_stamps()  # Field spec + stamp positions
+  ├─ Phase 3: _preprocess_pdf_with_stamps()  # Add visual stamps to multi-page
+  └─ Phase 4: _execute_signing()             # pyHanko PdfSigner.sign_pdf()
+```
+
 ### Template Override Flow
 Users can override default template per-signing in OptionsDialog:
 ```
@@ -88,6 +100,51 @@ SignatureOptionsDialog.get_selected_template()
   → BatchManager.sign_batch(template_override=...)
   → PDFSigner.sign_pdf(template_override=...)
   → _build_stamp_style(template_override=...)
+```
+
+### Audit Trail System
+Structured logging for security and compliance:
+```
+core/audit/
+├── audit_event.py       # Event types and data structures
+├── audit_logger.py      # Thread-safe singleton logger
+└── __init__.py          # Helper functions (log_signing_event, log_validation_event, etc.)
+```
+
+**Event Types:**
+- `SIGN_SUCCESS` / `SIGN_FAILURE` - PDF signing operations
+- `VALIDATE_SUCCESS` / `VALIDATE_FAILURE` - Signature validation
+- `TOKEN_LOGIN` / `TOKEN_LOGOUT` - PKCS#11 token operations
+- `CERTIFICATE_SELECTED` - Certificate selection for signing
+- `CONFIG_CHANGE` - Settings modifications
+
+**Storage:**
+- Location: `~/.local/share/pdfsigner/audit/`
+- Format: JSON Lines (one JSON object per line)
+- Rotation: Monthly (`audit_YYYY-MM.jsonl`)
+- Retention: Configurable (1-3650 days, default: 90)
+
+**Usage:**
+```python
+from pdfsigner.core.audit import log_signing_event
+
+log_signing_event(
+    document_path="/path/to/doc.pdf",
+    certificate_serial="abc123",
+    certificate_issuer="CN=Test CA",
+    user_cn="John Doe",
+    success=True,
+    details={"template": "default"}
+)
+```
+
+**Query and Export:**
+```python
+from pdfsigner.core.audit import get_audit_logger
+
+logger = get_audit_logger()
+events = logger.get_events(start_date=..., event_types=[...])
+csv_data = logger.export_csv(events)
 ```
 
 ### Settings Auto-Save
@@ -165,6 +222,8 @@ Location: `~/.config/pdfsigner/config.toml`
 | `log_level` | `"INFO"` | DEBUG/INFO/WARNING/ERROR |
 | `pin_cache_enabled` | `false` | Cache PIN for batch signing |
 | `pin_cache_timeout_seconds` | `300` | Cache expiry (60-3600s) |
+| `audit_enabled` | `true` | Enable audit logging |
+| `audit_retention_days` | `90` | Days to retain audit logs (1-3650) |
 | `signature_template` | `""` | Template name (empty = invisible) |
 
 ## Adding New Token Support

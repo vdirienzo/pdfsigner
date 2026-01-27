@@ -39,6 +39,7 @@ def sample_pdf(temp_dir: Path) -> Path:
 @pytest.fixture
 def mock_nss_handler():
     """Mock de NSSHandler para tests sin token real."""
+
     handler = MagicMock()
     handler.initialize.return_value = None
     handler.get_available_tokens.return_value = ["Test Token"]
@@ -46,6 +47,20 @@ def mock_nss_handler():
     handler.authenticate.return_value = None
     handler.list_certificates.return_value = []
     handler.close.return_value = None
+
+    # Mock the _session for PKCS11Signer
+    handler._session = MagicMock()
+
+    return handler
+
+
+@pytest.fixture
+def mock_lta_handler():
+    """Mock de LTAHandler para tests sin TSA real."""
+    handler = MagicMock()
+    handler.get_timestamper.return_value = None
+    handler.tsa_config = MagicMock()
+    handler.tsa_config.url = ""
     return handler
 
 

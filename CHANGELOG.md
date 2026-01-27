@@ -6,6 +6,70 @@ Format: [SemVer](https://semver.org/) with `Added | Changed | Fixed | Security` 
 
 ---
 
+## [1.0.0] - 2026-01-27
+
+### Added - Major Security & Compliance Features
+
+- **OCSP/CRL Certificate Revocation Checking** (Feature 1.1)
+  - `core/certificate/revocation_checker.py` - OCSPChecker + CRLChecker classes
+  - OCSP-first strategy with automatic CRL fallback
+  - Intelligent caching: TTL for OCSP, nextUpdate for CRL
+  - RevocationStatus enum: GOOD, REVOKED, UNKNOWN, ERROR
+  - Extraction of revocation reason and time when available
+  - 32 new unit tests with mocked HTTP responses
+
+- **Certificate Chain Validation** (Feature 1.2)
+  - `core/certificate/chain_validator.py` - Full X.509 chain validation
+  - `core/certificate/trust_store.py` - System CA loading (Debian, RedHat, Alpine, etc.)
+  - ChainStatus enum: VALID, PARTIAL_CHAIN, UNTRUSTED_ROOT, INVALID_SIGNATURE, EXPIRED
+  - RSA signature verification at each chain level
+  - AKI/SKI handling, cycle prevention, max depth limit (10)
+  - Custom CA support for enterprise PKI
+  - 13 new unit tests with generated certificates
+
+- **Validation Reports Export** (Feature 2.1)
+  - `core/reports/report_generator.py` - PDF/CSV/JSON report generation
+  - `gui/dialogs/export_report_dialog.py` - GTK4 export dialog
+  - PDF reports with colored status tables and certificate details
+  - CSV reports compatible with Excel
+  - JSON reports for API integration
+  - ReportOptions for customizable output
+  - 17 new unit tests
+
+- **Certificate Details Viewer** (Feature 2.2)
+  - `core/certificate/x509_parser.py` - Complete X.509 field extraction
+  - `gui/dialogs/certificate_details_dialog.py` - 4-tab GTK4/libadwaita dialog
+  - Tabs: General, Details, Extensions, Thumbprints
+  - Copy buttons for serial number and fingerprints
+  - All X.509 fields: DN, validity, key usage, SANs, CRL/OCSP URLs, policies
+  - 13 new unit tests
+
+- **Signature Metadata Fields** (Feature 2.3)
+  - Settings: `default_signature_reason`, `default_signature_location`, `default_signature_contact`
+  - OptionsDialog: "Signature Information" section with 3 entry fields
+  - CLI flags: `--reason`, `--location`, `--contact`
+  - Values passed to pyHanko PdfSignatureMetadata
+  - 9 new unit tests
+
+- **Audit Trail System** (Feature 2.4)
+  - `core/audit/` module with JSON Lines format (monthly rotation)
+  - 8 event types: sign_success/failure, validate_success/failure, token_login/logout, etc.
+  - Thread-safe singleton logger with configurable retention (1-3650 days)
+  - Query interface with date/type filters and CSV export
+  - Helper functions: `log_signing_event()`, `log_validation_event()`, etc.
+  - Settings: `audit_enabled` (default: true), `audit_retention_days` (default: 90)
+  - ISO 27001/GDPR/eIDAS compatible logging
+  - 20 new unit tests
+
+- **Unit tests expansion** - 246 new tests (622 → 868 total, 89% coverage)
+
+### Changed
+- Refactored sign_pdf() into 4 phases for testability
+- Specific PKCS#11 exceptions replace generic catches
+- README updated with new features and test count
+
+---
+
 ## [0.9.4] - 2026-01-26
 
 ### Added

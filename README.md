@@ -16,8 +16,8 @@
   <a href="https://gtk.org/"><img src="https://img.shields.io/badge/GTK-4.0-4A86CF?style=flat-square&logo=gnome&logoColor=white" alt="GTK4"></a>
   <a href="https://github.com/pyhanko/pyhanko"><img src="https://img.shields.io/badge/pyHanko-PAdES--LTV-orange?style=flat-square" alt="pyHanko"></a>
   <br>
-  <img src="https://img.shields.io/badge/tests-622%20passing-success?style=flat-square" alt="Tests">
-  <img src="https://img.shields.io/badge/coverage-87%25%20core-blue?style=flat-square" alt="Coverage">
+  <img src="https://img.shields.io/badge/tests-868%20passing-success?style=flat-square" alt="Tests">
+  <img src="https://img.shields.io/badge/coverage-89%25%20core-blue?style=flat-square" alt="Coverage">
 </p>
 
 <p align="center">
@@ -41,7 +41,8 @@
 - **PAdES-LTV** signatures with long-term validation
 - **TSA timestamps** for legal compliance
 - **Multi-token** support (SafeNet, YubiKey, Nitrokey...)
-- **PIN caching** for batch operations
+- **OCSP/CRL** certificate revocation checking
+- **Chain validation** with system trust store
 
 </td>
 <td width="50%">
@@ -50,6 +51,7 @@
 - **GTK4/libadwaita** native GNOME interface
 - **Drag & drop** file handling
 - **Batch signing** with progress tracking
+- **Certificate viewer** with full X.509 details
 - **Dark mode** support
 
 </td>
@@ -60,17 +62,18 @@
 ### 📋 Flexibility
 - **CLI & GUI** for all workflows
 - **Visible/invisible** signatures
+- **Signature metadata** (reason, location, contact)
 - **QR verification codes** in stamps
 - **Smart positioning** avoids content
 
 </td>
 <td width="50%">
 
-### 🧪 Developer Friendly
-- **Dry-run mode** for testing without hardware
-- **622 tests** with 87% coverage
-- **Modular architecture** for extensibility
-- **Comprehensive logging**
+### 📊 Compliance & Reporting
+- **Audit trail** with structured JSON logs
+- **Validation reports** (PDF, CSV, JSON)
+- **868 tests** with 89% coverage
+- **ISO 27001/GDPR/eIDAS** compatible logging
 
 </td>
 </tr>

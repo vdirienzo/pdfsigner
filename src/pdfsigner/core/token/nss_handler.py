@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import pkcs11
+import pkcs11.exceptions
 from cryptography import x509
 from loguru import logger
 from pkcs11 import ObjectClass, lib
@@ -101,8 +102,10 @@ class NSSHandler:
         try:
             self._lib = lib(lib_path)
             logger.info(f"PKCS#11 library loaded: {lib_path}")
-        except Exception as e:
-            raise TokenNotFoundError(f"Error loading PKCS#11 library: {e}")
+        except pkcs11.exceptions.PKCS11Error as e:
+            raise TokenNotFoundError(f"PKCS#11 library error: {e}") from e
+        except OSError as e:
+            raise TokenNotFoundError(f"Cannot load PKCS#11 library '{lib_path}': {e}") from e
 
     def get_available_tokens(self) -> list[str]:
         """
@@ -168,8 +171,8 @@ class NSSHandler:
             raise TokenAuthenticationError("Incorrect PIN")
         except pkcs11.exceptions.PinLocked:
             raise TokenAuthenticationError("Token locked due to too many attempts")
-        except Exception as e:
-            raise TokenAuthenticationError(f"Authentication error: {e}")
+        except pkcs11.exceptions.PKCS11Error as e:
+            raise TokenAuthenticationError(f"PKCS#11 authentication error: {e}") from e
 
     def list_certificates(self) -> list[CertificateInfo]:
         """
@@ -211,8 +214,11 @@ class NSSHandler:
                 certs.append(cert_info)
                 logger.debug(f"Certificate found: {cert_info.label}")
 
-            except Exception as e:
-                logger.warning(f"Error reading certificate: {e}")
+            except pkcs11.exceptions.PKCS11Error as e:
+                logger.warning(f"PKCS#11 error reading certificate: {e}")
+                continue
+            except (ValueError, TypeError) as e:
+                logger.warning(f"Error parsing certificate data: {e}")
                 continue
 
         return certs
@@ -253,8 +259,12 @@ class NSSHandler:
                 object_class=ObjectClass.PRIVATE_KEY,
                 id=selected.pkcs11_id,
             )
-        except Exception as e:
-            raise CertificateNotFoundError(f"Private key not found: {e}")
+        except pkcs11.exceptions.NoSuchKey:
+            raise CertificateNotFoundError(
+                f"Private key not found for certificate '{selected.label}'"
+            )
+        except pkcs11.exceptions.PKCS11Error as e:
+            raise CertificateNotFoundError(f"PKCS#11 error accessing private key: {e}") from e
 
         # Get DER certificate
         cert_obj = list(
@@ -274,8 +284,8 @@ class NSSHandler:
         if self._session is not None:
             try:
                 self._session.close()
-            except Exception:
-                pass
+            except pkcs11.exceptions.PKCS11Error as e:
+                logger.debug(f"Error closing PKCS#11 session (non-fatal): {e}")
             self._session = None
         self._token = None
         logger.debug("Token session closed")

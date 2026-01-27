@@ -186,6 +186,11 @@ def _sign_real(args: argparse.Namespace, pdf_files: list[Path]) -> int:
         qr_enabled=qr_enabled,
     )
 
+    # Get metadata fields from CLI args
+    reason = getattr(args, "reason", None)
+    location = getattr(args, "location", None)
+    contact_info = getattr(args, "contact", None)
+
     batch_manager = BatchManager(nss_handler, lta_handler)
 
     def progress_callback(progress):
@@ -199,6 +204,9 @@ def _sign_real(args: argparse.Namespace, pdf_files: list[Path]) -> int:
         appearance=appearance,
         cert_id=cert.info.pkcs11_id,
         progress_callback=progress_callback,
+        reason=reason,
+        location=location,
+        contact_info=contact_info,
     )
     print()
 

@@ -118,6 +118,20 @@ class Settings(BaseSettings):
         description="Organization name to use if certificate lacks one",
     )
 
+    # --- Signature Metadata ---
+    default_signature_reason: str = Field(
+        default="",
+        description="Default signature reason (e.g., 'I approve this document')",
+    )
+    default_signature_location: str = Field(
+        default="",
+        description="Default signature location (e.g., 'Buenos Aires, Argentina')",
+    )
+    default_signature_contact: str = Field(
+        default="",
+        description="Default signature contact info (e.g., 'email@company.com')",
+    )
+
     # --- Output ---
     output_suffix: str = Field(
         default="_signed",
@@ -150,6 +164,18 @@ class Settings(BaseSettings):
     dry_run: bool = Field(
         default=False,
         description="Simulation mode without real token",
+    )
+
+    # --- Audit Trail ---
+    audit_enabled: bool = Field(
+        default=True,
+        description="Enable audit logging for security and compliance",
+    )
+    audit_retention_days: int = Field(
+        default=90,
+        ge=1,
+        le=3650,
+        description="Days to retain audit logs (1-3650)",
     )
 
     # --- Appearance ---

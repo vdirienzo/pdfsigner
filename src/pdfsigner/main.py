@@ -51,6 +51,15 @@ def main() -> int:
     sign_parser.add_argument(
         "--qr-code", action="store_true", help="Include QR verification code in stamp"
     )
+    sign_parser.add_argument(
+        "--reason", type=str, help="Signature reason (e.g., 'I approve this document')"
+    )
+    sign_parser.add_argument(
+        "--location", type=str, help="Signature location (e.g., 'Buenos Aires, Argentina')"
+    )
+    sign_parser.add_argument(
+        "--contact", type=str, help="Contact information (e.g., 'email@company.com')"
+    )
 
     # Command: validate
     validate_parser = subparsers.add_parser("validate", help="Validate existing signatures")

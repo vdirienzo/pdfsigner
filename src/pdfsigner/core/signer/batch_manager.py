@@ -126,6 +126,9 @@ class BatchManager:
         cert_id: bytes | None = None,
         progress_callback: ProgressCallback | None = None,
         template_override: str | None = None,
+        reason: str | None = None,
+        location: str | None = None,
+        contact_info: str | None = None,
     ) -> BatchResult:
         """
         Signs a batch of PDFs.
@@ -136,6 +139,9 @@ class BatchManager:
             cert_id: Certificate ID to use
             progress_callback: Callback to update progress
             template_override: Template name to use instead of settings default
+            reason: Signature reason (e.g., "I approve this document")
+            location: Signature location (e.g., "Buenos Aires, Argentina")
+            contact_info: Contact information (e.g., "email@company.com")
 
         Returns:
             Batch result with statistics and details
@@ -179,6 +185,9 @@ class BatchManager:
                 appearance=appearance,
                 cert_id=cert_id,
                 template_override=template_override,
+                reason=reason,
+                location=location,
+                contact_info=contact_info,
             )
 
             result.results.append(signing_result)

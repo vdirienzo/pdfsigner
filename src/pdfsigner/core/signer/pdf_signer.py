@@ -392,6 +392,170 @@ class PDFSigner:
 
         return stamp.TextStampStyle(**style_kwargs)
 
+    def _prepare_signing_context(
+        self,
+        input_path: Path,
+        cert_id: bytes | None,
+    ) -> tuple[signers.Signer, object | None, str | None, str | None, int]:
+        """
+        Prepare signing context: signer, timestamper, and certificate info.
+
+        Args:
+            input_path: Path to the PDF to sign
+            cert_id: Certificate ID to use (None = default)
+
+        Returns:
+            Tuple of (signer, timestamper, signer_name, organization, existing_sig_count)
+        """
+        self._validate_pdf(input_path)
+
+        validator = PDFValidator()
+        existing_sig_count = validator.get_signature_count(input_path)
+
+        signer = self._create_signer(cert_id)
+
+        timestamper = None
+        if self.lta_handler and self.lta_handler.tsa_config.url:
+            timestamper = self.lta_handler.get_timestamper()
+
+        # Extract signer info from certificate (asn1crypto API)
+        signer_name = None
+        organization = None
+        if signer.signing_cert:
+            subject_dict = signer.signing_cert.subject.native
+            signer_name = subject_dict.get("common_name")
+            organization = subject_dict.get("organization_name")
+
+        return signer, timestamper, signer_name, organization, existing_sig_count
+
+    def _preprocess_pdf_with_stamps(
+        self,
+        input_path: Path,
+        visual_stamps: list,
+        template_override: str | None,
+        signer_name: str | None,
+        appearance: "SignatureAppearance",
+        organization: str | None,
+    ) -> tuple[Path, Path | None]:
+        """
+        Add visual stamps to additional pages if needed.
+
+        Args:
+            input_path: Original PDF path
+            visual_stamps: List of stamp positions for non-signature pages
+            template_override: Template name override
+            signer_name: Certificate CN
+            appearance: Signature appearance configuration
+            organization: Organization from certificate
+
+        Returns:
+            Tuple of (pdf_to_sign, temp_pdf_path or None)
+        """
+        if not visual_stamps:
+            return input_path, None
+
+        import os
+        import tempfile
+
+        template_name = template_override or get_settings().signature_template or "default"
+        stamp_image_path = self._render_template_stamp(
+            template_name,
+            signer_name,
+            input_path,
+            appearance,
+            organization=organization,
+        )
+
+        if not stamp_image_path:
+            return input_path, None
+
+        temp_fd, temp_pdf_str = tempfile.mkstemp(suffix=".pdf")
+        temp_pdf_path = Path(temp_pdf_str)
+        os.close(temp_fd)
+
+        self._add_visual_stamps_to_pdf(
+            input_path,
+            temp_pdf_path,
+            visual_stamps,
+            stamp_image_path,
+        )
+
+        logger.debug(f"Added visual stamps to {len(visual_stamps)} additional page(s)")
+        return temp_pdf_path, temp_pdf_path
+
+    def _execute_signing(
+        self,
+        pdf_to_sign: Path,
+        output_path: Path,
+        input_path: Path,
+        field_result,
+        signer: signers.Signer,
+        timestamper,
+        appearance: "SignatureAppearance",
+        signer_name: str | None,
+        organization: str | None,
+        existing_sig_count: int,
+        template_override: str | None,
+        reason: str | None = None,
+        location: str | None = None,
+        contact_info: str | None = None,
+    ) -> None:
+        """
+        Execute the actual PDF signing operation.
+
+        Args:
+            pdf_to_sign: PDF to sign (original or preprocessed)
+            output_path: Where to save signed PDF
+            input_path: Original input path (for stamp rendering)
+            field_result: Signature field specification
+            signer: pyHanko signer
+            timestamper: TSA timestamper or None
+            appearance: Signature appearance configuration
+            signer_name: Certificate CN
+            organization: Organization from certificate
+            existing_sig_count: Number of existing signatures
+            template_override: Template name override
+            reason: Signature reason (e.g., "I approve this document")
+            location: Signature location (e.g., "Buenos Aires, Argentina")
+            contact_info: Contact information (e.g., "email@company.com")
+        """
+        # strict=False allows hybrid-reference PDFs (mixed xref tables/streams)
+        with open(pdf_to_sign, "rb") as f:
+            writer = IncrementalPdfFileWriter(f, strict=False)
+
+            if field_result.field_spec:
+                append_signature_field(writer, field_result.field_spec)
+                sig_field_name = field_result.field_spec.sig_field_name
+            else:
+                sig_field_name = f"Signature{existing_sig_count + 1}"
+
+            stamp_style = self._build_stamp_style(
+                appearance,
+                input_path=input_path,
+                signer_name=signer_name,
+                organization=organization,
+                template_override=template_override,
+            )
+
+            sig_metadata = signers.PdfSignatureMetadata(
+                field_name=sig_field_name,
+                md_algorithm="sha256",
+                subfilter=SigSeedSubFilter.PADES,
+                reason=reason or None,
+                location=location or None,
+                contact_info=contact_info or None,
+            )
+
+            pdf_signer = signers.PdfSigner(
+                sig_metadata,
+                signer=signer,
+                stamp_style=stamp_style,
+                timestamper=timestamper,
+            )
+
+            with open(output_path, "wb") as out:
+                pdf_signer.sign_pdf(writer, output=out)
+
     def sign_pdf(
         self,
         input_path: Path,
@@ -399,6 +563,9 @@ class PDFSigner:
         appearance: SignatureAppearance | None = None,
         cert_id: bytes | None = None,
         template_override: str | None = None,
+        reason: str | None = None,
+        location: str | None = None,
+        contact_info: str | None = None,
     ) -> SigningResult:
         """
         Signs a PDF.
@@ -409,6 +576,9 @@ class PDFSigner:
             appearance: Appearance configuration
             cert_id: Certificate ID to use (None = default)
             template_override: Template name to use instead of settings default
+            reason: Signature reason (e.g., "I approve this document")
+            location: Signature location (e.g., "Buenos Aires, Argentina")
+            contact_info: Contact information (e.g., "email@company.com")
 
         Returns:
             Signing operation result
@@ -420,32 +590,12 @@ class PDFSigner:
         logger.info(f"Signing: {input_path.name}")
 
         try:
-            # Validate PDF
-            self._validate_pdf(input_path)
+            # Phase 1: Prepare signing context
+            signer, timestamper, signer_name, organization, existing_sig_count = (
+                self._prepare_signing_context(input_path, cert_id)
+            )
 
-            # Count existing signatures to generate unique field names
-            validator = PDFValidator()
-            existing_sig_count = validator.get_signature_count(input_path)
-
-            # Create signer
-            signer = self._create_signer(cert_id)
-
-            # Get timestamper if available
-            timestamper = None
-            if self.lta_handler and self.lta_handler.tsa_config.url:
-                timestamper = self.lta_handler.get_timestamper()
-
-            # Extract signer info from certificate for stamp (needed for multi-page stamps)
-            # Note: pyHanko uses asn1crypto, not cryptography.x509
-            signer_name = None
-            organization = None
-            if signer.signing_cert:
-                # asn1crypto API: subject.native returns dict with CN, O, etc.
-                subject_dict = signer.signing_cert.subject.native
-                signer_name = subject_dict.get("common_name")
-                organization = subject_dict.get("organization_name")
-
-            # Get signature field and visual stamp positions
+            # Phase 2: Create signature fields
             from pdfsigner.core.signer.signature_field import create_signature_field_with_stamps
 
             field_result = create_signature_field_with_stamps(
@@ -458,90 +608,35 @@ class PDFSigner:
                 existing_signature_count=existing_sig_count,
             )
 
-            # Determine which file to sign (may need preprocessing for multi-page stamps)
-            pdf_to_sign = input_path
-            temp_pdf_path = None
+            # Phase 3: Preprocess PDF with visual stamps if multi-page
+            pdf_to_sign, temp_pdf_path = self._preprocess_pdf_with_stamps(
+                input_path,
+                field_result.visual_stamps,
+                template_override,
+                signer_name,
+                appearance,
+                organization,
+            )
 
-            # If there are visual stamps for additional pages, add them first
-            if field_result.visual_stamps:
-                import tempfile
-
-                # Render the stamp image for visual copies
-                stamp_image_path = self._render_template_stamp(
-                    template_override or get_settings().signature_template or "default",
-                    signer_name,
-                    input_path,
-                    appearance,
-                    organization=organization,
-                )
-
-                if stamp_image_path:
-                    # Create temp file with visual stamps added
-                    temp_fd, temp_pdf_str = tempfile.mkstemp(suffix=".pdf")
-                    temp_pdf_path = Path(temp_pdf_str)
-                    import os
-
-                    os.close(temp_fd)
-
-                    self._add_visual_stamps_to_pdf(
-                        input_path,
-                        temp_pdf_path,
-                        field_result.visual_stamps,
-                        stamp_image_path,
-                    )
-                    pdf_to_sign = temp_pdf_path
-                    logger.debug(
-                        f"Added visual stamps to {len(field_result.visual_stamps)} "
-                        f"additional page(s)"
-                    )
-
+            # Phase 4: Execute signing
             try:
-                # Open PDF (original or pre-processed with visual stamps)
-                # strict=False allows hybrid-reference PDFs (mixed xref tables/streams)
-                # These are rare but some tools still generate them
-                with open(pdf_to_sign, "rb") as f:
-                    writer = IncrementalPdfFileWriter(f, strict=False)
-
-                    # Add signature field if visible
-                    if field_result.field_spec:
-                        append_signature_field(writer, field_result.field_spec)
-                        sig_field_name = field_result.field_spec.sig_field_name
-                    else:
-                        # pyHanko requires a field name even for invisible signatures
-                        # Use unique name based on existing signatures
-                        sig_field_name = f"Signature{existing_sig_count + 1}"
-
-                    # Build stamp style for visible signatures
-                    stamp_style = self._build_stamp_style(
-                        appearance,
-                        input_path=input_path,
-                        signer_name=signer_name,
-                        organization=organization,
-                        template_override=template_override,
-                    )
-
-                    # Create signature metadata
-                    sig_metadata = signers.PdfSignatureMetadata(
-                        field_name=sig_field_name,
-                        md_algorithm="sha256",
-                        subfilter=SigSeedSubFilter.PADES,
-                    )
-
-                    # Sign using PdfSigner to support stamp_style
-                    pdf_signer = signers.PdfSigner(
-                        sig_metadata,
-                        signer=signer,
-                        stamp_style=stamp_style,
-                        timestamper=timestamper,
-                    )
-
-                    with open(output_path, "wb") as out:
-                        pdf_signer.sign_pdf(
-                            writer,
-                            output=out,
-                        )
+                self._execute_signing(
+                    pdf_to_sign,
+                    output_path,
+                    input_path,
+                    field_result,
+                    signer,
+                    timestamper,
+                    appearance,
+                    signer_name,
+                    organization,
+                    existing_sig_count,
+                    template_override,
+                    reason=reason,
+                    location=location,
+                    contact_info=contact_info,
+                )
             finally:
-                # Clean up temp file if created
                 if temp_pdf_path and temp_pdf_path.exists():
                     temp_pdf_path.unlink()
 
