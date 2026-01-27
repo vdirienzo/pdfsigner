@@ -91,6 +91,9 @@ class MockBatchManager:
         progress_callback=None,
         qr_enabled: bool = False,
         template_override: str | None = None,
+        reason: str | None = None,
+        location: str | None = None,
+        contact_info: str | None = None,
     ) -> MockBatchResult:
         """
         Simulates batch file signing.

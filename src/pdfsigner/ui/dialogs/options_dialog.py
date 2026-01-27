@@ -186,21 +186,21 @@ class SignatureOptionsDialog(Gtk.Dialog):
         self.position_combo.set_active_id(self.default_appearance.position_preference.value)
         self.options_grid.attach(self.position_combo, 1, 3, 1, 1)
 
-        # === Signature Information Section ===
-        info_separator = Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL)
-        self.options_grid.attach(info_separator, 0, 4, 2, 1)
+        content.append(self.options_grid)
 
-        info_header = Gtk.Label(label=_("Signature Information"))
-        info_header.set_xalign(0)
-        info_header.add_css_class("heading")
-        info_header.set_margin_top(8)
-        self.options_grid.attach(info_header, 0, 5, 2, 1)
+        # === Signature Information Section (Collapsible) ===
+        # Create inner grid for the expander content
+        info_grid = Gtk.Grid()
+        info_grid.set_row_spacing(8)
+        info_grid.set_column_spacing(12)
+        info_grid.set_margin_top(8)
+        info_grid.set_margin_start(8)
 
         # Reason entry
         reason_label = Gtk.Label(label=_("Reason"))
         reason_label.set_xalign(0)
         reason_label.add_css_class("dim-label")
-        self.options_grid.attach(reason_label, 0, 6, 1, 1)
+        info_grid.attach(reason_label, 0, 0, 1, 1)
 
         self.reason_entry = Gtk.Entry()
         self.reason_entry.set_placeholder_text(_("e.g., I approve this document"))
@@ -209,35 +209,40 @@ class SignatureOptionsDialog(Gtk.Dialog):
         settings = get_settings()
         if settings.default_signature_reason:
             self.reason_entry.set_text(settings.default_signature_reason)
-        self.options_grid.attach(self.reason_entry, 1, 6, 1, 1)
+        info_grid.attach(self.reason_entry, 1, 0, 1, 1)
 
         # Location entry
         location_label = Gtk.Label(label=_("Location"))
         location_label.set_xalign(0)
         location_label.add_css_class("dim-label")
-        self.options_grid.attach(location_label, 0, 7, 1, 1)
+        info_grid.attach(location_label, 0, 1, 1, 1)
 
         self.location_entry = Gtk.Entry()
         self.location_entry.set_placeholder_text(_("e.g., Buenos Aires, Argentina"))
         self.location_entry.set_hexpand(True)
         if settings.default_signature_location:
             self.location_entry.set_text(settings.default_signature_location)
-        self.options_grid.attach(self.location_entry, 1, 7, 1, 1)
+        info_grid.attach(self.location_entry, 1, 1, 1, 1)
 
         # Contact info entry
         contact_label = Gtk.Label(label=_("Contact Info"))
         contact_label.set_xalign(0)
         contact_label.add_css_class("dim-label")
-        self.options_grid.attach(contact_label, 0, 8, 1, 1)
+        info_grid.attach(contact_label, 0, 2, 1, 1)
 
         self.contact_entry = Gtk.Entry()
         self.contact_entry.set_placeholder_text(_("e.g., email@company.com"))
         self.contact_entry.set_hexpand(True)
         if settings.default_signature_contact:
             self.contact_entry.set_text(settings.default_signature_contact)
-        self.options_grid.attach(self.contact_entry, 1, 8, 1, 1)
+        info_grid.attach(self.contact_entry, 1, 2, 1, 1)
 
-        content.append(self.options_grid)
+        # Create expander (collapsed by default)
+        self.info_expander = Gtk.Expander(label=_("Additional Information"))
+        self.info_expander.set_expanded(False)
+        self.info_expander.set_child(info_grid)
+        self.info_expander.set_margin_top(8)
+        content.append(self.info_expander)
 
         # Connect template change signal AFTER all widgets exist
         self.template_combo.connect("changed", self._on_template_changed)

@@ -88,12 +88,16 @@ class SigningHandler:
 
         appearance = dialog.get_appearance()
         selected_template = dialog.get_selected_template()
+        metadata = dialog.get_signature_metadata()
 
         self._current_options = {
             "visible": appearance.visible if appearance else False,
             "page": appearance.page if appearance else "last",
             "appearance": appearance,  # Store full appearance for position_preference
             "template": selected_template,  # Store selected template for override
+            "reason": metadata.get("reason"),
+            "location": metadata.get("location"),
+            "contact_info": metadata.get("contact_info"),
         }
         dialog.destroy()
         self._request_pin_or_use_cache(files)
@@ -234,6 +238,9 @@ class SigningHandler:
                     appearance=self._current_options.get("appearance"),
                     progress_callback=on_progress,
                     template_override=self._current_options.get("template"),
+                    reason=self._current_options.get("reason"),
+                    location=self._current_options.get("location"),
+                    contact_info=self._current_options.get("contact_info"),
                 )
                 GLib.idle_add(self._signing_complete, mock_results, files, self.settings.dry_run)
             else:
@@ -256,6 +263,9 @@ class SigningHandler:
                     appearance=self._current_options.get("appearance"),
                     progress_callback=on_progress_real,
                     template_override=self._current_options.get("template"),
+                    reason=self._current_options.get("reason"),
+                    location=self._current_options.get("location"),
+                    contact_info=self._current_options.get("contact_info"),
                 )
                 GLib.idle_add(self._signing_complete, real_results, files, self.settings.dry_run)
 
