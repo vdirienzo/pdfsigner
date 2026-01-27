@@ -1,6 +1,6 @@
 name: pdfsigner
 title: PDFSigner
-version: '0.9.5'
+version: '1.0.0'
 summary: Sign PDF documents with USB cryptographic tokens
 description: |
   PDFSigner is a GTK4 application for digitally signing PDF documents
