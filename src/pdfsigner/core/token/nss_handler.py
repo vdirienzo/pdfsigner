@@ -17,6 +17,8 @@ from loguru import logger
 from pkcs11 import ObjectClass, lib
 
 from pdfsigner.config.settings import get_settings
+from pdfsigner.core.audit import log_token_event
+from pdfsigner.core.audit.audit_event import AuditEventType
 from pdfsigner.exceptions import (
     CertificateNotFoundError,
     NSSConfigError,
@@ -164,14 +166,41 @@ class NSSHandler:
         if self._token is None:
             raise TokenNotFoundError("You must connect a token first")
 
+        token_label = self._token.label.strip()
+
         try:
             self._session = self._token.open(user_pin=pin)
             logger.info("Successful authentication with token")
+
+            # Log successful authentication
+            log_token_event(
+                event_type=AuditEventType.TOKEN_LOGIN,
+                success=True,
+                details={"token_label": token_label},
+            )
         except pkcs11.exceptions.PinIncorrect:
+            log_token_event(
+                event_type=AuditEventType.TOKEN_LOGIN,
+                success=False,
+                error="Incorrect PIN",
+                details={"token_label": token_label},
+            )
             raise TokenAuthenticationError("Incorrect PIN")
         except pkcs11.exceptions.PinLocked:
+            log_token_event(
+                event_type=AuditEventType.TOKEN_LOGIN,
+                success=False,
+                error="Token locked due to too many attempts",
+                details={"token_label": token_label},
+            )
             raise TokenAuthenticationError("Token locked due to too many attempts")
         except pkcs11.exceptions.PKCS11Error as e:
+            log_token_event(
+                event_type=AuditEventType.TOKEN_LOGIN,
+                success=False,
+                error=f"PKCS#11 authentication error: {e}",
+                details={"token_label": token_label},
+            )
             raise TokenAuthenticationError(f"PKCS#11 authentication error: {e}") from e
 
     def list_certificates(self) -> list[CertificateInfo]:
@@ -282,8 +311,18 @@ class NSSHandler:
     def close(self) -> None:
         """Close token session."""
         if self._session is not None:
+            # Get token label before closing
+            token_label = self._token.label.strip() if self._token else "Unknown"
+
             try:
                 self._session.close()
+
+                # Log successful logout
+                log_token_event(
+                    event_type=AuditEventType.TOKEN_LOGOUT,
+                    success=True,
+                    details={"token_label": token_label},
+                )
             except pkcs11.exceptions.PKCS11Error as e:
                 logger.debug(f"Error closing PKCS#11 session (non-fatal): {e}")
             self._session = None

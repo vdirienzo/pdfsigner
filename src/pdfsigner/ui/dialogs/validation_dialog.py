@@ -10,12 +10,16 @@ of existing signatures in a PDF.
 import gi
 
 gi.require_version("Gtk", "4.0")
-from gi.repository import Gtk
+gi.require_version("Adw", "1")
+from gi.repository import Adw, Gtk
 
+from pdfsigner.core.reports.report_generator import ValidationReportGenerator
 from pdfsigner.core.validator.pdf_validator import (
     SignatureStatus,
     ValidationResult,
 )
+from pdfsigner.gui.dialogs.certificate_details_dialog import CertificateDetailsDialog
+from pdfsigner.gui.dialogs.export_report_dialog import ExportReportDialog
 from pdfsigner.i18n import _
 
 
@@ -46,8 +50,16 @@ class ValidationResultDialog(Gtk.Dialog):
         )
 
         self.result = result
+        self._parent = parent
 
         self.set_default_size(600, 450)
+
+        # Add Export Report button (only if we have valid data to export)
+        if result and result.is_signed and not result.error:
+            self._export_button = self.add_button(_("Export Report"), Gtk.ResponseType.NONE)
+            self._export_button.add_css_class("suggested-action")
+            self._export_button.connect("clicked", self._on_export_clicked)
+
         self.add_button(_("Close"), Gtk.ResponseType.CLOSE)
 
         # Contenido
@@ -217,9 +229,89 @@ class ValidationResultDialog(Gtk.Dialog):
         details_box.append(coverage_label)
 
         main_box.append(details_box)
+
+        # View Certificate button (only if certificate bytes are available)
+        if sig.certificate_bytes:
+            button_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+            button_box.set_margin_top(6)
+            button_box.set_margin_start(28)
+
+            view_cert_btn = Gtk.Button(label=_("View Certificate"))
+            view_cert_btn.add_css_class("flat")
+            view_cert_btn.connect("clicked", lambda b: self._show_certificate_details(sig))
+            button_box.append(view_cert_btn)
+
+            main_box.append(button_box)
+
         row.set_child(main_box)
 
         return row
+
+    def _show_certificate_details(self, sig_info) -> None:
+        """Show certificate details dialog."""
+        if not sig_info.certificate_bytes:
+            return
+
+        dialog = CertificateDetailsDialog(cert_bytes=sig_info.certificate_bytes)
+        dialog.set_transient_for(self)
+        dialog.present()
+
+    def _on_export_clicked(self, button: Gtk.Button) -> None:
+        """Handle export button click."""
+        # Open export dialog
+        export_dialog = ExportReportDialog(parent=self._parent or self)
+        export_dialog.connect("close-request", self._on_export_dialog_close)
+        export_dialog.present()
+
+    def _on_export_dialog_close(self, dialog: ExportReportDialog) -> bool:
+        """Handle export dialog close."""
+        if dialog.was_cancelled():
+            return False
+
+        # Get export parameters
+        output_path = dialog.get_output_path()
+        if not output_path:
+            return False
+
+        # Ensure we have a valid result to export
+        if not self.result:
+            return False
+
+        report_format = dialog.get_format()
+        report_options = dialog.get_options()
+
+        try:
+            # Generate report
+            generator = ValidationReportGenerator(options=report_options)
+            report_data = generator.generate(
+                results=[self.result],  # ValidationReportGenerator expects a list
+                format=report_format,
+            )
+
+            # Write to file
+            if isinstance(report_data, bytes):
+                # PDF format
+                with open(output_path, "wb") as f:
+                    f.write(report_data)
+            else:
+                # CSV or JSON format
+                with open(output_path, "w", encoding="utf-8") as f:
+                    f.write(report_data)
+
+            # Show success toast if we have a parent window that supports toasts
+            if self._parent and hasattr(self._parent, "add_toast"):
+                toast = Adw.Toast.new(_("Report exported successfully"))
+                toast.set_timeout(3)
+                self._parent.add_toast(toast)
+
+        except Exception as e:
+            # Show error toast
+            if self._parent and hasattr(self._parent, "add_toast"):
+                toast = Adw.Toast.new(_("Error exporting report: {}").format(str(e)))
+                toast.set_timeout(5)
+                self._parent.add_toast(toast)
+
+        return False
 
 
 def show_validation_result(

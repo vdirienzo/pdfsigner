@@ -7,13 +7,15 @@ Creates the visible signature appearance settings page with template selection.
 """
 
 import io
+from pathlib import Path
 
 import gi
 
 gi.require_version("Gdk", "4.0")
+gi.require_version("Gio", "2.0")
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gdk, GLib, Gtk
+from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
 from pdfsigner.i18n import _
 
@@ -193,6 +195,103 @@ def create_signature_page(settings, dialog) -> Adw.PreferencesPage:
 
     create_btn.connect("clicked", _on_create_template_clicked)
     template_combo.add_suffix(create_btn)
+
+    # Import template button
+    import_btn = Gtk.Button()
+    import_btn.set_icon_name("document-open-symbolic")
+    import_btn.set_tooltip_text(_("Import template from file"))
+    import_btn.set_valign(Gtk.Align.CENTER)
+    import_btn.add_css_class("flat")
+
+    def _on_import_template_clicked(_button):
+        """Open file chooser to import a template JSON file."""
+        from pdfsigner.core.security.template_validator import validate_template_file
+        from pdfsigner.core.signature import load_template_from_path, save_user_template
+
+        # Create file chooser dialog
+        file_chooser = Gtk.FileDialog()
+        file_chooser.set_title(_("Import Template"))
+
+        # Add JSON filter
+        json_filter = Gtk.FileFilter()
+        json_filter.set_name(_("JSON files"))
+        json_filter.add_pattern("*.json")
+
+        all_filter = Gtk.FileFilter()
+        all_filter.set_name(_("All files"))
+        all_filter.add_pattern("*")
+
+        filter_list = Gio.ListStore.new(Gtk.FileFilter)
+        filter_list.append(json_filter)
+        filter_list.append(all_filter)
+        file_chooser.set_filters(filter_list)
+        file_chooser.set_default_filter(json_filter)
+
+        def on_file_selected(_source, result):
+            """Process selected template file."""
+            try:
+                file = file_chooser.open_finish(result)
+                if not file:
+                    return
+
+                file_path = Path(file.get_path())
+
+                # Validate template structure
+                errors = validate_template_file(file_path)
+                if errors:
+                    # Show error toast
+                    toast = Adw.Toast(title=_("Invalid template: {}").format(", ".join(errors)))
+                    toast.set_timeout(5)
+                    dialog.add_toast(toast)
+                    return
+
+                # Load template
+                template = load_template_from_path(file_path)
+                if not template:
+                    toast = Adw.Toast(title=_("Failed to load template"))
+                    toast.set_timeout(3)
+                    dialog.add_toast(toast)
+                    return
+
+                # Save as user template
+                save_user_template(template)
+
+                # Refresh dropdown
+                new_choices = _get_template_choices()
+                new_model = Gtk.StringList.new([c[1] for c in new_choices])
+                template_combo.set_model(new_model)
+                dialog._template_choices = [c[0] for c in new_choices]
+
+                # Select the imported template
+                for i, (value, _label) in enumerate(new_choices):
+                    if value == template.name:
+                        template_combo.set_selected(i)
+                        break
+
+                # Update preview
+                preview = _create_preview_image(template.name)
+                if preview:
+                    preview_frame.set_child(preview)
+
+                # Show success toast
+                toast = Adw.Toast(
+                    title=_("Template '{}' imported successfully").format(template.name)
+                )
+                toast.set_timeout(3)
+                dialog.add_toast(toast)
+
+            except Exception as e:
+                from loguru import logger
+
+                logger.error(f"Failed to import template: {e}")
+                toast = Adw.Toast(title=_("Import failed: {}").format(str(e)))
+                toast.set_timeout(5)
+                dialog.add_toast(toast)
+
+        file_chooser.open(dialog, None, on_file_selected)
+
+    import_btn.connect("clicked", _on_import_template_clicked)
+    template_combo.add_suffix(import_btn)
 
     # Edit template button (only visible for user templates)
     edit_btn = Gtk.Button()

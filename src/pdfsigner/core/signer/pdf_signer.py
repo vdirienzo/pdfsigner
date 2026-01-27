@@ -18,6 +18,7 @@ from pyhanko.sign import signers
 from pyhanko.sign.fields import SigSeedSubFilter, append_signature_field
 
 from pdfsigner.config.settings import get_settings
+from pdfsigner.core.audit import log_signing_event
 from pdfsigner.core.pdf_analyzer.position_finder import PositionPreference
 from pdfsigner.core.signer.lta_handler import LTAHandler
 from pdfsigner.core.token.nss_handler import NSSHandler
@@ -642,6 +643,31 @@ class PDFSigner:
 
             logger.info(f"PDF signed successfully: {output_path.name}")
 
+            # Log audit event for successful signing
+            certificate_serial = None
+            certificate_issuer = None
+            try:
+                if signer.signing_cert:
+                    certificate_serial = hex(signer.signing_cert.serial_number)
+                    certificate_issuer = signer.signing_cert.issuer.human_friendly
+            except (TypeError, AttributeError):
+                # Handle mocks or missing attributes gracefully
+                pass
+
+            log_signing_event(
+                document_path=str(input_path),
+                certificate_serial=certificate_serial,
+                certificate_issuer=certificate_issuer,
+                user_cn=signer_name,
+                success=True,
+                details={
+                    "template": template_override or get_settings().signature_template or "none",
+                    "output": str(output_path),
+                    "reason": reason,
+                    "location": location,
+                },
+            )
+
             return SigningResult(
                 success=True,
                 input_path=input_path,
@@ -651,6 +677,18 @@ class PDFSigner:
 
         except (PDFCorruptedError, PDFProtectedError) as e:
             logger.error(f"PDF error: {e}")
+
+            # Log audit event for failed signing
+            log_signing_event(
+                document_path=str(input_path),
+                certificate_serial=None,
+                certificate_issuer=None,
+                user_cn=None,
+                success=False,
+                error=str(e),
+                details={"error_type": type(e).__name__},
+            )
+
             return SigningResult(
                 success=False,
                 input_path=input_path,
@@ -661,6 +699,35 @@ class PDFSigner:
             import traceback
 
             logger.error(f"Error signing PDF: {e}\n{traceback.format_exc()}")
+
+            # Log audit event for failed signing
+            # Try to get certificate info if signer was created
+            certificate_serial = None
+            certificate_issuer = None
+            user_cn = None
+            try:
+                # Check if signer was successfully created in Phase 1
+                signer  # This will raise NameError if not defined
+                if signer and signer.signing_cert:
+                    certificate_serial = hex(signer.signing_cert.serial_number)
+                    certificate_issuer = signer.signing_cert.issuer.human_friendly
+                    try:
+                        user_cn = signer_name  # May not be defined if error in Phase 1
+                    except NameError:
+                        pass
+            except (NameError, AttributeError):
+                pass  # Signer not yet created or cert info unavailable
+
+            log_signing_event(
+                document_path=str(input_path),
+                certificate_serial=certificate_serial,
+                certificate_issuer=certificate_issuer,
+                user_cn=user_cn,
+                success=False,
+                error=str(e),
+                details={"error_type": type(e).__name__, "traceback": traceback.format_exc()},
+            )
+
             return SigningResult(
                 success=False,
                 input_path=input_path,

@@ -12,10 +12,17 @@ from datetime import datetime
 from enum import Enum
 from pathlib import Path
 
+from cryptography import x509
 from loguru import logger
 from pyhanko.pdf_utils.reader import PdfFileReader
 from pyhanko.sign.validation import validate_pdf_signature
 from pyhanko.sign.validation.settings import KeyUsageConstraints
+
+from pdfsigner.core.certificate import (
+    CertificateChainValidator,
+    ChainValidationResult,
+    TrustStore,
+)
 
 
 class SignatureStatus(Enum):
@@ -45,6 +52,8 @@ class SignatureInfo:
     covers_whole_document: bool
     is_modification_allowed: bool
     page_number: int | None  # Page where visible signature is located (if applicable)
+    certificate_bytes: bytes | None = None  # DER-encoded certificate for viewing
+    chain_validation_result: ChainValidationResult | None = None
 
 
 @dataclass
@@ -69,7 +78,9 @@ class PDFValidator:
 
     def __init__(self):
         """Initialize validator."""
-        pass
+        # Initialize trust store and chain validator
+        self.trust_store = TrustStore()
+        self.chain_validator = CertificateChainValidator(self.trust_store)
 
     def validate(self, pdf_path: Path | str) -> ValidationResult:
         """
@@ -173,6 +184,24 @@ class PDFValidator:
             signer_email = self._extract_email(cert)
             issuer = self._extract_cn(cert.issuer.human_friendly)
 
+            # Extract certificate bytes (DER format) for viewing
+            cert_bytes = cert.dump()
+
+            # Validate certificate chain
+            chain_result = None
+            try:
+                # Convert pyhanko certificate to cryptography x509.Certificate
+                crypto_cert = x509.load_der_x509_certificate(cert_bytes)
+                chain_result = self.chain_validator.validate_chain(crypto_cert)
+                logger.debug(
+                    f"Chain validation for {field_name}: {chain_result.status.value}, "
+                    f"chain length: {len(chain_result.chain)}"
+                )
+            except Exception as chain_err:
+                logger.warning(
+                    f"Could not validate certificate chain for {field_name}: {chain_err}"
+                )
+
             # Determine status
             if status.valid:
                 sig_status = SignatureStatus.VALID
@@ -183,6 +212,9 @@ class PDFValidator:
             else:
                 sig_status = SignatureStatus.INVALID
                 status_msg = "Invalid signature or modified document"
+
+            # Extract page number from signature annotation
+            page_number = self._extract_page_number(reader, sig)
 
             return SignatureInfo(
                 signer_name=signer_name,
@@ -201,7 +233,9 @@ class PDFValidator:
                 field_name=field_name,
                 covers_whole_document=status.coverage.value >= 2,  # ENTIRE_REVISION or more
                 is_modification_allowed=status.modification_level is not None,
-                page_number=None,  # TODO: extract from annotation
+                page_number=page_number,
+                certificate_bytes=cert_bytes,
+                chain_validation_result=chain_result,
             )
 
         except Exception as e:
@@ -227,6 +261,7 @@ class PDFValidator:
         serial = ""
         valid_from = None
         valid_to = None
+        cert_bytes = None
 
         # Try to extract certificate info even if validation failed
         if sig and sig.signer_cert:
@@ -238,6 +273,7 @@ class PDFValidator:
                 serial = format(cert.serial_number, "x")
                 valid_from = cert.not_valid_before
                 valid_to = cert.not_valid_after
+                cert_bytes = cert.dump()
             except Exception:
                 pass
 
@@ -256,6 +292,8 @@ class PDFValidator:
             covers_whole_document=False,
             is_modification_allowed=False,
             page_number=None,
+            certificate_bytes=cert_bytes,
+            chain_validation_result=None,
         )
 
     def _create_error_info(self, field_name: str, error: str) -> SignatureInfo:
@@ -275,6 +313,8 @@ class PDFValidator:
             covers_whole_document=False,
             is_modification_allowed=False,
             page_number=None,
+            certificate_bytes=None,
+            chain_validation_result=None,
         )
 
     def _extract_cn(self, subject: str) -> str:
@@ -297,6 +337,53 @@ class PDFValidator:
         except Exception:
             pass
         return None
+
+    def _extract_page_number(self, reader: PdfFileReader, sig) -> int | None:
+        """Extract page number where signature annotation is located.
+
+        Args:
+            reader: PDF reader with document
+            sig: EmbeddedPdfSignature object
+
+        Returns:
+            Page number (1-indexed) or None if not found
+        """
+        try:
+            # Get the signature field object
+            sig_field = sig.sig_field
+            if not sig_field:
+                return None
+
+            sig_field_obj = sig_field.get_object()
+
+            # Strategy 1: Check for direct /P reference to page
+            if "/P" in sig_field_obj:
+                page_ref = sig_field_obj.raw_get("/P")
+                # Find which page number this reference corresponds to
+                pages = reader.root["/Pages"]["/Kids"]
+                for page_num, page in enumerate(pages):
+                    if page.reference == page_ref:
+                        return page_num + 1  # 1-indexed
+
+            # Strategy 2: Iterate pages and check if annotation is in /Annots array
+            pages = reader.root["/Pages"]["/Kids"]
+            for page_num, page in enumerate(pages):
+                if "/Annots" in page:
+                    annots = page["/Annots"]
+                    # annots can be indirect reference or array
+                    if hasattr(annots, "get_object"):
+                        annots = annots.get_object()
+                    # Check each annotation
+                    for annot in annots:
+                        annot_ref = annot if hasattr(annot, "reference") else annot
+                        if annot_ref.reference == sig_field.reference:
+                            return page_num + 1  # 1-indexed
+
+            return None
+
+        except Exception as e:
+            logger.debug(f"Could not extract page number from signature annotation: {e}")
+            return None
 
     def get_signature_count(self, pdf_path: Path | str) -> int:
         """
