@@ -149,17 +149,11 @@ class SettingsDialog(Adw.PreferencesWindow):
         # Visibility is determined by template: no template = invisible
         is_visible = bool(template_name)
 
-        # Get default organization
-        default_org = ""
-        if hasattr(self, "org_row"):
-            default_org = self.org_row.get_text().strip()
-
         lines.extend(
             [
                 f"default_visible = {str(is_visible).lower()}",
                 f'default_page = "{"last" if self.page_combo.get_selected() == 0 else "first"}"',
                 f'signature_template = "{template_name}"',
-                f'default_organization = "{default_org}"',
                 f'output_suffix = "{self.suffix_row.get_text()}"',
                 f"pin_cache_enabled = {str(self.pin_cache_switch.get_active()).lower()}",
                 f"pin_cache_timeout_seconds = {int(self.pin_timeout_spin.get_value())}",

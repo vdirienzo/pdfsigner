@@ -113,10 +113,6 @@ class Settings(BaseSettings):
         default=None,
         description="Path to custom template JSON file",
     )
-    default_organization: str = Field(
-        default="",
-        description="Organization name to use if certificate lacks one",
-    )
 
     # --- Signature Metadata ---
     default_signature_reason: str = Field(

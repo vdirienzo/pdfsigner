@@ -467,19 +467,6 @@ def create_signature_page(settings, dialog) -> Adw.PreferencesPage:
 
     template_combo.connect("notify::selected", on_template_changed)
 
-    # Default organization (used if certificate lacks one)
-    org_row = Adw.EntryRow()
-    org_row.set_title(_("Default organization"))
-    org_row.set_text(settings.default_organization or "")
-    org_row.set_show_apply_button(True)
-    template_group.add(org_row)
-
-    # Help text for organization
-    org_help = Adw.ActionRow()
-    org_help.set_title(_("Used when certificate has no organization"))
-    org_help.add_css_class("dim-label")
-    template_group.add(org_help)
-
     # Default page for visible signatures
     page_combo = Adw.ComboRow()
     page_combo.set_title(_("Default page"))
@@ -506,7 +493,6 @@ def create_signature_page(settings, dialog) -> Adw.PreferencesPage:
 
     # Store references for saving
     dialog.template_combo = template_combo
-    dialog.org_row = org_row
     dialog.page_combo = page_combo
     dialog.suffix_row = suffix_row
 
