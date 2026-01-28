@@ -186,17 +186,47 @@ uv run pdfsigner-gui
 ### CLI
 
 ```bash
-# Sign
+# Basic signing (invisible signature)
 uv run pdfsigner sign document.pdf
-uv run pdfsigner sign document.pdf --visible --page last
+
+# Visible signature on last page with QR code
+uv run pdfsigner sign document.pdf --visible --page last --qr-code
+
+# With metadata (reason, location, contact)
+uv run pdfsigner sign document.pdf --visible \
+    --reason "Approved" \
+    --location "Buenos Aires" \
+    --contact "signer@company.com"
+
+# Batch signing (multiple files)
 uv run pdfsigner sign *.pdf
+uv run pdfsigner sign ./documents/ -r  # recursive
 
-# Validate
+# Validate signatures
 uv run pdfsigner validate document_signed.pdf
+uv run pdfsigner validate ./signed/ -r  # recursive
 
-# List certificates
+# List certificates from token
 uv run pdfsigner list-certs
+
+# Dry-run mode (no token required)
+uv run pdfsigner --dry-run sign document.pdf --visible
 ```
+
+**CLI Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--visible` | Add visible signature stamp |
+| `--page last/first/N` | Page for stamp placement |
+| `--qr-code` | Include QR verification code |
+| `--reason "text"` | Signature reason |
+| `--location "text"` | Signing location |
+| `--contact "text"` | Contact information |
+| `--cert N` | Certificate number to use |
+| `-r, --recursive` | Process subfolders |
+| `--dry-run` | Simulation mode (no token) |
+| `-v, --verbose` | Verbose output |
 
 ---
 
