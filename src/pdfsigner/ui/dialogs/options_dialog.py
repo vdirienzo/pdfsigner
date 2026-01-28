@@ -242,6 +242,7 @@ class SignatureOptionsDialog(Gtk.Dialog):
         self.info_expander.set_expanded(False)
         self.info_expander.set_child(info_grid)
         self.info_expander.set_margin_top(8)
+        self.info_expander.connect("notify::expanded", self._on_expander_toggled)
         content.append(self.info_expander)
 
         # Connect template change signal AFTER all widgets exist
@@ -249,6 +250,13 @@ class SignatureOptionsDialog(Gtk.Dialog):
 
         # Update visibility based on initial template
         self._update_position_options_visibility()
+
+    def _on_expander_toggled(self, expander: Gtk.Expander, _pspec: object) -> None:
+        """Handle expander toggle to resize dialog appropriately."""
+        if not expander.get_expanded():
+            # When collapsing, reset height to let GTK recalculate minimum
+            self.set_default_size(420, -1)
+            self.queue_resize()
 
     def _on_template_changed(self, combo: Gtk.ComboBoxText) -> None:
         """Handle template selection change."""
