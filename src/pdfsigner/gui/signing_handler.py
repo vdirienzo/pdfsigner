@@ -21,7 +21,7 @@ gi.require_version("Adw", "1")
 from gi.repository import Adw, GLib, Gtk
 
 from pdfsigner.config.settings import get_settings
-from pdfsigner.core.token.pin_cache import get_pin_cache
+from pdfsigner.core.token.pin_cache import clear_global_cache, get_pin_cache
 from pdfsigner.exceptions import PDFSignerError, TokenError
 from pdfsigner.i18n import _
 from pdfsigner.ui.dialogs.options_dialog import SignatureOptionsDialog
@@ -191,9 +191,13 @@ class SigningHandler:
 
         except TokenError as e:
             self._nss_handler = None
+            # Clear cached PIN on authentication failure to allow retry
+            clear_global_cache()
             GLib.idle_add(self._show_error, _("Token error"), str(e))
         except Exception as e:
             self._nss_handler = None
+            # Clear cached PIN on any error to be safe
+            clear_global_cache()
             GLib.idle_add(self._show_error, _("Error"), str(e))
 
     def _start_signing(self, files: list[Path]) -> None:

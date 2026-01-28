@@ -292,6 +292,9 @@ uv run pre-commit run --all-files                  # Pre-commit hooks
 - Improved UI with metadata input fields
 - 868 tests with 89% core coverage
 
+#### Fixed
+- PIN cache now clears on authentication errors, allowing proper retry
+
 ### [0.9.5] - 2026-01-26
 
 #### Added
