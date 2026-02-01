@@ -1,7 +1,7 @@
 """
 pkcs11_libs.py - PKCS#11 library paths configuration
 
-Author: Homero Thompson del Lago del Terror
+Cross-platform support for Linux, macOS, and Windows.
 
 Defines library paths for various PKCS#11 token vendors.
 Paths are ordered by priority (first found is used).
@@ -15,98 +15,99 @@ Supported tokens:
 - SoftHSM (testing)
 - nCipher/Entrust HSM
 - Generic NSS (fallback)
+
+Usage:
+    from pdfsigner.core.token.pkcs11_libs import (
+        PKCS11_LIB_GROUPS,
+        find_library,
+    )
+
+    # Find first available library
+    lib_path = find_library()
+
+    # Find specific vendor
+    lib_path = find_library(vendor="yubikey")
 """
 
-# ==========================================================================
-# SafeNet/Thales eToken (5110, 5300, Luna HSM)
-# ==========================================================================
-SAFENET_LIB_PATHS = [
-    "/usr/lib/libeToken.so",
-    "/usr/lib/x86_64-linux-gnu/libeToken.so",
-    "/usr/lib64/libeToken.so",
-    "/opt/safenet/lunaclient/lib/libCryptoki2_64.so",  # Luna HSM
-    "/usr/safenet/lunaclient/lib/libCryptoki2_64.so",
-]
+from pathlib import Path
+
+from pdfsigner.core.platform import (
+    find_pkcs11_library,
+    get_pkcs11_lib_groups,
+    get_pkcs11_paths_for_vendor,
+    is_linux,
+    is_macos,
+    is_windows,
+)
 
 # ==========================================================================
-# YubiKey (PIV mode)
+# Cross-platform PKCS#11 library groups
 # ==========================================================================
-YUBIKEY_LIB_PATHS = [
-    "/usr/lib/x86_64-linux-gnu/libykcs11.so",
-    "/usr/lib/libykcs11.so",
-    "/usr/lib64/libykcs11.so",
-    "/usr/local/lib/libykcs11.so",
-]
+
+# Dynamic paths based on current platform
+# Convert Path objects to strings for backward compatibility
+_raw_groups = get_pkcs11_lib_groups()
+PKCS11_LIB_GROUPS = [(name, [str(p) for p in paths]) for name, paths in _raw_groups]
 
 # ==========================================================================
-# Nitrokey Pro/HSM
+# Vendor-specific path lists (for backward compatibility)
+# Convert Path objects to strings for legacy code
 # ==========================================================================
-NITROKEY_LIB_PATHS = [
-    "/usr/lib/x86_64-linux-gnu/libnethsm.so",
-    "/usr/lib/libnethsm.so",
-    "/usr/lib/x86_64-linux-gnu/libnitrokey.so",
-    "/usr/lib/libnitrokey.so",
-]
+
+
+def _paths_to_strings(paths: list[Path]) -> list[str]:
+    """Convert Path objects to strings for legacy compatibility."""
+    return [str(p) for p in paths]
+
+
+SAFENET_LIB_PATHS = _paths_to_strings(get_pkcs11_paths_for_vendor("safenet"))
+YUBIKEY_LIB_PATHS = _paths_to_strings(get_pkcs11_paths_for_vendor("yubikey"))
+NITROKEY_LIB_PATHS = _paths_to_strings(get_pkcs11_paths_for_vendor("nitrokey"))
+OPENSC_LIB_PATHS = _paths_to_strings(get_pkcs11_paths_for_vendor("opensc"))
+FEITIAN_LIB_PATHS = _paths_to_strings(get_pkcs11_paths_for_vendor("feitian"))
+SOFTHSM_LIB_PATHS = _paths_to_strings(get_pkcs11_paths_for_vendor("softhsm"))
+NCIPHER_LIB_PATHS = _paths_to_strings(get_pkcs11_paths_for_vendor("ncipher"))
+NSS_LIB_PATHS = _paths_to_strings(get_pkcs11_paths_for_vendor("nss"))
+
 
 # ==========================================================================
-# OpenSC (generic smart cards)
+# Library discovery functions
 # ==========================================================================
-OPENSC_LIB_PATHS = [
-    "/usr/lib/x86_64-linux-gnu/opensc-pkcs11.so",
-    "/usr/lib/opensc-pkcs11.so",
-    "/usr/lib64/opensc-pkcs11.so",
-    "/usr/lib/x86_64-linux-gnu/pkcs11/opensc-pkcs11.so",
-]
 
-# ==========================================================================
-# Feitian ePass
-# ==========================================================================
-FEITIAN_LIB_PATHS = [
-    "/usr/lib/libcastle.so",
-    "/usr/lib/x86_64-linux-gnu/libcastle.so",
-    "/usr/lib/libftsafe-p11.so",
-]
 
-# ==========================================================================
-# SoftHSM (software HSM for testing)
-# ==========================================================================
-SOFTHSM_LIB_PATHS = [
-    "/usr/lib/softhsm/libsofthsm2.so",
-    "/usr/lib/x86_64-linux-gnu/softhsm/libsofthsm2.so",
-    "/usr/local/lib/softhsm/libsofthsm2.so",
-    "/usr/lib64/softhsm/libsofthsm2.so",
-]
+def find_library(vendor: str | None = None) -> str | None:
+    """
+    Find the first existing PKCS#11 library.
 
-# ==========================================================================
-# nCipher/Entrust HSM
-# ==========================================================================
-NCIPHER_LIB_PATHS = [
-    "/opt/nfast/toolkits/pkcs11/libcknfast.so",
-    "/usr/lib/libcknfast.so",
-]
+    Args:
+        vendor: Optional vendor name (safenet, yubikey, nitrokey, opensc,
+                feitian, softhsm, ncipher, nss). If None, searches all.
 
-# ==========================================================================
-# Generic NSS libraries (fallback)
-# ==========================================================================
-NSS_LIB_PATHS = [
-    "/usr/lib/x86_64-linux-gnu/libnssckbi.so",
-    "/usr/lib/x86_64-linux-gnu/libsoftokn3.so",
-    "/usr/lib/libnssckbi.so",
-    "/usr/lib/libsoftokn3.so",
-    "/usr/lib64/libnssckbi.so",
-    "/usr/lib64/libsoftokn3.so",
-]
+    Returns:
+        Path string to the first found library, or None if not found.
 
-# ==========================================================================
-# Search order for library discovery (priority order)
-# ==========================================================================
-PKCS11_LIB_GROUPS = [
-    ("SafeNet/Thales", SAFENET_LIB_PATHS),
-    ("YubiKey", YUBIKEY_LIB_PATHS),
-    ("Nitrokey", NITROKEY_LIB_PATHS),
-    ("OpenSC", OPENSC_LIB_PATHS),
-    ("Feitian", FEITIAN_LIB_PATHS),
-    ("SoftHSM", SOFTHSM_LIB_PATHS),
-    ("nCipher", NCIPHER_LIB_PATHS),
-    ("NSS", NSS_LIB_PATHS),
-]
+    Example:
+        >>> lib = find_library()  # Any available library
+        >>> lib = find_library("yubikey")  # YubiKey specifically
+    """
+    result = find_pkcs11_library(vendor)
+    return str(result) if result else None
+
+
+def get_platform_info() -> dict[str, bool]:
+    """
+    Get current platform information.
+
+    Returns:
+        Dictionary with platform flags.
+
+    Example:
+        >>> info = get_platform_info()
+        >>> if info["is_macos"]:
+        ...     print("Running on macOS")
+    """
+    return {
+        "is_linux": is_linux(),
+        "is_macos": is_macos(),
+        "is_windows": is_windows(),
+    }

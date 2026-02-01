@@ -5,12 +5,16 @@ Author: Homero Thompson del Lago del Terror
 
 Checks if NSS database is properly configured and ready
 for PKCS#11 token communication.
+
+Cross-platform support: Linux, macOS, Windows.
 """
 
 import shutil
 from pathlib import Path
 
 from loguru import logger
+
+from pdfsigner.core.platform import get_nss_db_path
 
 
 class NSSChecker:
@@ -19,6 +23,8 @@ class NSSChecker:
 
     Verifies that the NSS database exists and contains
     the required files for PKCS#11 token operations.
+
+    Cross-platform: Uses appropriate paths for Linux, macOS, Windows.
     """
 
     # Required NSS database files (SQLite format)
@@ -32,9 +38,9 @@ class NSSChecker:
         Initialize NSS checker.
 
         Args:
-            nss_path: Path to NSS database (default: ~/.nss)
+            nss_path: Path to NSS database (default: platform-specific)
         """
-        self.nss_path = nss_path or Path.home() / ".nss"
+        self.nss_path = nss_path or get_nss_db_path()
 
     def is_configured(self) -> bool:
         """
@@ -98,17 +104,30 @@ class NSSChecker:
 
     def get_install_instructions(self) -> str:
         """
-        Get distro-specific instructions for installing NSS tools.
+        Get platform-specific instructions for installing NSS tools.
 
         Returns:
             Multi-line string with installation commands
         """
-        return (
-            "Ubuntu/Debian:  sudo apt install libnss3-tools\n"
-            "Fedora/RHEL:    sudo dnf install nss-tools\n"
-            "Arch Linux:     sudo pacman -S nss\n"
-            "openSUSE:       sudo zypper install mozilla-nss-tools"
-        )
+        from pdfsigner.core.platform import is_macos, is_windows
+
+        if is_macos():
+            return "macOS (Homebrew):  brew install nss\nmacOS (MacPorts):  sudo port install nss"
+        elif is_windows():
+            return (
+                "Windows:\n"
+                "  1. Download NSS from Mozilla: https://ftp.mozilla.org/pub/security/nss/releases/\n"
+                "  2. Or use pre-built binaries from: https://github.com/nickthecook/nss-win\n"
+                "  3. Add bin/ directory to PATH environment variable"
+            )
+        else:
+            # Linux
+            return (
+                "Ubuntu/Debian:  sudo apt install libnss3-tools\n"
+                "Fedora/RHEL:    sudo dnf install nss-tools\n"
+                "Arch Linux:     sudo pacman -S nss\n"
+                "openSUSE:       sudo zypper install mozilla-nss-tools"
+            )
 
     def get_nss_path(self) -> Path:
         """Get the NSS database path."""

@@ -5,13 +5,16 @@ Author: Homero Thompson del Lago del Terror
 
 Manages trusted Root CA certificates from system store and
 custom CA additions for certificate chain validation.
+
+Cross-platform support: Linux, macOS, Windows.
 """
 
-import os
 from pathlib import Path
 
 from cryptography import x509
 from loguru import logger
+
+from pdfsigner.core.platform import get_trust_store_paths
 
 
 class TrustStore:
@@ -20,20 +23,21 @@ class TrustStore:
 
     Loads system Root CAs and allows adding custom CAs for
     certificate chain validation.
-    """
 
-    # Common locations for system CA certificates
-    SYSTEM_CA_PATHS = [
-        "/etc/ssl/certs/ca-certificates.crt",  # Debian/Ubuntu
-        "/etc/pki/tls/certs/ca-bundle.crt",  # RedHat/Fedora
-        "/etc/ssl/ca-bundle.pem",  # OpenSUSE
-        "/etc/ssl/cert.pem",  # Alpine/OpenBSD
-    ]
+    Cross-platform: Automatically detects CA paths for Linux, macOS, Windows.
+    """
 
     def __init__(self):
         """Initialize trust store."""
         self._trusted_certs: dict[bytes, x509.Certificate] = {}
         self._custom_certs: list[x509.Certificate] = []
+        # Get platform-specific CA paths
+        self._system_ca_paths = get_trust_store_paths()
+
+    @property
+    def SYSTEM_CA_PATHS(self) -> list[str]:
+        """Get system CA paths (for backward compatibility)."""
+        return [str(p) for p in self._system_ca_paths]
 
     def load_system_cas(self) -> list[x509.Certificate]:
         """
@@ -45,14 +49,15 @@ class TrustStore:
         Raises:
             FileNotFoundError: If no system CA bundle found
         """
-        for ca_path in self.SYSTEM_CA_PATHS:
-            if os.path.exists(ca_path):
+        for ca_path in self._system_ca_paths:
+            if ca_path.exists():
                 logger.info(f"Loading system CAs from {ca_path}")
-                certs = self._load_pem_bundle(ca_path)
+                certs = self._load_pem_bundle(str(ca_path))
                 logger.info(f"Loaded {len(certs)} system Root CAs")
                 return certs
 
-        raise FileNotFoundError(f"System CA bundle not found in: {', '.join(self.SYSTEM_CA_PATHS)}")
+        paths_str = ", ".join(str(p) for p in self._system_ca_paths)
+        raise FileNotFoundError(f"System CA bundle not found in: {paths_str}")
 
     def _load_pem_bundle(self, path: str) -> list[x509.Certificate]:
         """
