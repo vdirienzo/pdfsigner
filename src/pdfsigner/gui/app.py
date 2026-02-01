@@ -209,9 +209,24 @@ class PDFSignerApp(Adw.Application):
             developer_name="Homero Thompson del Lago del Terror",
             version="1.1.0",
             comments=_("Digital signature of PDFs with USB cryptographic tokens"),
+            copyright="© 2024-2026 PDFSigner Contributors",
             website="https://github.com/vdirienzo/pdfsigner",
             license_type=Gtk.License.MIT_X11,
             developers=["Homero Thompson del Lago del Terror"],
+            legal_info=_(
+                "LEGAL NOTICE\n\n"
+                "This application does NOT issue or manage digital certificates. "
+                "It only uses certificates provided by the user.\n\n"
+                "For signatures with full legal validity under Argentine law "
+                "(Ley 25.506), you must use a certificate from a licensed certifier "
+                "(AFIP, RENAPER, Andreani, etc.).\n\n"
+                "PDFSigner generates Digital Signatures (not Electronic Signatures) "
+                "when used with certificates from licensed certifiers, providing "
+                "full legal equivalence to handwritten signatures with reversed "
+                "burden of proof.\n\n"
+                "This software is provided 'as is' without warranty. "
+                "Consult a legal professional for specific compliance requirements."
+            ),
         )
         about.present()
 

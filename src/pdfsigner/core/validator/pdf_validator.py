@@ -32,6 +32,20 @@ from pdfsigner.core.certificate.revocation_checker import (
     RevocationStatus,
 )
 
+# Argentine compliance validator (optional import)
+try:
+    from pdfsigner.core.argentina import (
+        ArgentineCertificateValidator,
+        ArgentineValidationResult,
+        get_argentine_validator,
+    )
+
+    ARGENTINE_VALIDATOR_AVAILABLE = True
+except ImportError:
+    ARGENTINE_VALIDATOR_AVAILABLE = False
+    ArgentineCertificateValidator = None  # type: ignore
+    ArgentineValidationResult = None  # type: ignore
+
 if TYPE_CHECKING:
     from pdfsigner.core.signer.archive_ts_manager import ArchiveTimestampInfo
 
@@ -90,6 +104,7 @@ class SignatureInfo:
     revocation_status: str | None = None  # "valid", "revoked", "unknown", "error"
     revocation_message: str | None = None  # Human-readable message
     ltv_info: LTVInfo | None = None  # PAdES-LTV information
+    argentine_compliance_result: ArgentineValidationResult | None = None  # Argentine Ley 25.506
 
 
 @dataclass
@@ -117,6 +132,9 @@ class PDFValidator:
         # Initialize trust store and chain validator
         self.trust_store = TrustStore()
         self.chain_validator = CertificateChainValidator(self.trust_store)
+
+        # Argentine compliance validator (lazy initialization)
+        self._argentine_validator: ArgentineCertificateValidator | None = None
 
     def _check_revocation_status(
         self,
@@ -164,6 +182,34 @@ class PDFValidator:
         except Exception as e:
             logger.warning(f"Revocation check failed: {e}")
             return "error", str(e)
+
+    def check_argentine_compliance(
+        self,
+        cert_der: bytes,
+        enabled: bool = True,
+    ) -> ArgentineValidationResult | None:
+        """
+        Check certificate compliance with Argentine Ley 25.506.
+
+        Args:
+            cert_der: Certificate in DER format
+            enabled: Whether to perform the check (from settings)
+
+        Returns:
+            ArgentineValidationResult if enabled and available, None otherwise
+        """
+        if not enabled or not ARGENTINE_VALIDATOR_AVAILABLE:
+            return None
+
+        try:
+            # Lazy initialization of validator
+            if self._argentine_validator is None:
+                self._argentine_validator = get_argentine_validator()
+
+            return self._argentine_validator.validate(cert_der)
+        except Exception as e:
+            logger.warning(f"Argentine compliance check failed: {e}")
+            return None
 
     def validate(self, pdf_path: Path | str) -> ValidationResult:
         """
@@ -295,6 +341,14 @@ class PDFValidator:
                     chain_result.chain[0], issuer_cert
                 )
 
+            # Check Argentine compliance (optional, controlled by settings)
+            argentine_result = None
+            settings = get_settings()
+            if hasattr(settings, "argentine_compliance_enabled"):
+                argentine_result = self.check_argentine_compliance(
+                    cert_bytes, enabled=settings.argentine_compliance_enabled
+                )
+
             # Determine status
             if status.valid:
                 sig_status = SignatureStatus.VALID
@@ -338,6 +392,7 @@ class PDFValidator:
                 revocation_status=revocation_status,
                 revocation_message=revocation_message,
                 ltv_info=ltv_info,
+                argentine_compliance_result=argentine_result,
             )
 
         except Exception as e:

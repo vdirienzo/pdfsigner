@@ -61,6 +61,7 @@ class HelpDialog(Adw.Window):
         content.append(self._create_options_section())
         content.append(self._create_validation_section())
         content.append(self._create_troubleshooting_section())
+        content.append(self._create_legal_section())
         content.append(self._create_about_section())
 
         scroll.set_child(content)
@@ -211,6 +212,28 @@ class HelpDialog(Adw.Window):
                 "❌ Signature doesn't appear\n"
                 "   → Open the PDF in Adobe Reader\n"
                 "   → Invisible signatures are valid but not visible"
+            ),
+        )
+
+    def _create_legal_section(self) -> Gtk.Box:
+        """Creates the legal disclaimer section."""
+        return self._create_section(
+            _("Legal Notice"),
+            _(
+                "IMPORTANT INFORMATION\n\n"
+                "Certificate Requirements:\n"
+                "• PDFSigner does NOT issue digital certificates\n"
+                "• For full legal validity, use certificates from licensed certifiers\n"
+                "• Argentine law (Ley 25.506) requires licensed certifier certificates\n\n"
+                "Licensed Certifiers (Argentina):\n"
+                "• Free: AFIP, RENAPER, FDR (Firma Digital Remota)\n"
+                "• Paid: Andreani, E-CERT, Certant, Escribanos CABA\n\n"
+                "Signature Types:\n"
+                "• Digital Signature (with licensed cert): Full legal validity, "
+                "reversed burden of proof, equivalent to handwritten signature\n"
+                "• Electronic Signature (other certs): Limited validity, "
+                "normal burden of proof\n\n"
+                "More info: https://www.argentina.gob.ar/aaip"
             ),
         )
 

@@ -13,6 +13,7 @@ from .appearance_page import (
     get_selected_language,
     get_selected_theme,
 )
+from .argentina_page import create_argentina_page
 from .behavior_page import create_behavior_page
 from .general_page import create_general_page
 from .healthcare_page import create_healthcare_page
@@ -30,6 +31,7 @@ __all__ = [
     "create_advanced_page",
     "create_appearance_page",
     "create_healthcare_page",
+    "create_argentina_page",
     "get_selected_theme",
     "get_selected_language",
     "apply_theme",

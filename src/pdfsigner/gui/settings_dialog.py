@@ -20,6 +20,7 @@ from pdfsigner.config.settings import get_settings, reload_settings
 from pdfsigner.gui.settings_pages import (
     create_advanced_page,
     create_appearance_page,
+    create_argentina_page,
     create_behavior_page,
     create_general_page,
     create_healthcare_page,
@@ -41,6 +42,7 @@ class SettingsDialog(Adw.PreferencesWindow):
     - Visible Signature
     - Appearance (Theme, Language)
     - Advanced (PIN cache, logging)
+    - Argentina (Ley 25.506 compliance)
 
     All settings auto-save when modified.
     """
@@ -80,6 +82,9 @@ class SettingsDialog(Adw.PreferencesWindow):
 
         healthcare_page = create_healthcare_page(self.settings, self)
         self.add(healthcare_page)
+
+        argentina_page = create_argentina_page(self.settings, self)
+        self.add(argentina_page)
 
         # Connect auto-save signals after all pages are created
         self._connect_auto_save_signals()
@@ -173,6 +178,12 @@ class SettingsDialog(Adw.PreferencesWindow):
             self.encryption_allow_print_switch.connect("notify::active", self._on_setting_changed)
         if hasattr(self, "encryption_allow_copy_switch"):
             self.encryption_allow_copy_switch.connect("notify::active", self._on_setting_changed)
+
+        # Argentina page
+        if hasattr(self, "argentine_enabled"):
+            self.argentine_enabled.connect("notify::active", self._on_setting_changed)
+        if hasattr(self, "argentine_strict_mode"):
+            self.argentine_strict_mode.connect("notify::active", self._on_setting_changed)
 
     def _on_setting_changed(self, *args) -> None:
         """Handle any setting change with debounced auto-save."""
@@ -344,6 +355,18 @@ class SettingsDialog(Adw.PreferencesWindow):
             lines.append(
                 f"encryption_default_allow_copy = "
                 f"{str(self.encryption_allow_copy_switch.get_active()).lower()}"
+            )
+
+        # Argentina Compliance settings (Ley 25.506)
+        lines.append("")
+        lines.append("# Argentina Compliance (Ley 25.506)")
+        if hasattr(self, "argentine_enabled"):
+            lines.append(
+                f"argentine_compliance_enabled = {str(self.argentine_enabled.get_active()).lower()}"
+            )
+        if hasattr(self, "argentine_strict_mode"):
+            lines.append(
+                f"argentine_strict_mode = {str(self.argentine_strict_mode.get_active()).lower()}"
             )
 
         config_path.write_text("\n".join(lines))
