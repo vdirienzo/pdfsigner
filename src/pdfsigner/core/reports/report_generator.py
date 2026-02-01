@@ -240,11 +240,20 @@ class ValidationReportGenerator:
         heading = Paragraph("File Details", self._styles["SectionHeading"])
         elements.append(heading)
 
-        # Details table
+        # Cell style for word wrap
+        cell_style = ParagraphStyle(
+            "TableCell",
+            parent=self._styles["Normal"],
+            fontSize=9,
+            leading=11,
+        )
+
+        # Details table header
         table_data = [["File", "Status", "Signatures", "Signer"]]
 
         for result in results:
-            filename = result.file_path.name
+            # Use Paragraph for word wrap on long filenames
+            filename = Paragraph(result.file_path.name, cell_style)
 
             # Determine status
             if result.error:
@@ -256,17 +265,18 @@ class ValidationReportGenerator:
             else:
                 status = "INVALID"
 
-            # Get first signer name if available
-            signer = ""
+            # Get first signer name if available (use Paragraph for wrap)
+            signer_text = ""
             if result.signatures:
-                signer = result.signatures[0].signer_name[:30]  # Truncate if too long
+                signer_text = result.signatures[0].signer_name
+            signer = Paragraph(signer_text, cell_style)
 
             sig_count = str(result.signature_count)
 
             table_data.append([filename, status, sig_count, signer])
 
-        # Create table with appropriate column widths
-        table = Table(table_data, colWidths=[7 * cm, 3 * cm, 3 * cm, 4 * cm])
+        # Create table with adjusted column widths (total ~17cm for A4)
+        table = Table(table_data, colWidths=[8 * cm, 2.5 * cm, 2 * cm, 4.5 * cm])
 
         # Apply table styling
         style_commands = [
@@ -274,11 +284,15 @@ class ValidationReportGenerator:
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
             ("ALIGN", (0, 0), (-1, -1), "LEFT"),
             ("ALIGN", (2, 0), (2, -1), "CENTER"),
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
             ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
             ("FONTSIZE", (0, 0), (-1, -1), 9),
-            ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ("LEFTPADDING", (0, 0), (-1, -1), 6),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
             ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
+            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f5f5f5")]),
         ]
 
         # Color status column based on status

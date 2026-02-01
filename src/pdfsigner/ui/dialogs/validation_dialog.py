@@ -11,9 +11,8 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
-from gi.repository import Adw, Gtk
+from gi.repository import Gtk
 
-from pdfsigner.core.reports.report_generator import ValidationReportGenerator
 from pdfsigner.core.validator.pdf_validator import (
     SignatureStatus,
     ValidationResult,
@@ -279,60 +278,12 @@ class ValidationResultDialog(Gtk.Dialog):
 
     def _on_export_clicked(self, button: Gtk.Button) -> None:
         """Handle export button click."""
-        # Open export dialog
-        export_dialog = ExportReportDialog(parent=self._parent or self)
-        export_dialog.connect("close-request", self._on_export_dialog_close)
+        # Open export dialog with validation result
+        export_dialog = ExportReportDialog(
+            parent=self._parent or self,
+            validation_result=self.result,
+        )
         export_dialog.present()
-
-    def _on_export_dialog_close(self, dialog: ExportReportDialog) -> bool:
-        """Handle export dialog close."""
-        if dialog.was_cancelled():
-            return False
-
-        # Get export parameters
-        output_path = dialog.get_output_path()
-        if not output_path:
-            return False
-
-        # Ensure we have a valid result to export
-        if not self.result:
-            return False
-
-        report_format = dialog.get_format()
-        report_options = dialog.get_options()
-
-        try:
-            # Generate report
-            generator = ValidationReportGenerator(options=report_options)
-            report_data = generator.generate(
-                results=[self.result],  # ValidationReportGenerator expects a list
-                format=report_format,
-            )
-
-            # Write to file
-            if isinstance(report_data, bytes):
-                # PDF format
-                with open(output_path, "wb") as f:
-                    f.write(report_data)
-            else:
-                # CSV or JSON format
-                with open(output_path, "w", encoding="utf-8") as f:
-                    f.write(report_data)
-
-            # Show success toast if we have a parent window that supports toasts
-            if self._parent and hasattr(self._parent, "add_toast"):
-                toast = Adw.Toast.new(_("Report exported successfully"))
-                toast.set_timeout(3)
-                self._parent.add_toast(toast)
-
-        except Exception as e:
-            # Show error toast
-            if self._parent and hasattr(self._parent, "add_toast"):
-                toast = Adw.Toast.new(_("Error exporting report: {}").format(str(e)))
-                toast.set_timeout(5)
-                self._parent.add_toast(toast)
-
-        return False
 
 
 def show_validation_result(

@@ -8,6 +8,25 @@ Format: [SemVer](https://semver.org/) with `Added | Changed | Fixed | Security` 
 
 ## [2.2.0] - 2026-02-01
 
+### Fixed
+
+- **Certificate Details Dialog** (`gui/dialogs/certificate_details_dialog.py`)
+  - Fixed `Gtk.Box.set_wrap()` error → use `Gtk.FlowBox` for key usage pills
+  - Fixed `Adw.PropertyBindingFlags` → use `GObject.BindingFlags`
+  - Fixed empty dialog → simplified ViewSwitcher, added `vexpand=True`
+  - Reduced dialog size from 650x700 to 500x450
+
+- **Export Report Dialog** (`gui/dialogs/export_report_dialog.py`)
+  - Fixed toast not showing → added `Adw.ToastOverlay`
+  - Fixed file chooser not rendering → use `Adw.ActionRow` instead of `Gtk.Box`
+  - Added result page with "Open File", "Show in Folder", "Close" buttons
+  - Moved export logic from `validation_dialog.py` to dialog itself
+
+- **PDF Report Generator** (`core/reports/report_generator.py`)
+  - Fixed overlapping text in File Details table → use `Paragraph()` for word wrap
+  - Adjusted column widths: File 8cm, Status 2.5cm, Signatures 2cm, Signer 4.5cm
+  - Added `VALIGN: TOP` for multi-line cells
+
 ### Security
 
 - **JWT Token Blacklist for Real Logout**

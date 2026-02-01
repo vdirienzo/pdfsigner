@@ -61,7 +61,7 @@ class CertificateDetailsDialog(Adw.Window):
             self._details = cert_details
 
         self.set_title(_("Certificate Details"))
-        self.set_default_size(650, 700)
+        self.set_default_size(500, 450)
         self.set_modal(True)
 
         self._setup_ui()
@@ -85,25 +85,18 @@ class CertificateDetailsDialog(Adw.Window):
         view_stack.add_titled(self._create_extensions_tab(), "extensions", _("Extensions"))
         view_stack.add_titled(self._create_thumbprints_tab(), "thumbprints", _("Thumbprints"))
 
-        # ViewSwitcherBar for bottom tab switching
-        switcher_bar = Adw.ViewSwitcherBar()
-        switcher_bar.set_stack(view_stack)
+        # ViewSwitcher in header for tab navigation
+        switcher = Adw.ViewSwitcher()
+        switcher.set_stack(view_stack)
+        switcher.set_policy(Adw.ViewSwitcherPolicy.WIDE)
+        header.set_title_widget(switcher)
 
-        # ViewSwitcherTitle for top (responsive)
-        switcher_title = Adw.ViewSwitcherTitle()
-        switcher_title.set_stack(view_stack)
-        switcher_title.set_title(_("Certificate Details"))
-        header.set_title_widget(switcher_title)
-
-        # Bind visibility
-        switcher_bar.bind_property(
-            "reveal", switcher_title, "title-visible", Adw.PropertyBindingFlags.INVERT_BOOLEAN
-        )
+        # ViewStack needs to expand to fill space
+        view_stack.set_vexpand(True)
 
         # Main content box
         content_box = Gtk.Box(orientation=Gtk.Orientation.VERTICAL)
         content_box.append(view_stack)
-        content_box.append(switcher_bar)
 
         toolbar.set_content(content_box)
         self.set_content(toolbar)
@@ -112,6 +105,7 @@ class CertificateDetailsDialog(Adw.Window):
         """Create the General information tab."""
         scroll = Gtk.ScrolledWindow()
         scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_vexpand(True)
 
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
         content.set_margin_top(16)
@@ -197,15 +191,18 @@ class CertificateDetailsDialog(Adw.Window):
             usage_row = Adw.ActionRow()
             usage_row.set_title(_("Permitted Uses"))
 
-            # Create badges/pills for each usage
-            usage_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-            usage_box.set_wrap(True)
+            # Create badges/pills for each usage (FlowBox wraps when full)
+            usage_box = Gtk.FlowBox()
+            usage_box.set_selection_mode(Gtk.SelectionMode.NONE)
+            usage_box.set_homogeneous(False)
+            usage_box.set_row_spacing(6)
+            usage_box.set_column_spacing(6)
 
             for usage in self._details.key_usage:
                 badge = Gtk.Label(label=usage)
                 badge.add_css_class("pill")
                 badge.add_css_class("accent")
-                usage_box.append(badge)
+                usage_box.insert(badge, -1)
 
             usage_row.set_child(usage_box)
             usage_group.add(usage_row)
@@ -219,6 +216,7 @@ class CertificateDetailsDialog(Adw.Window):
         """Create the Details tab with all certificate properties."""
         scroll = Gtk.ScrolledWindow()
         scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_vexpand(True)
 
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
         content.set_margin_top(16)
@@ -339,6 +337,7 @@ class CertificateDetailsDialog(Adw.Window):
         """Create the Extensions tab."""
         scroll = Gtk.ScrolledWindow()
         scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_vexpand(True)
 
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
         content.set_margin_top(16)
@@ -421,6 +420,7 @@ class CertificateDetailsDialog(Adw.Window):
         """Create the Thumbprints tab."""
         scroll = Gtk.ScrolledWindow()
         scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        scroll.set_vexpand(True)
 
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
         content.set_margin_top(16)
