@@ -18,8 +18,8 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/tests-868%20passing-success?style=flat-square" alt="Tests">
-  <img src="https://img.shields.io/badge/coverage-89%25%20core-blue?style=flat-square" alt="Coverage">
+  <img src="https://img.shields.io/badge/tests-1091%20passing-success?style=flat-square" alt="Tests">
+  <img src="https://img.shields.io/badge/coverage-87%25%20core-blue?style=flat-square" alt="Coverage">
 </p>
 
 ---
@@ -33,6 +33,8 @@
 | Multi-token support (SafeNet, YubiKey, Nitrokey) | Batch signing with progress tracking |
 | OCSP/CRL certificate revocation checking | Signature metadata (reason, location, contact) |
 | Chain validation with system trust store | QR verification codes in stamps |
+| Audit trail (JSON Lines) for compliance | Keyboard shortcuts + recent files history |
+| | Accessibility (WCAG 2.1) + system notifications |
 
 ---
 
@@ -181,7 +183,7 @@ log_level = "INFO"
 uv run pdfsigner-gui
 ```
 
-**Shortcuts:** `Ctrl+O` Open | `Ctrl+,` Settings | `Ctrl+Q` Quit
+**Shortcuts:** `Ctrl+O` Open | `Ctrl+S` Sign | `Ctrl+Shift+V` Validate | `Ctrl+?` Help | `Ctrl+,` Settings | `Ctrl+Q` Quit
 
 ### CLI
 
@@ -284,7 +286,7 @@ uv sync --all-extras
 echo "/usr/lib/python3/dist-packages" > .venv/lib/python3.*/site-packages/system-packages.pth
 
 # Tests
-uv run pytest -v                                    # All tests (868)
+uv run pytest -v                                    # All tests (1091)
 uv run pytest --cov=src --cov-report=term-missing  # With coverage
 
 # Code quality
@@ -308,6 +310,19 @@ uv run pre-commit run --all-files                  # Pre-commit hooks
 
 ## Changelog
 
+### [1.1.0] - 2026-02-01
+
+#### Added
+- **Accessibility (a11y)** - WCAG 2.1 Level A compliance with screen reader support
+- **Keyboard Shortcuts** - `Ctrl+S` Sign, `Ctrl+Shift+V` Validate, `Ctrl+?` Help
+- **Recent Files History** - GTK RecentManager integration with configurable limit
+- **System Notifications** - Desktop notifications for background operations
+- **Settings Pages** - Revocation checking config, behavior preferences
+- **RevocationChecker Integration** - OCSP/CRL validation in signature verification
+
+#### Changed
+- 1091 tests with 87% core coverage (+223 tests)
+
 ### [1.0.0] - 2026-01-27
 
 #### Added
@@ -320,7 +335,7 @@ uv run pre-commit run --all-files                  # Pre-commit hooks
 
 #### Changed
 - Improved UI with metadata input fields
-- 868 tests with 89% core coverage
+- 868 tests with 87% core coverage
 
 #### Fixed
 - PIN cache now clears on authentication errors, allowing proper retry
