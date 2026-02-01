@@ -20,11 +20,13 @@ from fastapi.responses import FileResponse
 from loguru import logger
 
 from pdfsigner.api.config import get_api_settings
-from pdfsigner.api.middleware.auth import User, get_current_user_or_api_key
+from pdfsigner.api.middleware.auth import get_current_user_or_api_key
 from pdfsigner.api.schemas.sign import SignJobStatus, SignRequest, SignResponse
 from pdfsigner.api.services.signing_service import SigningService, get_signing_service
+from pdfsigner.core.rbac import Permission, check_permission
 from pdfsigner.core.signer.lta_handler import LTAHandler
 from pdfsigner.core.token.nss_handler import NSSHandler
+from pdfsigner.core.users.user_model import User
 
 router = APIRouter(prefix="/api/v1/sign", tags=["signing"])
 
@@ -96,6 +98,7 @@ async def sign_document(
     embed_ltv: bool = True,
     add_archive_ts: bool = False,
     current_user: User = Depends(get_current_user_or_api_key),
+    _perm: None = Depends(check_permission(Permission.SIGN)),
     signing_service: SigningService = Depends(get_signing_service),
     nss_handler: NSSHandler = Depends(get_nss_handler),
     lta_handler: LTAHandler | None = Depends(get_lta_handler),
@@ -265,6 +268,7 @@ async def sign_document(
 async def get_sign_status(
     job_id: str,
     current_user: User = Depends(get_current_user_or_api_key),
+    _perm: None = Depends(check_permission(Permission.VIEW)),
     signing_service: SigningService = Depends(get_signing_service),
 ) -> SignJobStatus:
     """
@@ -329,6 +333,7 @@ async def get_sign_status(
 async def download_signed_pdf(
     job_id: str,
     current_user: User = Depends(get_current_user_or_api_key),
+    _perm: None = Depends(check_permission(Permission.VIEW)),
     signing_service: SigningService = Depends(get_signing_service),
 ) -> FileResponse:
     """

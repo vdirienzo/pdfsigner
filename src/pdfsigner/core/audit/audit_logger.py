@@ -13,10 +13,14 @@ import json
 import threading
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from loguru import logger
 
 from pdfsigner.core.audit.audit_event import AuditEvent, AuditEventType
+
+if TYPE_CHECKING:
+    from pdfsigner.core.audit.audit_integrity import AuditIntegrityManager
 
 
 class AuditLogger:
@@ -39,6 +43,9 @@ class AuditLogger:
         log_dir: Path | None = None,
         enabled: bool = True,
         retention_days: int = 90,
+        sign_events: bool = False,
+        integrity_manager: "AuditIntegrityManager | None" = None,
+        siem_exporter: "SIEMExporter | None" = None,
     ):
         """
         Initialize audit logger.
@@ -47,6 +54,9 @@ class AuditLogger:
             log_dir: Directory for audit logs (default: ~/.local/share/pdfsigner/audit)
             enabled: Enable/disable audit logging
             retention_days: Days to keep logs (1-3650)
+            sign_events: Enable event signing with HMAC (requires integrity_manager)
+            integrity_manager: AuditIntegrityManager instance for event signing
+            siem_exporter: SIEMExporter instance for SIEM integration (optional)
         """
         if log_dir is None:
             log_dir = Path.home() / ".local" / "share" / "pdfsigner" / "audit"
@@ -54,7 +64,17 @@ class AuditLogger:
         self.log_dir = Path(log_dir)
         self.enabled = enabled
         self.retention_days = max(1, min(retention_days, 3650))  # Clamp to 1-3650 days
+        self.sign_events = sign_events
+        self.integrity_manager = integrity_manager
+        self.siem_exporter = siem_exporter
         self._write_lock = threading.Lock()
+
+        # Validate integrity manager if signing is enabled
+        if self.sign_events and self.integrity_manager is None:
+            logger.warning(
+                "Event signing enabled but no integrity_manager provided. Signing disabled."
+            )
+            self.sign_events = False
 
         # Create log directory if it doesn't exist
         if self.enabled:
@@ -67,6 +87,9 @@ class AuditLogger:
         log_dir: Path | None = None,
         enabled: bool = True,
         retention_days: int = 90,
+        sign_events: bool = False,
+        integrity_manager: "AuditIntegrityManager | None" = None,
+        siem_exporter: "SIEMExporter | None" = None,
     ) -> "AuditLogger":
         """
         Get or create singleton instance.
@@ -77,6 +100,9 @@ class AuditLogger:
             log_dir: Directory for audit logs
             enabled: Enable/disable audit logging
             retention_days: Days to keep logs
+            sign_events: Enable event signing with HMAC
+            integrity_manager: AuditIntegrityManager instance for event signing
+            siem_exporter: SIEMExporter instance for SIEM integration (optional)
 
         Returns:
             AuditLogger singleton instance
@@ -84,7 +110,14 @@ class AuditLogger:
         if cls._instance is None:
             with cls._lock:
                 if cls._instance is None:
-                    cls._instance = cls(log_dir, enabled, retention_days)
+                    cls._instance = cls(
+                        log_dir,
+                        enabled,
+                        retention_days,
+                        sign_events,
+                        integrity_manager,
+                        siem_exporter,
+                    )
         return cls._instance
 
     def _get_log_file_path(self, timestamp: datetime) -> Path:
@@ -107,6 +140,7 @@ class AuditLogger:
         Write event to current log file.
 
         Thread-safe write operation. Each line is a JSON object.
+        If sign_events is enabled, event will be signed before writing.
 
         Args:
             event: AuditEvent to log
@@ -114,7 +148,23 @@ class AuditLogger:
         if not self.enabled:
             return
 
+        self._write_event(event)
+
+    def _write_event(self, event: AuditEvent) -> None:
+        """
+        Internal method to write event with optional signing.
+
+        Thread-safe write operation. Signs event if sign_events is enabled.
+        Exports to SIEM if siem_exporter is configured.
+
+        Args:
+            event: AuditEvent to log
+        """
         try:
+            # Sign event if integrity manager is available
+            if self.sign_events and self.integrity_manager is not None:
+                event = self.integrity_manager.sign_event(event)
+
             log_file = self._get_log_file_path(event.timestamp)
 
             with self._write_lock:
@@ -124,8 +174,70 @@ class AuditLogger:
 
             logger.debug(f"Audit event logged: {event.event_type.value} [{event.event_id}]")
 
+            # Export to SIEM if configured
+            if self.siem_exporter and self.siem_exporter.config.enabled:
+                try:
+                    self.siem_exporter.export_event(event)
+                except Exception as e:
+                    logger.error(f"Failed to export event to SIEM: {e}")
+
         except Exception as e:
             logger.error(f"Failed to log audit event: {e}")
+
+    def log_encryption_event(
+        self,
+        document_path: str | Path,
+        success: bool,
+        method: str,
+        strength: str,
+        user_id: str | None = None,
+        session_id: str | None = None,
+        error: str | None = None,
+        details: dict | None = None,
+    ) -> None:
+        """
+        Log encryption/decryption event.
+
+        Args:
+            document_path: Path to document being encrypted/decrypted
+            success: Whether operation succeeded
+            method: Encryption method ("password" or "certificate")
+            strength: Encryption strength ("aes128" or "aes256")
+            user_id: User ID performing the operation
+            session_id: Session ID
+            error: Error message if operation failed
+            details: Additional details about the operation
+        """
+        # Determine event type based on success
+        if success:
+            event_type = AuditEventType.ENCRYPT_SUCCESS
+            status = "SUCCESS"
+        else:
+            event_type = AuditEventType.ENCRYPT_FAILURE
+            status = "FAILURE"
+
+        # Prepare details
+        event_details = details or {}
+        event_details.update(
+            {
+                "method": method,
+                "strength": strength,
+            }
+        )
+
+        # Create and log event
+        event = AuditEvent(
+            event_type=event_type,
+            status=status,
+            document_path=str(document_path),
+            user_id=user_id,
+            session_id=session_id,
+            error_message=error,
+            details=event_details,
+            phi_accessed=True,  # Encryption events involve document access
+        )
+
+        self._write_event(event)
 
     def get_events(
         self,
@@ -186,6 +298,98 @@ class AuditLogger:
 
         except Exception as e:
             logger.error(f"Error querying audit events: {e}")
+
+        return events
+
+    def get_events_filtered(
+        self,
+        start_date: datetime | None = None,
+        end_date: datetime | None = None,
+        event_types: list[AuditEventType] | None = None,
+        user_id: str | None = None,
+        session_id: str | None = None,
+        phi_accessed: bool | None = None,
+        status: str | None = None,
+        limit: int | None = None,
+    ) -> list[AuditEvent]:
+        """
+        Get filtered audit events with HIPAA-compliant filters.
+
+        Args:
+            start_date: Filter from date
+            end_date: Filter to date
+            event_types: Filter by event types
+            user_id: Filter by user ID
+            session_id: Filter by session ID
+            phi_accessed: Filter by PHI access flag
+            status: Filter by status (SUCCESS, FAILURE, ERROR)
+            limit: Maximum number of events to return
+
+        Returns:
+            List of matching events
+        """
+        if not self.enabled:
+            return []
+
+        events: list[AuditEvent] = []
+
+        try:
+            # Determine which log files to read
+            log_files = self._get_log_files_in_range(start_date, end_date)
+
+            # Read and filter events
+            for log_file in log_files:
+                if not log_file.exists():
+                    continue
+
+                with open(log_file, encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if not line:
+                            continue
+
+                        try:
+                            data = json.loads(line)
+                            event = AuditEvent.from_dict(data)
+
+                            # Apply filters
+                            if start_date and event.timestamp < start_date:
+                                continue
+                            if end_date and event.timestamp > end_date:
+                                continue
+                            if event_types and event.event_type not in event_types:
+                                continue
+                            if user_id and event.user_id != user_id:
+                                continue
+                            if session_id and event.session_id != session_id:
+                                continue
+                            if phi_accessed is not None and event.phi_accessed != phi_accessed:
+                                continue
+                            if status and event.status != status:
+                                continue
+
+                            events.append(event)
+
+                            # Early exit if limit reached
+                            if limit and len(events) >= limit:
+                                break
+
+                        except Exception as e:
+                            logger.warning(f"Skipping invalid audit entry: {e}")
+
+                # Early exit if limit reached
+                if limit and len(events) >= limit:
+                    break
+
+            # Sort by timestamp
+            events.sort(key=lambda e: e.timestamp)
+
+            # Apply limit after sorting (to get most recent)
+            if limit and len(events) > limit:
+                events = events[:limit]
+
+        except Exception as e:
+            logger.error(f"Error querying filtered audit events: {e}")
 
         return events
 

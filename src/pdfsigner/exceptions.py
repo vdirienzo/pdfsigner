@@ -111,3 +111,71 @@ class NSSConfigError(ConfigurationError):
 
     def __init__(self, nss_path: str):
         super().__init__(f"Invalid NSS database at: {nss_path}")
+
+
+# --- Encryption Errors ---
+
+
+class PDFEncryptionError(PDFSignerError):
+    """Base error for encryption operations."""
+
+    def __init__(self, message: str = "Encryption operation failed"):
+        super().__init__(message)
+
+
+class PasswordIncorrectError(PDFEncryptionError):
+    """Incorrect password provided for decryption."""
+
+    def __init__(self, filename: str = ""):
+        msg = f"Incorrect password for '{filename}'" if filename else "Incorrect password"
+        super().__init__(msg)
+
+
+class HIPAAComplianceError(PDFEncryptionError):
+    """PDF encryption does not meet HIPAA requirements."""
+
+    def __init__(self, reason: str):
+        super().__init__(f"HIPAA compliance error: {reason}")
+
+
+# --- Session Errors ---
+
+
+class SessionError(PDFSignerError):
+    """Base error for session management."""
+
+    pass
+
+
+class SessionExpiredError(SessionError):
+    """Session has expired and is no longer valid."""
+
+    def __init__(self, session_id: str = ""):
+        msg = f"Session {session_id} has expired" if session_id else "Session has expired"
+        super().__init__(msg)
+
+
+class MaxSessionsExceededError(SessionError):
+    """User has exceeded maximum concurrent sessions."""
+
+    def __init__(self, max_sessions: int):
+        super().__init__(f"Maximum concurrent sessions ({max_sessions}) exceeded")
+
+
+# --- Emergency Access Errors ---
+
+
+class EmergencyAccessError(PDFSignerError):
+    """Emergency access operation failed."""
+
+    pass
+
+
+# --- Authorization Errors ---
+
+
+class PermissionDeniedError(PDFSignerError):
+    """User lacks required permission for the requested operation."""
+
+    def __init__(self, message: str = "Permission denied"):
+        super().__init__(message)

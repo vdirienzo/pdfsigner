@@ -14,18 +14,38 @@ from loguru import logger
 
 from pdfsigner.config.settings import get_settings
 from pdfsigner.core.audit.audit_event import AuditEvent, AuditEventType
+from pdfsigner.core.audit.audit_integrity import (
+    AuditIntegrityManager,
+    get_audit_integrity_manager,
+    verify_audit_integrity,
+)
 from pdfsigner.core.audit.audit_logger import AuditLogger
+from pdfsigner.core.audit.siem_exporter import (
+    SIEMConfig,
+    SIEMExporter,
+    SIEMFormat,
+    SyslogProtocol,
+)
 
 # Re-export public API
 __all__ = [
     "AuditEvent",
     "AuditEventType",
     "AuditLogger",
+    "AuditIntegrityManager",
+    "get_audit_integrity_manager",
+    "verify_audit_integrity",
+    "SIEMExporter",
+    "SIEMConfig",
+    "SIEMFormat",
+    "SyslogProtocol",
     "log_signing_event",
     "log_validation_event",
     "log_token_event",
     "log_certificate_selection",
     "log_config_change",
+    "log_encryption_event",
+    "log_access_event",
     "get_audit_logger",
 ]
 
@@ -35,14 +55,34 @@ def get_audit_logger() -> AuditLogger:
     Get configured audit logger instance.
 
     Reads settings from configuration and returns singleton instance.
+    Automatically configures SIEM export if enabled in settings.
 
     Returns:
         AuditLogger instance
     """
     settings = get_settings()
+
+    # Configure SIEM exporter if enabled
+    siem_exporter = None
+    if settings.siem_enabled:
+        siem_config = SIEMConfig(
+            enabled=settings.siem_enabled,
+            format=SIEMFormat(settings.siem_format),
+            syslog_host=settings.siem_syslog_host,
+            syslog_port=settings.siem_syslog_port,
+            syslog_protocol=SyslogProtocol(settings.siem_syslog_protocol),
+            file_path=settings.siem_file_path,
+            file_rotation_mb=settings.siem_file_rotation_mb,
+            file_retention_days=settings.siem_file_retention_days,
+            tls_cert_path=settings.siem_tls_cert_path,
+            tls_verify=settings.siem_tls_verify,
+        )
+        siem_exporter = SIEMExporter(siem_config)
+
     return AuditLogger.get_instance(
         enabled=settings.audit_enabled,
         retention_days=settings.audit_retention_days,
+        siem_exporter=siem_exporter,
     )
 
 
@@ -238,6 +278,91 @@ def log_config_change(
             "setting_name": setting_name,
             "old_value": old_value,
             "new_value": new_value,
+            **(details or {}),
+        },
+    )
+
+    audit_logger.log_event(event)
+
+
+def log_encryption_event(
+    document_path: str | Path,
+    success: bool,
+    method: str = "password",
+    strength: str = "aes256",
+    user_id: str | None = None,
+    session_id: str | None = None,
+    error: str | None = None,
+    details: dict | None = None,
+) -> None:
+    """
+    Log encryption operation for HIPAA compliance.
+
+    Args:
+        document_path: Path to encrypted/decrypted document
+        success: Whether operation succeeded
+        method: Encryption method (password/certificate)
+        strength: Encryption strength (aes128/aes256)
+        user_id: User performing operation
+        session_id: Current session ID
+        error: Error message if failed
+        details: Additional details
+    """
+    audit_logger = get_audit_logger()
+    if hasattr(audit_logger, "log_encryption_event"):
+        audit_logger.log_encryption_event(
+            document_path=document_path,
+            success=success,
+            method=method,
+            strength=strength,
+            user_id=user_id,
+            session_id=session_id,
+            error=error,
+            details=details,
+        )
+
+
+def log_access_event(
+    user_id: str | None,
+    event_type: str,  # "granted" or "denied"
+    resource: str,
+    action: str,
+    reason: str | None = None,
+    session_id: str | None = None,
+    ip_address: str | None = None,
+    details: dict | None = None,
+) -> None:
+    """
+    Log access control event for HIPAA compliance.
+
+    Args:
+        user_id: User attempting access
+        event_type: "granted" or "denied"
+        resource: Resource being accessed (e.g., document path)
+        action: Action attempted (e.g., "sign", "view", "decrypt")
+        reason: Reason for denial (if denied)
+        session_id: Current session ID
+        ip_address: Client IP address
+        details: Additional details
+    """
+    from pdfsigner.core.audit.audit_event import AuditEventType
+
+    audit_logger = get_audit_logger()
+
+    evt_type = (
+        AuditEventType.ACCESS_GRANTED if event_type == "granted" else AuditEventType.ACCESS_DENIED
+    )
+
+    event = AuditEvent(
+        event_type=evt_type,
+        user_id=user_id,
+        session_id=session_id,
+        ip_address=ip_address,
+        document_path=resource,
+        status="SUCCESS" if event_type == "granted" else "DENIED",
+        error_message=reason,
+        details={
+            "action": action,
             **(details or {}),
         },
     )

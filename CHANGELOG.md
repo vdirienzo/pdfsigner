@@ -6,6 +6,279 @@ Format: [SemVer](https://semver.org/) with `Added | Changed | Fixed | Security` 
 
 ---
 
+## [2.0.0] - 2026-02-01
+
+### Added - Government Compliance Phase 6 (Documentation & Certification)
+
+- **System Security Plan (SSP)** - FedRAMP/NIST 800-53 compliant
+  - `docs/security/SSP.md` - 39 KB comprehensive security plan
+  - System identification and authorization boundary
+  - FIPS 199 security categorization (Moderate)
+  - Control implementation statements
+  - Roles and responsibilities matrix
+  - System interconnections documentation
+
+- **Security Policies** - Auditor-ready documentation
+  - `docs/security/access-control-policy.md` - 20 KB (RBAC, sessions, emergency access)
+  - `docs/security/audit-policy.md` - 45 KB (events, retention, SIEM)
+  - `docs/security/encryption-policy.md` - 47 KB (FIPS 140-2, key management)
+  - `docs/security/incident-response-plan.md` - 34 KB (IR procedures, escalation)
+  - `docs/security/change-management.md` - 42 KB (change control, CAB)
+  - `docs/security/README.md` - 9.5 KB (documentation index)
+
+### Changed
+- **Version:** 2.0.0 - Government Compliance Complete
+- **Documentation:** ~236 KB of security documentation added
+
+---
+
+## [1.9.0] - 2026-02-01
+
+### Added - Government Compliance Phase 5 (eIDAS Qualified Signatures)
+
+- **EU TSP Registry** (eIDAS Article 22)
+  - `core/eidas/tsp_registry.py` - EU Trusted List management
+  - `EUTSPRegistry` class with cache and offline mode
+  - 9 European TSPs in mock data (DigiCert, Bundesdruckerei, Actalis, ACCV, etc.)
+  - Search by URL, country (ISO 3166-1), service type
+  - Cache with 7-day expiration (configurable)
+  - Singleton: `get_tsp_registry()`
+
+- **Qualified Signature Validator** (eIDAS Articles 25-29)
+  - `core/eidas/qualified_validator.py` - QES validation engine
+  - `QualifiedSignatureValidator` class
+  - QcStatements parsing (RFC 3739, ETSI EN 319 412-5)
+  - QSCD detection (OID 0.4.0.1862.1.4)
+  - Signature level detection: Basic, AdES, QES
+  - Certificate qualification checking
+  - 43 unit tests in `test_eidas.py`
+
+- **Electronic Seals** (eIDAS Articles 35-40)
+  - `core/eidas/seal_manager.py` - Organization seals
+  - `SealManager` class with create/validate/extract
+  - Seal types: Basic, Advanced (AdESeal), Qualified (QESeal)
+  - Seal appearances: Invisible, Stamp, Banner, Logo
+  - Circular seal SVG generation
+  - `api/routes/seal.py` - REST API endpoints
+  - `api/schemas/seal.py` - Pydantic schemas
+  - Settings: `seal_enabled`, `seal_default_type`, `seal_appearance`
+  - Singleton: `get_seal_manager()`
+  - 35 unit tests in `test_seal.py`
+
+### Changed
+- **Tests:** ~2,184 total (was ~2,106, +78 Phase 5 tests)
+
+---
+
+## [1.8.0] - 2026-02-01
+
+### Added - Government Compliance Phase 4 (Compliance Dashboard)
+
+- **Compliance Checker Engine** (NIST 800-53, FedRAMP, SOC 2)
+  - `core/compliance/checker.py` - Main ComplianceChecker with 6 standards
+  - `core/compliance/controls.py` - Control definitions (100+ controls)
+  - `core/compliance/status_checker.py` - Real-time status verification
+  - Standards: HIPAA, NIST 800-53, FedRAMP, eIDAS, GDPR, SOC 2
+  - `check_hipaa()` → 8 controls (§164.312 Access, Audit, Integrity, Auth)
+  - `check_nist_800_53()` → 15 controls (AC, AU, IA, SC families)
+  - `check_eidas()` → 6 controls (PAdES-LTA, TSA, certificates)
+  - `check_gdpr()` → 7 controls (retention, erasure, portability)
+  - `check_soc2()` → 10 controls (Trust Service Criteria)
+  - Overall score calculation (weighted average 0-100)
+  - Evidence collection for audit trails
+  - Actionable recommendations engine
+  - Singleton: `get_compliance_checker()`
+  - 78 unit tests in `test_compliance_checker.py`
+
+- **Compliance Report Generator** (FedRAMP, SOC 2)
+  - `core/compliance/report_generator.py` - Multi-format report generation
+  - `core/compliance/formatters.py` - PDF, JSON, CSV, CEF formatters
+  - PDF reports with executive summary and control matrix
+  - JSON export with full details for programmatic access
+  - CSV export for spreadsheet analysis
+  - CEF (Common Event Format) for SIEM integration
+  - SHA-256 checksums for report integrity
+  - API endpoints: `POST /api/v1/compliance/{check,report,status}`
+  - Settings: `compliance_report_dir`, `compliance_auto_check_enabled`
+  - Singleton: `get_report_generator()`
+  - 30 unit tests in `test_compliance_reports.py`
+
+- **SIEM Integration** (SOC 2 AU-6, NIST AU-6)
+  - `core/audit/siem_exporter.py` - SIEM export functionality
+  - CEF formatter (ArcSight, Splunk compatible)
+  - LEEF formatter (IBM QRadar compatible)
+  - JSON Lines formatter for ELK stack
+  - Syslog UDP/TCP/TLS transport
+  - File export with automatic rotation (configurable MB)
+  - Retention policy (configurable days)
+  - Severity mapping (DEBUG→0, INFO→3, WARNING→5, ERROR→7, CRITICAL→10)
+  - Signature IDs for 12 event types
+  - Batch export with error handling
+  - Connection testing (`test_connection()`)
+  - Settings: `siem_enabled`, `siem_format`, `siem_syslog_host/port/protocol`
+  - Singleton: `get_siem_exporter()`
+  - 38 unit tests in `test_siem_exporter.py`
+
+### Changed
+- **Tests:** ~2,106 total (was ~1,921, +185 Phase 4 tests)
+
+---
+
+## [1.7.0] - 2026-02-01
+
+### Added - Government Compliance Phase 3 (Data Protection)
+
+- **PHI/PII Detection Engine** (HIPAA §164.514, GDPR)
+  - `core/detection/pii_types.py` - PIIType enum (9 types) + PIIMatch dataclass
+  - `core/detection/patterns.py` - Regex patterns for SSN, CC, email, phone, DOB, MRN, ICD-10
+  - `core/detection/pii_detector.py` - PIIDetector with confidence scoring (0.0-1.0)
+  - `core/detection/pdf_scanner.py` - PDF text extraction with coordinates (PyMuPDF)
+  - Luhn algorithm validation for credit cards
+  - Contextual detection (context words boost confidence)
+  - Risk score calculation (0.0-1.0) based on PII sensitivity
+  - API endpoint: `POST /api/v1/phi/scan`
+  - CLI command: `pdfsigner scan-pii doc.pdf`
+  - Singleton: `get_pii_detector()`
+  - 40 unit tests in `test_pii_detector.py`
+
+- **Automatic PDF Redaction** (HIPAA Safe Harbor)
+  - `core/detection/redactor.py` - PDFRedactor with true redaction (not overlay)
+  - Uses PyMuPDF `add_redact_annot()` + `apply_redactions()` for permanent removal
+  - `redact_regions()` - Manual coordinate-based redaction
+  - `redact_by_pattern()` - Auto-detect and redact by PII type
+  - `preview_redactions()` - PNG preview before applying
+  - Configurable replacement text (e.g., "[SSN REDACTED]")
+  - API endpoints: `POST /api/v1/redact/{regions,auto,preview}`
+  - CLI command: `pdfsigner redact doc.pdf --types ssn,credit_card`
+  - Audit logging for all redaction events
+  - Singleton: `get_pdf_redactor()`
+  - 27 unit tests in `test_redactor.py`
+
+- **GDPR Data Retention & Erasure** (GDPR Articles 17 & 20)
+  - `core/gdpr/data_retention.py` - DataRetentionService
+  - `core/gdpr/data_export.py` - UserDataExporter (JSON/CSV)
+  - User anonymization (pseudonymization): name → `anonymous_[hash]`
+  - Scheduled deletion with grace period (default: 30 days)
+  - Data export for portability (all user data in machine-readable format)
+  - Automatic purge of expired data
+  - API endpoints: `POST /api/v1/gdpr/{export,anonymize,delete,purge}`
+  - Settings: `gdpr_enabled`, `gdpr_retention_days`, `gdpr_deletion_grace_days`
+  - Singleton: `get_data_retention_service()`
+  - 30 unit tests in `test_data_retention.py`
+
+### Changed
+- **Tests:** ~1,921 total (was ~1,824, +97 Phase 3 tests)
+
+---
+
+## [1.6.0] - 2026-02-01
+
+### Added - Government Compliance Phase 2 (Enhanced Access Controls)
+
+- **Password Policy Engine** (NIST 800-53 IA-5)
+  - `core/auth/password_policy.py` with `PasswordPolicy` dataclass
+  - `core/auth/password_validator.py` with `PasswordValidator` class
+  - Argon2 password hashing (NIST recommended)
+  - Password history tracking (SQLite-backed, prevents reuse of last N passwords)
+  - Common password detection (100+ blocked passwords)
+  - Strength scoring 0-100 with suggestions
+  - Settings: `password_min_length`, `password_max_age_days`, `password_history_count`, `password_lockout_threshold`
+  - 43 unit tests in `test_password_policy.py`
+
+- **Multi-Factor Authentication (MFA)** (NIST 800-53 IA-2)
+  - `core/auth/mfa/totp_provider.py` - TOTP RFC 6238 (Google Authenticator compatible)
+  - `core/auth/mfa/backup_codes.py` - One-time backup codes (XXXX-XXXX format)
+  - `core/auth/mfa/mfa_manager.py` - MFA enrollment, verification, disable
+  - `api/routes/mfa.py` - REST API endpoints for MFA management
+  - QR code generation for easy enrollment
+  - 10 backup codes per user (SHA-256 hashed)
+  - Audit events: MFA_ENROLLED, MFA_VERIFIED, MFA_DISABLED, MFA_BACKUP_USED
+  - Settings: `mfa_enabled`, `mfa_required_for_roles`, `mfa_backup_codes_count`
+  - 30 unit tests in `test_mfa.py`
+
+### Changed
+- **Tests:** ~1824 total (was ~1751, +73 Phase 2 tests)
+
+---
+
+## [1.5.0] - 2026-02-01
+
+### Added - Government Compliance Phase 1 (Cryptographic Hardening)
+
+- **FIPS 140-2 Crypto Mode** (NIST 800-53 SC-13)
+  - `core/crypto/fips_provider.py` with `FIPSCryptoProvider` class
+  - Restricts algorithms to FIPS-approved only: SHA-256/384/512, AES-128/256, RSA-2048+, ECDSA P-256/384
+  - Strict mode raises `FIPSModeError` for non-compliant algorithms
+  - Settings: `fips_mode_enabled`, `fips_strict_mode`
+  - Singleton: `get_fips_provider()`
+  - 25 unit tests in `test_fips_provider.py`
+
+- **TLS/HTTPS Enforcement** (NIST 800-53 SC-8)
+  - `api/middleware/tls.py` with redirect and requirement middlewares
+  - `TLSRedirectMiddleware`: HTTP → HTTPS redirect (301)
+  - `TLSRequirementMiddleware`: Reject HTTP entirely (426 Upgrade Required)
+  - `get_ssl_context()`: Configure SSL with min TLS version, mTLS support
+  - `validate_tls_config()`: Startup validation of TLS configuration
+  - X-Forwarded-Proto support for proxies/load balancers
+  - Settings: `tls_enabled`, `tls_cert_path`, `tls_key_path`, `tls_min_version`, `tls_require_client_cert`, `tls_ca_cert_path`, `tls_redirect_http`, `tls_strict_mode`
+  - 28 unit tests in `test_tls_middleware.py`
+
+- **Secure Key Storage** (NIST 800-53 SC-12)
+  - `core/crypto/key_manager.py` with `KeyManager` class
+  - SQLite-backed encrypted key storage with PBKDF2 (480000+ iterations)
+  - Key types: SYMMETRIC, ASYMMETRIC_PRIVATE, ASYMMETRIC_PUBLIC, HMAC
+  - Key rotation with `rotate_key()` - old key marked as rotated
+  - Key revocation with `revoke_key()` - prevents retrieval
+  - Export/import with password-based encryption
+  - Automatic cleanup of expired keys
+  - Settings: `key_storage_path`, `key_default_expiry_days`, `key_auto_rotate_days`
+  - Singleton: `get_key_manager()`, `init_key_manager()`
+  - 30 unit tests in `test_key_manager.py`
+
+### Changed
+- **Tests:** 1751 total (was 1638, +113 Phase 1 tests)
+
+---
+
+## [1.4.0] - 2026-02-01
+
+### Added - Healthcare Compliance (HIPAA)
+
+- **PDF Encryption Module** (HIPAA §164.312(a)(2)(iv) - Encryption)
+  - `core/encryption/` module with AES-256 encryption via PyMuPDF
+  - `PasswordHandler` for encrypt/decrypt operations
+  - `EncryptionValidator` enforces HIPAA-compliant settings
+  - `CredentialStore` for secure password storage via keyring
+  - `PDFEncryptor` as main orchestrator with batch support
+  - CLI commands: `pdfsigner encrypt`, `pdfsigner decrypt`
+  - Settings: `encryption_enabled`, `encryption_strength`, `encryption_hipaa_mode`
+  - 17 unit tests in `test_encryption_config.py`
+
+- **Enhanced Audit Trail** (HIPAA §164.312(b) - Audit Controls)
+  - `AuditIntegrityManager` with HMAC-SHA256 signing
+  - Chain hashing (blockchain-style) for tamper detection
+  - 14 new event types: ENCRYPT_SUCCESS/FAILURE, DECRYPT_SUCCESS/FAILURE, ACCESS_GRANTED/DENIED, EMERGENCY_ACCESS, SESSION_START/END/TIMEOUT
+  - 8 new HIPAA fields: `user_id`, `session_id`, `ip_address`, `user_agent`, `phi_accessed`, `record_hash`, `previous_hash`, `hmac_signature`
+  - `verify_chain()` validates entire audit log sequence
+  - `verify_audit_file()` generates detailed integrity report
+  - 14 unit tests in `test_audit_integrity.py`
+
+- **User Registry** (HIPAA §164.312(d) - Person/Entity Authentication)
+  - `core/users/` module with SQLite-backed user management
+  - `User` dataclass with roles (VIEWER, SIGNER, ADMIN, AUDITOR, EMERGENCY)
+  - `UserRepository` for CRUD operations with certificate binding
+  - `CertificateBindingService` auto-creates users from PKCS#11 certificates
+  - `Department` dataclass for organizational structure
+  - 45 unit tests: `test_user_model.py` (19), `test_user_repository.py` (16), `test_cert_binding.py` (10)
+
+### Fixed
+- **Audit integrity verification** - `verify_audit_file()` now correctly returns `False` for non-existent files (was returning `True` due to missing critical issues check)
+
+### Changed
+- **Tests:** 1316 total (was 1240, +76 healthcare tests)
+
+---
+
 ## [1.3.0] - 2026-02-01
 
 ### Added

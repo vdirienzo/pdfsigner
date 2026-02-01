@@ -10,9 +10,14 @@ from typing import Annotated
 from fastapi import Depends, HTTPException, Security, status
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer
 from jose import JWTError, jwt
+from loguru import logger
 from pydantic import BaseModel
 
 from pdfsigner.api.config import get_api_settings
+from pdfsigner.config.settings import get_settings
+from pdfsigner.core.session import get_session_manager
+from pdfsigner.core.users.user_model import User, UserRole, UserStatus
+from pdfsigner.core.users.user_repository import UserRepository
 
 # Security schemes
 http_bearer = HTTPBearer(auto_error=False)
@@ -22,46 +27,52 @@ api_key_header_scheme = APIKeyHeader(name="X-API-Key", auto_error=False)
 # --- Models ---
 
 
-class User(BaseModel):
-    """User model for authentication."""
-
-    username: str
-    email: str | None = None
-    role: str = "user"  # "user" or "admin"
-    disabled: bool = False
-
-
 class TokenData(BaseModel):
     """JWT token payload data."""
 
     username: str
-    role: str = "user"
+    user_id: str | None = None
+    role: str = "viewer"
     exp: datetime | None = None
+    session_id: str | None = None
+    mfa_verified: bool = False  # Whether MFA was verified for this token
 
 
 # --- JWT Functions ---
 
 
 def create_access_token(
-    data: dict[str, str | datetime],
+    data: dict[str, str | datetime | bool],
     expires_delta: timedelta | None = None,
+    session_id: str | None = None,
+    mfa_verified: bool = False,
 ) -> str:
     """
     Create JWT access token.
 
     Args:
-        data: Payload data to encode (must include 'sub' for username)
+        data: Payload data to encode (must include 'sub' for username,
+              optionally 'user_id' and 'role')
         expires_delta: Token expiration time (default from settings)
+        session_id: Optional session ID to embed in token (for healthcare mode)
+        mfa_verified: Whether MFA was verified for this token
 
     Returns:
         Encoded JWT token string
 
     Example:
-        >>> token = create_access_token({"sub": "user123"})
-        >>> token = create_access_token({"sub": "admin"}, timedelta(hours=1))
+        >>> token = create_access_token({"sub": "user123", "user_id": "uuid", "role": "signer"})
+        >>> token = create_access_token({"sub": "admin"}, timedelta(hours=1), mfa_verified=True)
     """
     settings = get_api_settings()
     to_encode = data.copy()
+
+    # Add session_id to claims if provided
+    if session_id:
+        to_encode["session_id"] = session_id
+
+    # Add MFA verification status
+    to_encode["mfa_verified"] = mfa_verified
 
     if expires_delta:
         expire = datetime.now(UTC) + expires_delta
@@ -85,7 +96,7 @@ def verify_token(token: str) -> TokenData:
         token: JWT token string to verify
 
     Returns:
-        TokenData with username, role, and expiration
+        TokenData with username, user_id, role, expiration, and optional session_id
 
     Raises:
         HTTPException: 401 if token is invalid or expired
@@ -107,11 +118,21 @@ def verify_token(token: str) -> TokenData:
         if username is None:
             raise credentials_exception
 
-        role: str = payload.get("role", "user")
+        user_id: str | None = payload.get("user_id")
+        role: str = payload.get("role", "viewer")
         exp_timestamp: int | None = payload.get("exp")
         exp = datetime.fromtimestamp(exp_timestamp, tz=UTC) if exp_timestamp else None
+        session_id: str | None = payload.get("session_id")
+        mfa_verified: bool = payload.get("mfa_verified", False)
 
-        return TokenData(username=username, role=role, exp=exp)
+        return TokenData(
+            username=username,
+            user_id=user_id,
+            role=role,
+            exp=exp,
+            session_id=session_id,
+            mfa_verified=mfa_verified,
+        )
     except JWTError as e:
         raise credentials_exception from e
 
@@ -125,6 +146,9 @@ async def get_current_user(
     """
     Get current user from JWT token.
 
+    When healthcare_mode is enabled, validates session and fetches user from UserRepository.
+    Otherwise, creates a mock user from token data.
+
     Args:
         credentials: HTTP Bearer token from request header
 
@@ -133,6 +157,8 @@ async def get_current_user(
 
     Raises:
         HTTPException: 401 if no token or invalid token
+        HTTPException: 401 if session expired (healthcare mode)
+        HTTPException: 404 if user not found (healthcare_mode only)
     """
     if credentials is None:
         raise HTTPException(
@@ -142,17 +168,59 @@ async def get_current_user(
         )
 
     token_data = verify_token(credentials.credentials)
+    settings = get_settings()
 
-    # In production, fetch user from database
-    # For now, create user from token data
-    user = User(
-        username=token_data.username,
-        email=f"{token_data.username}@example.com",
-        role=token_data.role,
-        disabled=False,
-    )
+    # Validate and touch session if healthcare_mode
+    if settings.healthcare_mode and token_data.session_id:
+        session_mgr = get_session_manager()
+        if not session_mgr.validate_session(token_data.session_id):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Session expired or invalid",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        # Sliding window: extend session on activity
+        session_mgr.touch_session(token_data.session_id)
 
-    return user
+    # If healthcare mode is enabled, fetch user from repository
+    if settings.healthcare_mode:
+        user_repo = UserRepository()
+        try:
+            # Try to fetch by user_id if available in token
+            if token_data.user_id:
+                user = user_repo.get_user(token_data.user_id)
+                if user:
+                    return user
+
+            # Fallback: fetch by username
+            user = user_repo.get_user_by_username(token_data.username)
+            if user:
+                return user
+
+            # User not found in repository
+            logger.warning(
+                f"User '{token_data.username}' authenticated via JWT but not found in repository"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"User '{token_data.username}' not found in system",
+            )
+        finally:
+            user_repo.close()
+    else:
+        # Healthcare mode disabled: create mock user from token data
+        try:
+            role = UserRole(token_data.role)
+        except ValueError:
+            role = UserRole.VIEWER
+
+        return User(
+            id=token_data.user_id or token_data.username,
+            username=token_data.username,
+            email=f"{token_data.username}@example.com",
+            role=role,
+            status=UserStatus.ACTIVE,
+        )
 
 
 async def get_current_active_user(
@@ -168,12 +236,12 @@ async def get_current_active_user(
         Active User object
 
     Raises:
-        HTTPException: 400 if user is disabled
+        HTTPException: 403 if user is inactive or locked
     """
-    if current_user.disabled:
+    if not current_user.is_active:
         raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Inactive user",
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account is inactive or locked",
         )
     return current_user
 
@@ -193,11 +261,74 @@ async def require_admin_user(
     Raises:
         HTTPException: 403 if user is not admin
     """
-    if current_user.role != "admin":
+    if current_user.role != UserRole.ADMIN:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required",
         )
+    return current_user
+
+
+async def require_mfa_verified(
+    current_user: Annotated[User, Depends(get_current_active_user)],
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(http_bearer)] = None,
+) -> User:
+    """
+    Require MFA verification for protected routes.
+
+    Checks if user has MFA enabled and if token includes MFA verification.
+    If MFA is required but not verified, returns 403 with mfa_required flag.
+
+    Args:
+        current_user: Active user from get_current_active_user
+        credentials: JWT credentials to check MFA verification status
+
+    Returns:
+        User object if MFA requirements are satisfied
+
+    Raises:
+        HTTPException: 403 if MFA required but not verified
+    """
+    settings = get_settings()
+
+    # Check if MFA is globally enabled
+    if not settings.mfa_enabled:
+        return current_user
+
+    # Check if MFA is required for user's role
+    if current_user.role.value.upper() not in [r.upper() for r in settings.mfa_required_for_roles]:
+        return current_user
+
+    # Check if user has MFA enabled
+    try:
+        from pdfsigner.core.auth.mfa import get_mfa_manager
+
+        mfa_manager = get_mfa_manager()
+        status = mfa_manager.get_status(current_user.id)
+
+        if not status.enabled:
+            # MFA required but not enrolled
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="MFA is required but not enabled for your account",
+                headers={"X-MFA-Required": "true", "X-MFA-Status": "not_enrolled"},
+            )
+
+    except Exception as e:
+        logger.warning(f"Failed to check MFA status: {e}")
+        # Fail open if MFA check fails (avoid lockout)
+        return current_user
+
+    # Verify token has MFA verification flag
+    if credentials:
+        token_data = verify_token(credentials.credentials)
+        if not token_data.mfa_verified:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="MFA verification required",
+                headers={"X-MFA-Required": "true", "X-MFA-Status": "not_verified"},
+            )
+
     return current_user
 
 
@@ -238,10 +369,11 @@ async def verify_api_key(
     # In production, fetch user associated with API key from database
     # For now, return a generic API user
     return User(
+        id=f"apikey_{api_key[:8]}",
         username=f"apikey_{api_key[:8]}",
         email=None,
-        role="user",
-        disabled=False,
+        role=UserRole.SIGNER,
+        status=UserStatus.ACTIVE,
     )
 
 
@@ -299,6 +431,8 @@ __all__ = [
     "get_current_user",
     "get_current_active_user",
     "require_admin_user",
+    "require_mfa_verified",
     "verify_api_key",
     "get_current_user_or_api_key",
+    "http_bearer",
 ]

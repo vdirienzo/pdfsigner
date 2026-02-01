@@ -12,9 +12,11 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from loguru import logger
 
-from pdfsigner.api.middleware.auth import User, get_current_user_or_api_key
+from pdfsigner.api.middleware.auth import get_current_user_or_api_key
 from pdfsigner.api.schemas.validate import BatchValidateResponse, ValidateResponse
 from pdfsigner.api.services.validation_service import ValidationService
+from pdfsigner.core.rbac import Permission, check_permission
+from pdfsigner.core.users.user_model import User
 
 router = APIRouter(prefix="/api/v1/validate", tags=["validation"])
 
@@ -175,6 +177,7 @@ def cleanup_temp_files(temp_paths: list[Path]) -> None:
 async def validate_document(
     file: UploadFile = File(..., description="PDF file to validate"),
     current_user: User = Depends(get_current_user_or_api_key),
+    _perm: None = Depends(check_permission(Permission.VALIDATE)),
     service: ValidationService = Depends(get_validation_service),
 ) -> ValidateResponse:
     """
@@ -280,6 +283,7 @@ async def validate_document(
 async def validate_batch(
     files: list[UploadFile] = File(..., description="PDF files to validate (max 50)"),
     current_user: User = Depends(get_current_user_or_api_key),
+    _perm: None = Depends(check_permission(Permission.VALIDATE)),
     service: ValidationService = Depends(get_validation_service),
 ) -> BatchValidateResponse:
     """

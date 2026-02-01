@@ -13,9 +13,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from loguru import logger
 
-from pdfsigner.api.middleware.auth import User, get_current_user_or_api_key
+from pdfsigner.api.middleware.auth import get_current_user_or_api_key
 from pdfsigner.api.schemas.certificates import CertificateChain, CertificateInfo
 from pdfsigner.api.services.certificate_service import CertificateService
+from pdfsigner.core.rbac import Permission, check_permission
+from pdfsigner.core.users.user_model import User
 from pdfsigner.exceptions import (
     CertificateNotFoundError,
     NSSConfigError,
@@ -54,6 +56,7 @@ def get_certificate_service() -> CertificateService:
 )
 async def list_tokens(
     current_user: Annotated[User, Depends(get_current_user_or_api_key)],
+    _perm: Annotated[None, Depends(check_permission(Permission.VIEW))],
     cert_service: Annotated[CertificateService, Depends(get_certificate_service)],
 ) -> list[str]:
     """
@@ -110,6 +113,7 @@ async def list_tokens(
 )
 async def list_certificates(
     current_user: Annotated[User, Depends(get_current_user_or_api_key)],
+    _perm: Annotated[None, Depends(check_permission(Permission.VIEW))],
     cert_service: Annotated[CertificateService, Depends(get_certificate_service)],
     token_label: str | None = Query(None, description="Token label to connect to"),
     pin: str | None = Query(None, description="Token PIN for authentication"),
@@ -179,6 +183,7 @@ async def list_certificates(
 async def get_certificate(
     cert_id: str,
     current_user: Annotated[User, Depends(get_current_user_or_api_key)],
+    _perm: Annotated[None, Depends(check_permission(Permission.VIEW))],
     cert_service: Annotated[CertificateService, Depends(get_certificate_service)],
     token_label: str | None = Query(None, description="Token label to connect to"),
     pin: str | None = Query(None, description="Token PIN for authentication"),
@@ -251,6 +256,7 @@ async def get_certificate(
 async def get_certificate_chain(
     cert_id: str,
     current_user: Annotated[User, Depends(get_current_user_or_api_key)],
+    _perm: Annotated[None, Depends(check_permission(Permission.VIEW))],
     cert_service: Annotated[CertificateService, Depends(get_certificate_service)],
     token_label: str | None = Query(None, description="Token label to connect to"),
     pin: str | None = Query(None, description="Token PIN for authentication"),

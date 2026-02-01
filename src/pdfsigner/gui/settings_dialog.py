@@ -22,6 +22,7 @@ from pdfsigner.gui.settings_pages import (
     create_appearance_page,
     create_behavior_page,
     create_general_page,
+    create_healthcare_page,
     create_ltv_page,
     create_signature_page,
     create_validation_page,
@@ -76,6 +77,9 @@ class SettingsDialog(Adw.PreferencesWindow):
 
         advanced_page = create_advanced_page(self.settings, self)
         self.add(advanced_page)
+
+        healthcare_page = create_healthcare_page(self.settings, self)
+        self.add(healthcare_page)
 
         # Connect auto-save signals after all pages are created
         self._connect_auto_save_signals()
@@ -143,6 +147,32 @@ class SettingsDialog(Adw.PreferencesWindow):
             self.recent_files_limit_spin.connect("notify::value", self._on_setting_changed)
         if hasattr(self, "notifications_switch"):
             self.notifications_switch.connect("notify::active", self._on_setting_changed)
+
+        # Healthcare page
+        if hasattr(self, "healthcare_switch"):
+            self.healthcare_switch.connect("notify::active", self._on_setting_changed)
+        if hasattr(self, "healthcare_session_timeout_spin"):
+            self.healthcare_session_timeout_spin.connect("notify::value", self._on_setting_changed)
+        if hasattr(self, "healthcare_max_sessions_spin"):
+            self.healthcare_max_sessions_spin.connect("notify::value", self._on_setting_changed)
+        if hasattr(self, "healthcare_emergency_duration_spin"):
+            self.healthcare_emergency_duration_spin.connect(
+                "notify::value", self._on_setting_changed
+            )
+        if hasattr(self, "healthcare_emergency_approval_switch"):
+            self.healthcare_emergency_approval_switch.connect(
+                "notify::active", self._on_setting_changed
+            )
+        if hasattr(self, "encryption_hipaa_switch"):
+            self.encryption_hipaa_switch.connect("notify::active", self._on_setting_changed)
+        if hasattr(self, "encryption_strength_combo"):
+            self.encryption_strength_combo.connect("notify::selected", self._on_setting_changed)
+        if hasattr(self, "encryption_keyring_switch"):
+            self.encryption_keyring_switch.connect("notify::active", self._on_setting_changed)
+        if hasattr(self, "encryption_allow_print_switch"):
+            self.encryption_allow_print_switch.connect("notify::active", self._on_setting_changed)
+        if hasattr(self, "encryption_allow_copy_switch"):
+            self.encryption_allow_copy_switch.connect("notify::active", self._on_setting_changed)
 
     def _on_setting_changed(self, *args) -> None:
         """Handle any setting change with debounced auto-save."""
@@ -263,6 +293,57 @@ class SettingsDialog(Adw.PreferencesWindow):
             lines.append(
                 f"system_notifications_enabled = "
                 f"{str(self.notifications_switch.get_active()).lower()}"
+            )
+
+        # Healthcare Compliance settings
+        lines.append("")
+        lines.append("# Healthcare Compliance (HIPAA)")
+        if hasattr(self, "healthcare_switch"):
+            lines.append(f"healthcare_mode = {str(self.healthcare_switch.get_active()).lower()}")
+        if hasattr(self, "healthcare_session_timeout_spin"):
+            lines.append(
+                f"healthcare_session_timeout_minutes = "
+                f"{int(self.healthcare_session_timeout_spin.get_value())}"
+            )
+        if hasattr(self, "healthcare_max_sessions_spin"):
+            lines.append(
+                f"healthcare_max_sessions = {int(self.healthcare_max_sessions_spin.get_value())}"
+            )
+        if hasattr(self, "healthcare_emergency_duration_spin"):
+            lines.append(
+                f"healthcare_emergency_duration_hours = "
+                f"{int(self.healthcare_emergency_duration_spin.get_value())}"
+            )
+        if hasattr(self, "healthcare_emergency_approval_switch"):
+            lines.append(
+                f"healthcare_emergency_require_approval = "
+                f"{str(self.healthcare_emergency_approval_switch.get_active()).lower()}"
+            )
+
+        # Encryption settings
+        lines.append("")
+        lines.append("# Encryption")
+        if hasattr(self, "encryption_hipaa_switch"):
+            lines.append(
+                f"encryption_hipaa_mode = {str(self.encryption_hipaa_switch.get_active()).lower()}"
+            )
+        if hasattr(self, "encryption_strength_combo"):
+            strength = "aes128" if self.encryption_strength_combo.get_selected() == 0 else "aes256"
+            lines.append(f'encryption_default_strength = "{strength}"')
+        if hasattr(self, "encryption_keyring_switch"):
+            lines.append(
+                f"encryption_store_in_keyring = "
+                f"{str(self.encryption_keyring_switch.get_active()).lower()}"
+            )
+        if hasattr(self, "encryption_allow_print_switch"):
+            lines.append(
+                f"encryption_default_allow_print = "
+                f"{str(self.encryption_allow_print_switch.get_active()).lower()}"
+            )
+        if hasattr(self, "encryption_allow_copy_switch"):
+            lines.append(
+                f"encryption_default_allow_copy = "
+                f"{str(self.encryption_allow_copy_switch.get_active()).lower()}"
             )
 
         config_path.write_text("\n".join(lines))

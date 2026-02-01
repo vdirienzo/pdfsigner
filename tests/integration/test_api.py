@@ -55,7 +55,7 @@ async def client():
 def auth_token(api_settings):
     """Create valid JWT token for testing."""
     token = create_access_token(
-        data={"sub": "testuser", "role": "user"},
+        data={"sub": "testuser", "role": "signer"},  # Updated for RBAC
         expires_delta=timedelta(minutes=30),
     )
     return token
@@ -216,7 +216,7 @@ async def test_auth_get_user_info(client, auth_headers):
     data = response.json()
     assert data["username"] == "testuser"
     assert "email" in data
-    assert data["role"] == "user"
+    assert data["role"] == "signer"  # Updated for RBAC: default role is signer
     assert data["disabled"] is False
 
 
@@ -820,4 +820,4 @@ async def test_user_role_in_token(client, auth_headers):
     # Assert
     assert response.status_code == status.HTTP_200_OK
     data = response.json()
-    assert data["role"] == "user"
+    assert data["role"] == "signer"  # Updated for RBAC: default role is signer

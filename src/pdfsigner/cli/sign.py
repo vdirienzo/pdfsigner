@@ -14,6 +14,8 @@ from loguru import logger
 
 from pdfsigner.cli.utils import collect_pdf_files, get_pin_from_user
 from pdfsigner.config.settings import get_settings
+from pdfsigner.core.audit import AuditEventType, get_audit_logger
+from pdfsigner.core.phi import get_phi_scanner
 from pdfsigner.core.signer.batch_manager import BatchManager
 from pdfsigner.core.signer.lta_handler import create_lta_handler_from_settings
 from pdfsigner.core.signer.pdf_signer import SignatureAppearance
@@ -127,8 +129,108 @@ def _sign_dry_run(args: argparse.Namespace, pdf_files: list[Path]) -> int:
         return 1
 
 
+def _scan_phi_for_files(files: list[Path], skip_confirmation: bool = False) -> bool:
+    """
+    Scan files for PHI and ask for confirmation if detected.
+
+    Args:
+        files: List of PDF files to scan
+        skip_confirmation: If True, skip user confirmation
+
+    Returns:
+        True if should proceed with signing, False to abort
+    """
+    scanner = get_phi_scanner()
+    audit_logger = get_audit_logger()
+    total_phi_count = 0
+    files_with_phi = []
+
+    print("\n" + "=" * 60)
+    print("🔍 Scanning for Protected Health Information (PHI)")
+    print("=" * 60 + "\n")
+
+    for pdf_file in files:
+        print(f"Scanning: {pdf_file.name}...", end=" ", flush=True)
+        result = scanner.scan_pdf(pdf_file)
+
+        if result.error:
+            print(f"⚠️  Error: {result.error}")
+            continue
+
+        if result.has_phi:
+            print(f"⚠️  PHI detected ({result.total_matches} matches)")
+            files_with_phi.append((pdf_file, result))
+            total_phi_count += result.total_matches
+
+            # Log PHI types detected
+            for phi_type, count in result.by_type.items():
+                print(f"    - {phi_type}: {count} matches")
+        else:
+            print("✓ No PHI detected")
+
+    if not files_with_phi:
+        print("\n✓ No PHI detected in any files. Safe to proceed.\n")
+        return True
+
+    # Display summary
+    print("\n" + "=" * 60)
+    print("⚠️  WARNING: PHI DETECTED")
+    print("=" * 60)
+    print(f"Files with PHI: {len(files_with_phi)}/{len(files)}")
+    print(f"Total PHI instances: {total_phi_count}")
+    print(f"Overall confidence: {files_with_phi[0][1].overall_confidence.value}")
+    print("\nPHI Types detected:")
+    all_types = {}
+    for _, result in files_with_phi:
+        for phi_type, count in result.by_type.items():
+            all_types[phi_type] = all_types.get(phi_type, 0) + count
+    for phi_type, count in sorted(all_types.items()):
+        print(f"  - {phi_type}: {count}")
+
+    # Log audit event
+    audit_logger.log_event(
+        event_type=AuditEventType.PHI_DETECTED,
+        user_id="cli-user",
+        details={
+            "files_scanned": len(files),
+            "files_with_phi": len(files_with_phi),
+            "total_matches": total_phi_count,
+            "phi_types": list(all_types.keys()),
+        },
+    )
+
+    # Ask for confirmation
+    if skip_confirmation:
+        print("\n--yes flag provided, proceeding with signing...\n")
+        return True
+
+    print("\n" + "-" * 60)
+    print("⚠️  IMPORTANT: Signing documents with PHI may have compliance implications.")
+    print("   Ensure you have proper authorization and the documents will be")
+    print("   properly secured after signing.")
+    print("-" * 60)
+
+    while True:
+        response = input("\nProceed with signing? [y/N]: ").strip().lower()
+        if response in ("y", "yes"):
+            logger.info("User confirmed to proceed despite PHI detection")
+            return True
+        elif response in ("n", "no", ""):
+            logger.info("User aborted signing due to PHI detection")
+            print("Signing cancelled by user.")
+            return False
+        else:
+            print("Please enter 'y' or 'n'")
+
+
 def _sign_real(args: argparse.Namespace, pdf_files: list[Path]) -> int:
     """Real signing with USB token."""
+    # Check if PHI scanning is requested
+    if getattr(args, "scan_phi", False):
+        skip_confirmation = getattr(args, "yes", False)
+        if not _scan_phi_for_files(pdf_files, skip_confirmation):
+            return 130  # User cancelled
+
     logger.info("Connecting to USB token...")
     nss_handler = NSSHandler()
     nss_handler.initialize()

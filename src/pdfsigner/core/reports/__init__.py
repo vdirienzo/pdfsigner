@@ -1,17 +1,27 @@
-"""
-reports - Validation report generators
+"""HIPAA compliance reporting module for PDFSigner."""
 
-This module provides report generation functionality for PDF validation results.
-"""
-
-from .report_generator import (
+from pdfsigner.core.reports.hipaa_report import (
+    EmergencyAccessSummary,
+    EncryptionSummary,
+    HIPAAReport,
+    HIPAAReportGenerator,
+    PHIAccessSummary,
+    ReportConfig,
     ReportFormat,
-    ReportOptions,
-    ValidationReportGenerator,
+    ReportSection,
+    UserAccessSummary,
+    generate_hipaa_report,
 )
 
 __all__ = [
     "ReportFormat",
-    "ReportOptions",
-    "ValidationReportGenerator",
+    "ReportSection",
+    "ReportConfig",
+    "UserAccessSummary",
+    "EncryptionSummary",
+    "EmergencyAccessSummary",
+    "PHIAccessSummary",
+    "HIPAAReport",
+    "HIPAAReportGenerator",
+    "generate_hipaa_report",
 ]

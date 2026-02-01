@@ -173,6 +173,44 @@ class APISettings(BaseSettings):
         description="OpenAPI JSON schema path (None to disable)",
     )
 
+    # --- TLS/HTTPS Configuration ---
+    tls_enabled: bool = Field(
+        default=False,
+        description="Enable TLS/HTTPS for API server (requires cert/key paths)",
+    )
+    tls_cert_path: str = Field(
+        default="",
+        description="Path to TLS certificate file (PEM format)",
+    )
+    tls_key_path: str = Field(
+        default="",
+        description="Path to TLS private key file (PEM format)",
+    )
+    tls_min_version: Literal["TLSv1.2", "TLSv1.3"] = Field(
+        default="TLSv1.2",
+        description="Minimum TLS version (TLSv1.2 or TLSv1.3)",
+    )
+    tls_require_client_cert: bool = Field(
+        default=False,
+        description="Require client certificate for mTLS (mutual TLS)",
+    )
+    tls_ca_cert_path: str = Field(
+        default="",
+        description=(
+            "Path to CA certificate for client cert verification (mTLS). Empty = use system CAs"
+        ),
+    )
+    tls_redirect_http: bool = Field(
+        default=True,
+        description="Redirect HTTP requests to HTTPS when TLS is enabled",
+    )
+    tls_strict_mode: bool = Field(
+        default=False,
+        description=(
+            "Reject non-HTTPS requests entirely (no redirect). For high-security deployments."
+        ),
+    )
+
     @field_validator("temp_dir")
     @classmethod
     def validate_temp_dir(cls, v: Path) -> Path:
@@ -188,10 +226,19 @@ class APISettings(BaseSettings):
             import warnings
 
             warnings.warn(
-                "Using default JWT secret key. Set PDFSIGNER_API_JWT_SECRET_KEY environment variable.",
+                "Using default JWT secret key. "
+                "Set PDFSIGNER_API_JWT_SECRET_KEY environment variable.",
                 UserWarning,
                 stacklevel=2,
             )
+        return v
+
+    @field_validator("tls_cert_path", "tls_key_path", "tls_ca_cert_path")
+    @classmethod
+    def validate_tls_paths(cls, v: str, info) -> str:
+        """Validate TLS file paths if TLS is enabled."""
+        # Don't validate at model creation - will be validated at runtime by validate_tls_config()
+        # This allows the settings to be loaded even if files don't exist yet
         return v
 
 
