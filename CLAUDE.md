@@ -53,8 +53,11 @@ MainWindow → SigningHandler → OptionsDialog → PINDialog
 | `core/pdf_analyzer/position_finder.py` | Smart signature positioning |
 | `core/signature/` | Template system (template.py, template_renderer.py, template_loader.py) |
 | `core/audit/` | Audit trail system (audit_logger.py, audit_event.py) - JSON Lines format |
+| `core/notifications/` | System notifications (NotificationManager singleton) |
+| `core/recent/` | Recent files history (RecentFilesManager wraps Gtk.RecentManager) |
 | `core/mock/` | Dry-run simulation (MockBatchManager, stamp_simulator) |
 | `gui/handlers/` | Bridge GUI ↔ Core (SigningHandler, ValidationHandler) |
+| `gui/widgets/recent_files_popover.py` | Recent files popover with relative timestamps |
 
 ### Template System
 Templates control signature visibility: no template = invisible, with template = visible stamp.
@@ -190,6 +193,76 @@ SigningHandler._request_pin_or_use_cache()
 - Folder button opens containing directory via `Gio.AppInfo.launch_default_for_uri()`
 - User closes manually with "Close" button
 
+### Keyboard Shortcuts
+Window actions registered in `MainWindow._create_actions()`, accels in `PDFSignerApp.create_actions()`:
+
+| Shortcut | Action | Scope |
+|----------|--------|-------|
+| `Ctrl+O` | Open files | app |
+| `Ctrl+S` | Sign files | win |
+| `Ctrl+Shift+V` | Validate signatures | win |
+| `Ctrl+L` / `Delete` | Clear file list | win |
+| `Ctrl+,` | Preferences | app |
+| `F1` | About dialog | app |
+| `Ctrl+Q` | Quit | app |
+
+### System Notifications
+Desktop notifications via `Gio.Notification` when window is not focused:
+```
+core/notifications/
+├── __init__.py
+└── notification_manager.py  # Singleton with anti-spam
+```
+
+**API:**
+```python
+from pdfsigner.core.notifications import get_notification_manager
+
+manager = get_notification_manager()
+if manager.should_notify():  # Only when window.is_active() == False
+    manager.notify_batch_complete(total, successful, failed, output_folder)
+    manager.notify_critical_error(error_type, message)
+    manager.notify_certificate_health(health)  # Once per serial (anti-spam)
+```
+
+### Recent Files History
+Wraps GTK RecentManager with PDF-specific filtering:
+```
+core/recent/
+├── __init__.py
+└── recent_manager.py  # Singleton
+```
+
+**API:**
+```python
+from pdfsigner.core.recent import get_recent_files_manager
+
+manager = get_recent_files_manager()
+manager.add_file(path, operation="signed")  # Registers in GTK recent
+files = manager.get_recent_pdfs()  # Returns list[RecentFileInfo]
+manager.clear_pdf_history()  # Clears PDFSigner entries only
+```
+
+- Uses MIME type `application/pdf` and app name `pdfsigner` for filtering
+- Popover widget: `gui/widgets/recent_files_popover.py`
+- Signal: `file-selected` emitted when user clicks a file
+
+### Revocation Checking Integration
+RevocationChecker called during validation when enabled:
+```
+PDFValidator.validate()
+  → _validate_signature()
+    → chain_validator.validate_chain()
+    → _check_revocation_status()  # NEW
+      → RevocationChecker.check_revocation(cert, issuer_cert)
+        → OCSPChecker (prefer) → CRLChecker (fallback)
+    → SignatureInfo with revocation_status/revocation_message
+```
+
+- **Opt-in**: `revocation_check_enabled=false` by default (no performance impact)
+- **Cache**: OCSP uses TTL, CRL uses `nextUpdate` field
+- **Display**: UI shows status icon (✓/⚠/?)
+
 ## Critical Implementation Details
 
 ### Coordinate Systems (IMPORTANT)
@@ -237,7 +310,7 @@ assert self._lib is not None
 ## Testing Notes
 
 - **Coverage:** 87% core (excludes `gui/`, `ui/`, `cli/` - see `pyproject.toml`)
-- **Tests:** 868 total (unit + integration + E2E)
+- **Tests:** 800 total (unit + integration + E2E)
 - **GUI tests:** Use mocks in `conftest_gui.py`, no display required
 - **Integration tests:** Require internet (TSA servers)
 - **E2E tests:** Dry-run mode (`tests/e2e/`), covers full signing workflow with all variants
@@ -270,6 +343,13 @@ Location: `~/.config/pdfsigner/config.toml`
 | `audit_enabled` | `true` | Enable audit logging |
 | `audit_retention_days` | `90` | Days to retain audit logs (1-3650) |
 | `signature_template` | `""` | Template name (empty = invisible) |
+| `revocation_check_enabled` | `false` | Check OCSP/CRL during validation |
+| `revocation_check_timeout` | `10` | Timeout in seconds (5-60) |
+| `revocation_cache_ttl` | `3600` | Cache TTL in seconds (300-86400) |
+| `revocation_prefer_ocsp` | `true` | Prefer OCSP over CRL |
+| `recent_files_enabled` | `true` | Track recent PDF files |
+| `recent_files_limit` | `10` | Max recent files (5-50) |
+| `system_notifications_enabled` | `true` | Desktop notifications when unfocused |
 
 ## Adding New Token Support
 

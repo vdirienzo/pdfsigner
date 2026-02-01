@@ -6,6 +6,45 @@ Format: [SemVer](https://semver.org/) with `Added | Changed | Fixed | Security` 
 
 ---
 
+## [1.1.0] - 2026-02-01
+
+### Added
+- **RevocationChecker Integration** - OCSP/CRL validation during signature verification
+  - New settings: `revocation_check_enabled`, `revocation_check_timeout`, `revocation_cache_ttl`, `revocation_prefer_ocsp`
+  - Integrated in `pdf_validator.py` with `_check_revocation_status()` method
+  - UI display in `validation_dialog.py` with status icons (✓/⚠/?)
+  - Opt-in by default for backward compatibility
+
+- **Recent Files History** - GTK RecentManager integration
+  - New module: `core/recent/` with `RecentFilesManager` singleton
+  - New widget: `gui/widgets/recent_files_popover.py` with relative timestamps
+  - Settings: `recent_files_enabled`, `recent_files_limit`
+  - Auto-registers signed files in history
+
+- **Keyboard Shortcuts** - Productivity enhancements
+  - `Ctrl+S` → Sign files
+  - `Ctrl+Shift+V` → Validate signatures
+  - `Ctrl+L` / `Delete` → Clear file list
+  - `F1` → About dialog
+
+- **Accessibility (a11y)** - WCAG 2.1 Level A compliance
+  - 54 widgets with `set_accessible_name()` and `set_accessible_description()`
+  - Screen reader support (Orca, NVDA compatible)
+  - All strings internationalized with `_()`
+
+- **System Notifications** - Desktop notifications for background events
+  - New module: `core/notifications/` with `NotificationManager` singleton
+  - Setting: `system_notifications_enabled`
+  - Only notifies when window is not focused (anti-intrusive)
+  - Anti-spam for certificate health (once per serial)
+
+### Changed
+- **SignatureInfo dataclass** - Added `revocation_status` and `revocation_message` fields
+- **MainWindow** - Added recent files button, keyboard actions, validation handler
+- **Tests:** 800 total (consolidated from previous count)
+
+---
+
 ## [1.0.2] - 2026-02-01
 
 ### Changed
