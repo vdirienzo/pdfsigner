@@ -29,6 +29,7 @@ from pdfsigner.api.schemas.seal import (
     SealResponse,
     SealValidationResponse,
 )
+from pdfsigner.api.utils import sanitize_filename
 from pdfsigner.core.eidas.seal_manager import (
     OrganizationInfo,
     SealAppearance,
@@ -203,6 +204,14 @@ async def seal_document(
             detail="Only PDF files are supported",
         )
 
+    # Sanitize filename to prevent Path Traversal
+    try:
+        safe_filename_str = sanitize_filename(file.filename)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid filename: {e}",
+        ) from e
     # Check file size
     content = await file.read()
     if len(content) > settings.max_upload_size_mb * 1024 * 1024:
@@ -257,14 +266,14 @@ async def seal_document(
     # Start background sealing task
     background_tasks.add_task(_process_seal_job, job_id, input_path, seal_config, seal_manager)
 
-    logger.info(f"Seal job {job_id} created for {file.filename}")
+    logger.info(f"Seal job {job_id} created for {safe_filename_str}")
 
     return SealResponse(
         job_id=job_id,
         status="pending",
         organization=organization_name,
         seal_type=seal_type,
-        message=f"Seal job created for {file.filename}",
+        message=f"Seal job created for {safe_filename_str}",
     )
 
 
@@ -391,12 +400,26 @@ async def validate_seal(
     Raises:
         HTTPException: 400 if file is invalid
     """
-    if not file.filename or not file.filename.lower().endswith(".pdf"):
+    if not file.filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="No filename provided",
+        )
+
+    # Sanitize filename to prevent Path Traversal
+    try:
+        safe_filename_str = sanitize_filename(file.filename)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid filename: {e}",
+        ) from e
+
+    if not safe_filename_str.lower().endswith(".pdf"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Only PDF files are supported",
         )
-
     # Save uploaded file to temp directory
     temp_dir = Path(tempfile.gettempdir()) / "pdfsigner_api_seals"
     temp_dir.mkdir(exist_ok=True)

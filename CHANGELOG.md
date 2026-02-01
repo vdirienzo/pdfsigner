@@ -8,6 +8,16 @@ Format: [SemVer](https://semver.org/) with `Added | Changed | Fixed | Security` 
 
 ## [2.2.0] - 2026-02-01
 
+### Security
+
+- **JWT Token Blacklist for Real Logout**
+  - `core/auth/jwt_blacklist.py` - SQLite-backed token revocation system
+  - JWT tokens now include unique `jti` (JWT ID) claim for tracking
+  - Logout endpoint (`/auth/logout`) adds tokens to blacklist
+  - Middleware validates tokens against blacklist before authorization
+  - Automatic cleanup of expired tokens to prevent unbounded growth
+  - 19 integration tests in `test_jwt_revocation.py`
+
 ### Added - 100% Compliance Milestone
 
 - **SOC 2 CC1-CC4 Controls** (Trust Service Criteria)

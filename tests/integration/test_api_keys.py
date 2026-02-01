@@ -18,7 +18,7 @@ from httpx import ASGITransport
 
 from pdfsigner.api.main import app
 from pdfsigner.api.middleware.auth import create_access_token
-from pdfsigner.api.middleware.csrf import CSRF_COOKIE_NAME
+from pdfsigner.api.middleware.csrf import CSRF_COOKIE_NAME, CSRF_HEADER_NAME
 from pdfsigner.core.users import User, UserRole, UserStatus
 from pdfsigner.core.users.api_key_repository import APIKey
 

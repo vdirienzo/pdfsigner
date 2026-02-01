@@ -17,6 +17,7 @@ from loguru import logger
 
 from pdfsigner.api.middleware.auth import get_current_user_or_api_key
 from pdfsigner.api.schemas.phi import PIIMatchResponse, PIIScanResponse
+from pdfsigner.api.utils import sanitize_filename
 from pdfsigner.core.audit import AuditEventType, get_audit_logger
 from pdfsigner.core.detection import PDFScanner, get_pii_detector
 from pdfsigner.core.rbac import Permission, check_permission
@@ -48,7 +49,15 @@ async def save_upload_to_temp(upload_file: UploadFile) -> Path:
             detail="No filename provided",
         )
 
-    if not upload_file.filename.lower().endswith(".pdf"):
+    # Sanitize filename to prevent Path Traversal
+    try:
+        safe_filename_str = sanitize_filename(upload_file.filename)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid filename: {e}",
+        ) from e
+    if not safe_filename_str.lower().endswith(".pdf"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Only PDF files are accepted",
@@ -76,7 +85,7 @@ async def save_upload_to_temp(upload_file: UploadFile) -> Path:
         temp_file.write(content)
         temp_file.close()
 
-        logger.debug(f"Saved upload '{upload_file.filename}' to {temp_path}")
+        logger.debug(f"Saved upload '{safe_filename_str}' to {temp_path}")
         return temp_path
 
     except HTTPException:

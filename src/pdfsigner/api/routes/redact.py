@@ -18,6 +18,7 @@ from pdfsigner.api.schemas.redact import (
     RedactionResponse,
     RedactRegionsRequest,
 )
+from pdfsigner.api.utils import sanitize_filename
 from pdfsigner.core.detection.pii_types import RedactionRegion
 from pdfsigner.core.detection.redactor import RedactionResult, get_pdf_redactor
 from pdfsigner.core.rbac import Permission, check_permission
@@ -88,12 +89,20 @@ async def redact_regions(
             detail="Only PDF files are supported",
         )
 
+    # Sanitize filename to prevent Path Traversal
+    try:
+        safe_filename_str = sanitize_filename(file.filename)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid filename: {e}",
+        ) from e
     # Create temporary directory for processing
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_dir_path = Path(temp_dir)
 
         # Save uploaded file
-        input_path = temp_dir_path / file.filename
+        input_path = temp_dir_path / safe_filename_str
         with open(input_path, "wb") as f:
             content = await file.read()
             f.write(content)
@@ -179,12 +188,20 @@ async def redact_by_pattern(
             detail="Only PDF files are supported",
         )
 
+    # Sanitize filename to prevent Path Traversal
+    try:
+        safe_filename_str = sanitize_filename(file.filename)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid filename: {e}",
+        ) from e
     # Create temporary directory for processing
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_dir_path = Path(temp_dir)
 
         # Save uploaded file
-        input_path = temp_dir_path / file.filename
+        input_path = temp_dir_path / safe_filename_str
         with open(input_path, "wb") as f:
             content = await file.read()
             f.write(content)
@@ -251,12 +268,20 @@ async def preview_redactions(
             detail="Only PDF files are supported",
         )
 
+    # Sanitize filename to prevent Path Traversal
+    try:
+        safe_filename_str = sanitize_filename(file.filename)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid filename: {e}",
+        ) from e
     # Create temporary directory for processing
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_dir_path = Path(temp_dir)
 
         # Save uploaded file
-        input_path = temp_dir_path / file.filename
+        input_path = temp_dir_path / safe_filename_str
         with open(input_path, "wb") as f:
             content = await file.read()
             f.write(content)

@@ -67,18 +67,20 @@ class VulnerabilityCreate(BaseModel):
     """Manual vulnerability creation request."""
 
     title: str = Field(..., min_length=1, max_length=500, description="Vulnerability title")
-    description: str = Field(..., min_length=1, description="Detailed description")
+    description: str = Field(..., min_length=1, max_length=4096, description="Detailed description")
     severity: str = Field(
         ...,
         pattern="^(info|low|medium|high|critical)$",
         description="Severity level",
     )
-    file_path: str | None = Field(None, description="Affected file path")
+    file_path: str | None = Field(None, max_length=1024, description="Affected file path")
     line_number: int | None = Field(None, ge=1, description="Line number")
-    cwe_id: str | None = Field(None, pattern="^CWE-[0-9]+$", description="CWE identifier")
+    cwe_id: str | None = Field(
+        None, max_length=64, pattern="^CWE-[0-9]+$", description="CWE identifier"
+    )
     cvss_score: float | None = Field(None, ge=0.0, le=10.0, description="CVSS score")
-    assignee: str | None = Field(None, description="Assign to user")
-    remediation: str | None = Field(None, description="Remediation guidance")
+    assignee: str | None = Field(None, max_length=255, description="Assign to user")
+    remediation: str | None = Field(None, max_length=4096, description="Remediation guidance")
 
     model_config = {
         "json_schema_extra": {
@@ -102,11 +104,12 @@ class VulnerabilityUpdate(BaseModel):
 
     status: str | None = Field(
         None,
+        max_length=64,
         pattern="^(open|in_progress|resolved|accepted|false_positive)$",
         description="New status",
     )
-    assignee: str | None = Field(None, description="Assign to user")
-    notes: str | None = Field(None, description="Update notes")
+    assignee: str | None = Field(None, max_length=255, description="Assign to user")
+    notes: str | None = Field(None, max_length=4096, description="Update notes")
 
     model_config = {
         "json_schema_extra": {
@@ -157,12 +160,14 @@ class ScanRequest(BaseModel):
 
     scan_type: str = Field(
         "all",
+        max_length=64,
         pattern="^(all|semgrep|pip_audit)$",
         description="Type of scan to run",
     )
-    path: str | None = Field(None, description="Path to scan (for Semgrep)")
+    path: str | None = Field(None, max_length=1024, description="Path to scan (for Semgrep)")
     semgrep_config: str = Field(
         "auto",
+        max_length=255,
         description="Semgrep config (auto, p/security-audit, p/owasp-top-ten)",
     )
     auto_import: bool = Field(
@@ -185,7 +190,7 @@ class ScanRequest(BaseModel):
 class ScanResponse(BaseModel):
     """Vulnerability scan response."""
 
-    scan_type: str = Field(..., description="Type of scan executed")
+    scan_type: str = Field(..., max_length=64, description="Type of scan executed")
     vulnerabilities_found: int = Field(..., description="Number of vulnerabilities found")
     imported: bool = Field(..., description="Whether results were imported to tracker")
     import_stats: dict | None = Field(None, description="Import statistics")
