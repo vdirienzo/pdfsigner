@@ -166,6 +166,9 @@ uv run pdfsigner sign ./documents/ -r
 uv run pdfsigner validate document_signed.pdf
 # Output: ✓ Valid signature (PAdES B-LTA) - Signer: John Doe
 
+# Export validation report (PDF, CSV, JSON)
+# Via GUI: Validate → Export Report → Choose format → Open File
+
 # Add archive timestamp to existing signed PDF
 uv run pdfsigner archive-ts signed.pdf
 uv run pdfsigner archive-ts signed.pdf -t https://freetsa.org/tsr
@@ -761,10 +764,10 @@ uv run pdfsigner list-certs
 
 | Guide | Purpose | Status |
 |-------|---------|--------|
-| `docs/argentina/guia-afip.md` | Obtain AFIP certificate (Clave Fiscal) | ⏳ Coming soon |
-| `docs/argentina/guia-fdr.md` | Use FDR platform (RENAPER) | ⏳ Coming soon |
-| `docs/argentina/guia-safenet.md` | Configure SafeNet eToken | ⏳ Coming soon |
-| `docs/argentina/verificar-adobe.md` | Verify signatures in Adobe Reader | ⏳ Coming soon |
+| `docs/argentina/guia-afip.md` | Obtain AFIP certificate (Clave Fiscal) | ✅ Available |
+| `docs/argentina/guia-fdr.md` | Use FDR platform (RENAPER) | ✅ Available |
+| `docs/argentina/guia-safenet.md` | Configure SafeNet eToken | ✅ Available |
+| `docs/argentina/verificar-adobe.md` | Verify signatures in Adobe Reader | ✅ Available |
 
 ### Known Limitations
 
@@ -869,6 +872,6 @@ MIT License - See [LICENSE](LICENSE) for details.
   <br><br>
   <a href="docs/security/README.md">Security Documentation</a> •
   <a href="http://localhost:8000/docs">API Documentation</a> •
-  <a href="GOV_COMPLIANCE_PLAN.md">Compliance Plan</a> •
+  <a href="docs/GOV_COMPLIANCE_PLAN.md">Compliance Plan</a> •
   <a href="NORMATIVA-ARG.md">Argentina Compliance</a>
 </p>
