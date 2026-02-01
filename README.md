@@ -628,8 +628,19 @@ PDFSigner includes comprehensive security documentation for audits:
 | `docs/security/encryption-policy.md` | 47 KB | FIPS 140-2, key management |
 | `docs/security/incident-response-plan.md` | 34 KB | IR procedures, escalation |
 | `docs/security/change-management.md` | 42 KB | Change control, CAB process |
+| `docs/security/business-continuity-plan.md` | 25 KB | BCP, disaster recovery, RTO/RPO |
 
-**Total: ~236 KB of professional security documentation**
+**Total: ~260 KB of professional security documentation**
+
+### Additional Regulatory Reference
+
+PDFSigner includes gap analysis documentation for sector-specific regulations:
+
+| Document | Purpose |
+|----------|---------|
+| `MAS_NORMATIVAS.md` | Gap analysis for PCI-DSS, CMMC, DORA, NIS2 |
+
+> **Note:** These regulations are reference documentation for specific client requirements (financial sector, DoD contractors, EU critical infrastructure). Core compliance (HIPAA, NIST, eIDAS, GDPR) is already implemented.
 
 ---
 
