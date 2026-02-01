@@ -27,6 +27,8 @@ dependencies = [
     "python-jose[cryptography]>=3.5.0",
     "slowapi>=0.1.9",
     "python-multipart>=0.0.22",
+    "pyotp>=2.9.0",
+    "argon2-cffi>=25.1.0",
 ]
 # Note: PyGObject is used from system (python3-gi) for GTK4 bindings
 
@@ -73,6 +75,10 @@ ignore = ["E402"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["src"]
+markers = [
+    "security: marks tests as security-related (cryptography, authentication, etc.)",
+    "compliance: marks tests as compliance-related (GDPR, HIPAA, eIDAS)",
+]
 
 [tool.coverage.run]
 source = ["src/pdfsigner"]

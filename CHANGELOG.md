@@ -6,6 +6,45 @@ Format: [SemVer](https://semver.org/) with `Added | Changed | Fixed | Security` 
 
 ---
 
+## [2.1.0] - 2026-02-01
+
+### Added - Compliance Phase 3 (GDPR & SOC 2)
+
+- **GDPR Consent Management** (Article 7)
+  - `core/gdpr/consent_manager.py` - Consent tracking with audit trail
+  - `core/gdpr/consent_repository.py` - SQLite persistence
+  - `core/gdpr/consent_types.py` - 5 consent types (PROCESSING, ANALYTICS, MARKETING, THIRD_PARTY, RESEARCH)
+  - `api/routes/consent.py` - REST endpoints for consent CRUD
+  - 30 unit tests
+
+- **Data Breach Notification** (GDPR Art. 33-34, HIPAA)
+  - `core/breach/breach_detector.py` - Anomaly detection with configurable thresholds
+  - `core/breach/breach_manager.py` - Incident workflow management
+  - `core/breach/notification_service.py` - HIPAA/GDPR notification formatting
+  - `core/breach/breach_report.py` - Incident report generation
+  - `api/routes/breach.py` - REST endpoints for breach management
+  - 32 unit tests
+
+- **SOC 2 Evidence Collection** (CC series)
+  - `core/compliance/evidence_collector.py` - Automated evidence gathering
+  - `core/compliance/soc2_report.py` - SOC 2 Type II report generation
+  - `core/compliance/evidence_types.py` - 9 CC categories, 8 evidence types
+  - `api/routes/evidence.py` - REST endpoints for evidence export
+  - 27 unit tests
+
+- **Vulnerability Management** (NIST RA-5)
+  - `core/security/vuln_scanner.py` - Semgrep & pip-audit integration
+  - `core/security/vuln_tracker.py` - Vulnerability tracking with SLA
+  - `core/security/vuln_report.py` - Monthly vulnerability reports
+  - `api/routes/vulnerabilities.py` - REST endpoints for vuln management
+  - 34 unit tests
+
+### Changed
+- **Test count:** 2,350 → 2,473 (+123 tests)
+- **STANDARDS_COMPLIANCE.md:** Phase 3 marked complete
+
+---
+
 ## [2.0.0] - 2026-02-01
 
 ### Added - Government Compliance Phase 6 (Documentation & Certification)

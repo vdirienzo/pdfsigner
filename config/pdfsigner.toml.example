@@ -114,3 +114,60 @@ log_level = "INFO"
 # ═══════════════════════════════════════════════════════════════
 # Enable to test without real USB token
 # dry_run = false
+
+# ═══════════════════════════════════════════════════════════════
+# Healthcare Compliance Mode (HIPAA)
+# ═══════════════════════════════════════════════════════════════
+# Enable healthcare compliance features (RBAC, sessions, emergency access)
+healthcare_mode = false
+
+# Auto-logoff timeout in minutes (HIPAA §164.312(a)(2)(iii))
+healthcare_session_timeout_minutes = 15
+
+# Maximum concurrent sessions per user
+healthcare_max_sessions = 3
+
+# Emergency access duration in hours
+healthcare_emergency_duration_hours = 4
+
+# Require admin approval for emergency access
+healthcare_emergency_require_approval = true
+
+# ═══════════════════════════════════════════════════════════════
+# PHI Detection (HIPAA §164.514) - Phase 3
+# ═══════════════════════════════════════════════════════════════
+# Enable automatic detection of Protected Health Information before signing
+phi_detection_enabled = false
+
+# Minimum confidence level: "low" (70%), "medium" (85%), "high" (95%)
+phi_detection_min_confidence = "medium"
+
+# Block signing if PHI detected without encryption
+phi_detection_block_unencrypted = false
+
+# ═══════════════════════════════════════════════════════════════
+# Encryption Policy (HIPAA §164.312(a)(2)(iv)) - Phase 3
+# ═══════════════════════════════════════════════════════════════
+# Enable mandatory encryption policies
+encryption_policy_enabled = false
+
+# Auto-encrypt documents with detected PHI
+encryption_policy_encrypt_phi = true
+
+# Default encryption strength: "aes128" or "aes256" (recommended for HIPAA)
+encryption_default_strength = "aes256"
+
+# Enforce HIPAA-compliant encryption defaults
+encryption_hipaa_mode = false
+
+# ═══════════════════════════════════════════════════════════════
+# Temp File Security (HIPAA §164.310(d)(1)) - Phase 3
+# ═══════════════════════════════════════════════════════════════
+# Securely delete temp files using DoD 5220.22-M standard (3-pass overwrite)
+temp_secure_delete = true
+
+# Hours to retain temp files before cleanup (1-168 = 1 hour to 7 days)
+temp_retention_hours = 24
+
+# Interval between temp cleanup runs in minutes (5-60)
+temp_cleanup_interval_minutes = 15

@@ -39,8 +39,7 @@ from pdfsigner.api.routes.sessions import router as sessions_router
 from pdfsigner.api.routes.sign import router as sign_router
 from pdfsigner.api.routes.users import router as users_router
 from pdfsigner.api.routes.validate import router as validate_router
-
-# from pdfsigner.api.routes.vulnerabilities import router as vulnerabilities_router  # FIXME: has Permission.VIEW_AUDIT_LOGS error
+from pdfsigner.api.routes.vulnerabilities import router as vulnerabilities_router
 
 __all__ = [
     "auth_router",
@@ -60,5 +59,5 @@ __all__ = [
     "sign_router",
     "users_router",
     "validate_router",
-    #     "vulnerabilities_router",  # FIXME: has Permission.VIEW_AUDIT_LOGS error
+    "vulnerabilities_router",
 ]
