@@ -56,6 +56,7 @@ class CertHealthBanner(Gtk.Box):
 
         # Status icon
         self._status_icon = Gtk.Label(label="🔐")
+        self._status_icon.set_accessible_name(_("Certificate status icon"))
         self._compact_row.append(self._status_icon)
 
         # Compact info: "John Doe • Expires in 45 days"
@@ -63,12 +64,15 @@ class CertHealthBanner(Gtk.Box):
         self._compact_label.set_hexpand(True)
         self._compact_label.set_xalign(0)
         self._compact_label.set_ellipsize(3)  # PANGO_ELLIPSIZE_END
+        self._compact_label.set_accessible_name(_("Certificate information"))
         self._compact_row.append(self._compact_label)
 
         # Expand/collapse button
         self._expand_btn = Gtk.Button(icon_name="pan-down-symbolic")
         self._expand_btn.add_css_class("flat")
         self._expand_btn.set_tooltip_text(_("Show details"))
+        self._expand_btn.set_accessible_name(_("Show details"))
+        self._expand_btn.set_accessible_description(_("Show certificate details"))
         self._expand_btn.connect("clicked", self._on_expand_clicked)
         self._compact_row.append(self._expand_btn)
 
@@ -76,6 +80,8 @@ class CertHealthBanner(Gtk.Box):
         refresh_btn = Gtk.Button(icon_name="view-refresh-symbolic")
         refresh_btn.add_css_class("flat")
         refresh_btn.set_tooltip_text(_("Refresh"))
+        refresh_btn.set_accessible_name(_("Refresh"))
+        refresh_btn.set_accessible_description(_("Refresh certificate status"))
         refresh_btn.connect("clicked", self._on_refresh_clicked)
         self._compact_row.append(refresh_btn)
 
@@ -109,6 +115,8 @@ class CertHealthBanner(Gtk.Box):
         self._progress_bar = Gtk.ProgressBar()
         self._progress_bar.set_hexpand(True)
         self._progress_bar.set_show_text(False)
+        self._progress_bar.set_accessible_name(_("Certificate lifetime"))
+        self._progress_bar.set_accessible_description(_("Certificate validity progress"))
         progress_box.append(self._progress_bar)
 
         self._progress_label = Gtk.Label(label="")

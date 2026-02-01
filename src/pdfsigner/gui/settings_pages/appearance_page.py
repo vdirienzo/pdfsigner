@@ -102,6 +102,8 @@ def create_appearance_page(settings, dialog) -> Adw.PreferencesPage:
     theme_row = Adw.ComboRow()
     theme_row.set_title(_("Color scheme"))
     theme_row.set_subtitle(_("Choose light, dark, or follow system"))
+    theme_row.set_accessible_name(_("Color scheme"))
+    theme_row.set_accessible_description(_("Application theme"))
 
     theme_options = [_("System default"), _("Light"), _("Dark")]
     theme_list = Gtk.StringList.new(theme_options)
@@ -126,6 +128,8 @@ def create_appearance_page(settings, dialog) -> Adw.PreferencesPage:
     lang_row = Adw.ComboRow()
     lang_row.set_title(_("Language"))
     lang_row.set_subtitle(_("Requires application restart"))
+    lang_row.set_accessible_name(_("Language"))
+    lang_row.set_accessible_description(_("Application language"))
 
     # Build language list
     lang_names = [_("System default")] + list(SUPPORTED_LANGUAGES.values())

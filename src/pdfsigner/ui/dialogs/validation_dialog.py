@@ -228,6 +228,27 @@ class ValidationResultDialog(Gtk.Dialog):
         coverage_label.add_css_class("dim-label")
         details_box.append(coverage_label)
 
+        # Revocation status (if available)
+        if sig.revocation_status:
+            status_icons = {
+                "valid": "✓",
+                "revoked": "⚠",
+                "unknown": "?",
+                "error": "⚠",
+            }
+            icon = status_icons.get(sig.revocation_status, "?")
+            revocation_text = f"{icon} {sig.revocation_message or sig.revocation_status}"
+            revocation_label = Gtk.Label(label=_("Revocation Status: {}").format(revocation_text))
+            revocation_label.set_xalign(0)
+            revocation_label.set_wrap(True)
+            revocation_label.set_wrap_mode(2)  # WORD_CHAR
+            revocation_label.add_css_class("dim-label")
+            if sig.revocation_status == "revoked":
+                revocation_label.add_css_class("error")
+            elif sig.revocation_status == "error":
+                revocation_label.add_css_class("warning")
+            details_box.append(revocation_label)
+
         main_box.append(details_box)
 
         # View Certificate button (only if certificate bytes are available)

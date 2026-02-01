@@ -48,10 +48,13 @@ class CertificateSelectorDialog(Gtk.Dialog):
         self.set_default_size(550, 400)
 
         # Botones
-        self.add_button(_("Cancel"), Gtk.ResponseType.CANCEL)
+        cancel_button = self.add_button(_("Cancel"), Gtk.ResponseType.CANCEL)
+        cancel_button.set_accessible_name(_("Cancel"))
         self._ok_button = self.add_button(_("Use Certificate"), Gtk.ResponseType.OK)
         self._ok_button.add_css_class("suggested-action")
         self._ok_button.set_sensitive(False)
+        self._ok_button.set_accessible_name(_("Use certificate"))
+        self._ok_button.set_accessible_description(_("Sign with selected certificate"))
 
         # Contenido
         content = self.get_content_area()
@@ -74,6 +77,8 @@ class CertificateSelectorDialog(Gtk.Dialog):
         self.listbox = Gtk.ListBox()
         self.listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
         self.listbox.add_css_class("boxed-list")
+        self.listbox.set_accessible_name(_("Certificates list"))
+        self.listbox.set_accessible_description(_("Select a certificate for signing"))
         self.listbox.connect("row-selected", self._on_row_selected)
 
         # Agregar certificados
@@ -107,6 +112,12 @@ class CertificateSelectorDialog(Gtk.Dialog):
         """Creates a row for a certificate."""
         row = Gtk.ListBoxRow()
         row.cert = cert  # Guardar referencia
+        row.set_accessible_name(cert.display_name)
+        row.set_accessible_description(
+            _("Certificate: {} - Expires in {} days").format(
+                cert.display_name, cert.days_until_expiry
+            )
+        )
 
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)
         box.set_margin_top(8)

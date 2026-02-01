@@ -18,10 +18,15 @@ from pyhanko.pdf_utils.reader import PdfFileReader
 from pyhanko.sign.validation import validate_pdf_signature
 from pyhanko.sign.validation.settings import KeyUsageConstraints
 
+from pdfsigner.config.settings import get_settings
 from pdfsigner.core.certificate import (
     CertificateChainValidator,
     ChainValidationResult,
     TrustStore,
+)
+from pdfsigner.core.certificate.revocation_checker import (
+    RevocationChecker,
+    RevocationStatus,
 )
 
 
@@ -54,6 +59,8 @@ class SignatureInfo:
     page_number: int | None  # Page where visible signature is located (if applicable)
     certificate_bytes: bytes | None = None  # DER-encoded certificate for viewing
     chain_validation_result: ChainValidationResult | None = None
+    revocation_status: str | None = None  # "valid", "revoked", "unknown", "error"
+    revocation_message: str | None = None  # Human-readable message
 
 
 @dataclass
@@ -81,6 +88,53 @@ class PDFValidator:
         # Initialize trust store and chain validator
         self.trust_store = TrustStore()
         self.chain_validator = CertificateChainValidator(self.trust_store)
+
+    def _check_revocation_status(
+        self,
+        cert: x509.Certificate,
+        issuer_cert: x509.Certificate | None,
+    ) -> tuple[str | None, str | None]:
+        """Check certificate revocation status if enabled.
+
+        Returns:
+            Tuple of (status_string, message) or (None, None) if disabled/unavailable
+        """
+        settings = get_settings()
+        if not settings.revocation_check_enabled:
+            return None, None
+
+        try:
+            checker = RevocationChecker(
+                prefer_ocsp=settings.revocation_prefer_ocsp,
+                ocsp_timeout=settings.revocation_check_timeout,
+                crl_timeout=settings.revocation_check_timeout,
+                ocsp_cache_ttl=settings.revocation_cache_ttl,
+            )
+            result = checker.check_revocation(cert, issuer_cert)
+
+            status_map = {
+                RevocationStatus.GOOD: "valid",
+                RevocationStatus.REVOKED: "revoked",
+                RevocationStatus.UNKNOWN: "unknown",
+                RevocationStatus.ERROR: "error",
+            }
+
+            if result.status == RevocationStatus.REVOKED:
+                msg = f"REVOKED on {result.revocation_time}"
+                if result.revocation_reason:
+                    msg += f" ({result.revocation_reason})"
+            elif result.status == RevocationStatus.ERROR:
+                msg = result.error_message or "Check failed"
+            elif result.status == RevocationStatus.UNKNOWN:
+                msg = "No OCSP/CRL endpoints"
+            else:
+                msg = f"Valid ({result.method})"
+
+            return status_map.get(result.status, "unknown"), msg
+
+        except Exception as e:
+            logger.warning(f"Revocation check failed: {e}")
+            return "error", str(e)
 
     def validate(self, pdf_path: Path | str) -> ValidationResult:
         """
@@ -202,6 +256,14 @@ class PDFValidator:
                     f"Could not validate certificate chain for {field_name}: {chain_err}"
                 )
 
+            # Check revocation status
+            revocation_status, revocation_message = None, None
+            if chain_result and chain_result.chain:
+                issuer_cert = chain_result.chain[1] if len(chain_result.chain) > 1 else None
+                revocation_status, revocation_message = self._check_revocation_status(
+                    chain_result.chain[0], issuer_cert
+                )
+
             # Determine status
             if status.valid:
                 sig_status = SignatureStatus.VALID
@@ -236,6 +298,8 @@ class PDFValidator:
                 page_number=page_number,
                 certificate_bytes=cert_bytes,
                 chain_validation_result=chain_result,
+                revocation_status=revocation_status,
+                revocation_message=revocation_message,
             )
 
         except Exception as e:
@@ -294,6 +358,8 @@ class PDFValidator:
             page_number=None,
             certificate_bytes=cert_bytes,
             chain_validation_result=None,
+            revocation_status=None,
+            revocation_message=None,
         )
 
     def _create_error_info(self, field_name: str, error: str) -> SignatureInfo:
@@ -315,6 +381,8 @@ class PDFValidator:
             page_number=None,
             certificate_bytes=None,
             chain_validation_result=None,
+            revocation_status=None,
+            revocation_message=None,
         )
 
     def _extract_cn(self, subject: str) -> str:

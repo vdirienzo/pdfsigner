@@ -19,6 +19,7 @@ from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 from pdfsigner.gui.file_list_widget import FileListWidget
 from pdfsigner.gui.settings_dialog import SettingsDialog
 from pdfsigner.gui.signing_handler import SigningHandler
+from pdfsigner.gui.validation_handler import ValidationHandler
 from pdfsigner.i18n import _
 
 
@@ -41,9 +42,11 @@ class MainWindow(Adw.ApplicationWindow):
         self.set_default_size(700, 500)
 
         self.signing_handler = SigningHandler(self)
+        self.validation_handler = ValidationHandler(self)
 
         self._setup_ui()
         self._setup_drag_drop()
+        self._create_actions()
 
     def _setup_ui(self) -> None:
         """Configures the user interface."""
@@ -54,19 +57,33 @@ class MainWindow(Adw.ApplicationWindow):
         menu_button = Gtk.MenuButton()
         menu_button.set_icon_name("open-menu-symbolic")
         menu_button.set_menu_model(self._create_menu())
+        menu_button.set_accessible_name(_("Main menu"))
+        menu_button.set_accessible_description(_("Open main application menu"))
         header.pack_end(menu_button)
 
         # Quick settings button
         settings_button = Gtk.Button(icon_name="emblem-system-symbolic")
         settings_button.set_tooltip_text(_("Settings"))
+        settings_button.set_accessible_name(_("Settings"))
+        settings_button.set_accessible_description(_("Open application settings"))
         settings_button.connect("clicked", lambda b: self.show_settings())
         header.pack_end(settings_button)
 
         # Add files button
         add_button = Gtk.Button(icon_name="list-add-symbolic")
         add_button.set_tooltip_text(_("Add files"))
+        add_button.set_accessible_name(_("Add files"))
+        add_button.set_accessible_description(_("Open file chooser to add PDF documents"))
         add_button.connect("clicked", lambda b: self.show_file_chooser())
         header.pack_start(add_button)
+
+        # Recent files button
+        self.recent_button = Gtk.MenuButton(icon_name="document-open-recent-symbolic")
+        self.recent_button.set_tooltip_text(_("Recent files"))
+        self.recent_button.set_accessible_name(_("Recent files"))
+        self.recent_button.set_accessible_description(_("View recently opened or signed PDF files"))
+        self._setup_recent_popover()
+        header.pack_start(self.recent_button)
 
         # Toolbar box
         toolbar = Adw.ToolbarView()
@@ -118,16 +135,21 @@ class MainWindow(Adw.ApplicationWindow):
         self.info_label.set_hexpand(True)
         self.info_label.set_xalign(0)
         self.info_label.add_css_class("dim-label")
+        self.info_label.set_accessible_name(_("File count"))
         bar.append(self.info_label)
 
         # Clear button
         clear_button = Gtk.Button(label=_("Clear"))
+        clear_button.set_accessible_name(_("Clear list"))
+        clear_button.set_accessible_description(_("Remove all files from the list"))
         clear_button.connect("clicked", self._on_clear_clicked)
         bar.append(clear_button)
 
         # Sign button
         self.sign_button = Gtk.Button(label=_("Sign"))
         self.sign_button.add_css_class("suggested-action")
+        self.sign_button.set_accessible_name(_("Sign files"))
+        self.sign_button.set_accessible_description(_("Sign all PDF files in the list"))
         self.sign_button.connect("clicked", self._on_sign_clicked)
         bar.append(self.sign_button)
 
@@ -138,6 +160,32 @@ class MainWindow(Adw.ApplicationWindow):
         drop_target = Gtk.DropTarget.new(Gdk.FileList, Gdk.DragAction.COPY)
         drop_target.connect("drop", self._on_drop)
         self.add_controller(drop_target)
+
+    def _create_actions(self) -> None:
+        """Creates window actions for keyboard shortcuts."""
+        # Action: Sign files (Ctrl+S)
+        action_sign = Gio.SimpleAction.new("sign", None)
+        action_sign.connect("activate", lambda a, p: self._on_sign_clicked(None))
+        self.add_action(action_sign)
+
+        # Action: Validate files (Ctrl+Shift+V)
+        action_validate = Gio.SimpleAction.new("validate", None)
+        action_validate.connect("activate", lambda a, p: self._on_validate_action())
+        self.add_action(action_validate)
+
+        # Action: Clear file list (Ctrl+L / Delete)
+        action_clear = Gio.SimpleAction.new("clear", None)
+        action_clear.connect("activate", lambda a, p: self._on_clear_clicked(None))
+        self.add_action(action_clear)
+
+    def _on_validate_action(self) -> None:
+        """Validates the selected files."""
+        files = self.file_list.get_files()
+        if not files:
+            self.show_toast(_("No files to validate"))
+            return
+
+        self.validation_handler.validate_files(files)
 
     def _on_drop(self, target, value, x, y) -> bool:
         """Handles dropped files."""
@@ -229,3 +277,18 @@ class MainWindow(Adw.ApplicationWindow):
         toast = Adw.Toast(title=message)
         toast.set_timeout(3)
         self.toast_overlay.add_toast(toast)
+
+    def _setup_recent_popover(self) -> None:
+        """Setup the recent files popover."""
+        from pdfsigner.gui.widgets.recent_files_popover import RecentFilesPopover
+
+        popover = RecentFilesPopover()
+        popover.connect("file-selected", self._on_recent_file_selected)
+        self.recent_button.set_popover(popover)
+
+    def _on_recent_file_selected(self, popover, path: Path) -> None:
+        """Handle file selected from recent files."""
+        if path.exists():
+            self.add_files([str(path)])
+        else:
+            self.show_toast(_("File no longer exists"))

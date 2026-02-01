@@ -93,9 +93,11 @@ class SignatureOptionsDialog(Gtk.Dialog):
         self.set_default_size(420, -1)
 
         # Buttons
-        self.add_button(_("Cancel"), Gtk.ResponseType.CANCEL)
+        cancel_button = self.add_button(_("Cancel"), Gtk.ResponseType.CANCEL)
+        cancel_button.set_accessible_name(_("Cancel"))
         ok_button = self.add_button(_("Sign"), Gtk.ResponseType.OK)
         ok_button.add_css_class("suggested-action")
+        ok_button.set_accessible_name(_("Sign files"))
 
         # Content
         content = self.get_content_area()
@@ -120,6 +122,8 @@ class SignatureOptionsDialog(Gtk.Dialog):
         for value, label in self._template_choices:
             self.template_combo.append(value, label)
         self.template_combo.set_hexpand(True)
+        self.template_combo.set_accessible_name(_("Stamp template"))
+        self.template_combo.set_accessible_description(_("Select the visual stamp template"))
         # Note: connect signal AFTER all widgets are created to avoid premature callback
 
         # Set default selection
@@ -141,6 +145,8 @@ class SignatureOptionsDialog(Gtk.Dialog):
         self.page_combo.append("all", _("All pages"))
         self.page_combo.append("custom", _("Custom..."))
         self.page_combo.set_hexpand(True)
+        self.page_combo.set_accessible_name(_("Page selection"))
+        self.page_combo.set_accessible_description(_("Select which pages to sign"))
         self.page_combo.connect("changed", self._on_page_combo_changed)
         self.options_grid.attach(self.page_combo, 1, 1, 1, 1)
 
@@ -154,6 +160,8 @@ class SignatureOptionsDialog(Gtk.Dialog):
         self.custom_page_entry = Gtk.Entry()
         self.custom_page_entry.set_placeholder_text(_("e.g., 1,3,5 or 1-3"))
         self.custom_page_entry.set_hexpand(True)
+        self.custom_page_entry.set_accessible_name(_("Custom pages"))
+        self.custom_page_entry.set_accessible_description(_("Enter page numbers or ranges"))
         self.custom_page_entry.set_visible(False)
         self.options_grid.attach(self.custom_page_entry, 1, 2, 1, 1)
 
@@ -183,6 +191,10 @@ class SignatureOptionsDialog(Gtk.Dialog):
         self.position_combo.append("top_right", _("Top right"))
         self.position_combo.append("top_left", _("Top left"))
         self.position_combo.set_hexpand(True)
+        self.position_combo.set_accessible_name(_("Signature position"))
+        self.position_combo.set_accessible_description(
+            _("Select where to place the signature on the page")
+        )
         self.position_combo.set_active_id(self.default_appearance.position_preference.value)
         self.options_grid.attach(self.position_combo, 1, 3, 1, 1)
 
@@ -205,6 +217,8 @@ class SignatureOptionsDialog(Gtk.Dialog):
         self.reason_entry = Gtk.Entry()
         self.reason_entry.set_placeholder_text(_("e.g., I approve this document"))
         self.reason_entry.set_hexpand(True)
+        self.reason_entry.set_accessible_name(_("Signature reason"))
+        self.reason_entry.set_accessible_description(_("Enter the reason for signing"))
         # Load default from settings
         settings = get_settings()
         if settings.default_signature_reason:
@@ -220,6 +234,10 @@ class SignatureOptionsDialog(Gtk.Dialog):
         self.location_entry = Gtk.Entry()
         self.location_entry.set_placeholder_text(_("e.g., Buenos Aires, Argentina"))
         self.location_entry.set_hexpand(True)
+        self.location_entry.set_accessible_name(_("Signature location"))
+        self.location_entry.set_accessible_description(
+            _("Enter the location where you are signing")
+        )
         if settings.default_signature_location:
             self.location_entry.set_text(settings.default_signature_location)
         info_grid.attach(self.location_entry, 1, 1, 1, 1)
@@ -233,6 +251,8 @@ class SignatureOptionsDialog(Gtk.Dialog):
         self.contact_entry = Gtk.Entry()
         self.contact_entry.set_placeholder_text(_("e.g., email@company.com"))
         self.contact_entry.set_hexpand(True)
+        self.contact_entry.set_accessible_name(_("Contact information"))
+        self.contact_entry.set_accessible_description(_("Enter your contact information"))
         if settings.default_signature_contact:
             self.contact_entry.set_text(settings.default_signature_contact)
         info_grid.attach(self.contact_entry, 1, 2, 1, 1)

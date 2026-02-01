@@ -322,6 +322,35 @@ class SigningHandler:
         if self._progress_dialog and hasattr(results, "results") and results.results:
             self._progress_dialog.show_result(results)
 
+        # Send system notification if window is not focused
+        from pdfsigner.core.notifications import get_notification_manager
+
+        manager = get_notification_manager()
+        if manager.should_notify():
+            # Calculate totals
+            total = len(files)
+            successful = len(successful_files)
+            failed = total - successful
+
+            # Get output folder from first successful file
+            output_folder = None
+            if successful_files and hasattr(results, "results"):
+                for r in results.results:
+                    if r.success and r.output_path:
+                        output_folder = r.output_path.parent
+                        break
+
+            manager.notify_batch_complete(total, successful, failed, output_folder)
+
+        # Register successful files in recent history
+        if successful_files and hasattr(results, "results"):
+            from pdfsigner.core.recent import get_recent_files_manager
+
+            recent_manager = get_recent_files_manager()
+            for r in results.results:
+                if r.success and r.output_path:
+                    recent_manager.add_file(r.output_path, operation="signed")
+
     def _show_error(self, title: str, message: str) -> None:
         """Shows an error dialog."""
         if self._progress_dialog:

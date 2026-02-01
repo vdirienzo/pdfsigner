@@ -174,6 +174,34 @@ class Settings(BaseSettings):
         description="Days to retain audit logs (1-3650)",
     )
 
+    # --- System Notifications ---
+    system_notifications_enabled: bool = Field(
+        default=True,
+        description="Enable system notifications for background events",
+    )
+
+    # --- Revocation Checking ---
+    revocation_check_enabled: bool = Field(
+        default=False,
+        description="Check certificate revocation status during validation (OCSP/CRL)",
+    )
+    revocation_check_timeout: int = Field(
+        default=10,
+        ge=5,
+        le=60,
+        description="Timeout for revocation checks in seconds",
+    )
+    revocation_cache_ttl: int = Field(
+        default=3600,
+        ge=300,
+        le=86400,
+        description="Cache TTL for revocation results in seconds",
+    )
+    revocation_prefer_ocsp: bool = Field(
+        default=True,
+        description="Prefer OCSP over CRL for revocation checks",
+    )
+
     # --- Appearance ---
     theme: Literal["system", "light", "dark"] = Field(
         default="system",
@@ -186,6 +214,18 @@ class Settings(BaseSettings):
     language: str = Field(
         default="",
         description="UI language (empty = system default)",
+    )
+
+    # --- Recent Files ---
+    recent_files_enabled: bool = Field(
+        default=True,
+        description="Track recently opened/signed PDF files",
+    )
+    recent_files_limit: int = Field(
+        default=10,
+        ge=5,
+        le=50,
+        description="Maximum number of recent files to show",
     )
 
     @field_validator("nss_db_path")

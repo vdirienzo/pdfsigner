@@ -50,9 +50,11 @@ class PinDialog(Gtk.Dialog):
         self.set_default_size(400, 150)
 
         # Configurar botones
-        self.add_button(_("Cancel"), Gtk.ResponseType.CANCEL)
+        cancel_button = self.add_button(_("Cancel"), Gtk.ResponseType.CANCEL)
+        cancel_button.set_accessible_name(_("Cancel"))
         ok_button = self.add_button(_("Accept"), Gtk.ResponseType.OK)
         ok_button.add_css_class("suggested-action")
+        ok_button.set_accessible_name(_("Confirm PIN"))
 
         # Área de contenido
         content = self.get_content_area()
@@ -82,6 +84,8 @@ class PinDialog(Gtk.Dialog):
         self.pin_entry = Gtk.PasswordEntry()
         self.pin_entry.set_hexpand(True)
         self.pin_entry.set_show_peek_icon(True)
+        self.pin_entry.set_accessible_name(_("PIN entry"))
+        self.pin_entry.set_accessible_description(_("Enter your token PIN to sign documents"))
         self.pin_entry.connect("activate", self._on_entry_activate)
         self.pin_entry.connect("changed", self._on_entry_changed)
         entry_box.append(self.pin_entry)
@@ -93,6 +97,7 @@ class PinDialog(Gtk.Dialog):
         self.error_label.add_css_class("error")
         self.error_label.set_visible(False)
         self.error_label.set_xalign(0)
+        self.error_label.set_accessible_name(_("Error message"))
         content.append(self.error_label)
 
         # Deshabilitar OK hasta que haya PIN

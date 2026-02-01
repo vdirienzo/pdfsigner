@@ -69,10 +69,16 @@ class PDFSignerApp(Adw.Application):
         action_quit.connect("activate", self.on_quit_action)
         self.add_action(action_quit)
 
-        # Keyboard shortcuts
+        # Keyboard shortcuts - Application actions
         self.set_accels_for_action("app.open", ["<Control>o"])
         self.set_accels_for_action("app.preferences", ["<Control>comma"])
         self.set_accels_for_action("app.quit", ["<Control>q"])
+        self.set_accels_for_action("app.about", ["F1"])
+
+        # Keyboard shortcuts - Window actions
+        self.set_accels_for_action("win.sign", ["<Control>s"])
+        self.set_accels_for_action("win.validate", ["<Control><Shift>v"])
+        self.set_accels_for_action("win.clear", ["<Control>l", "Delete"])
 
     def do_startup(self) -> None:
         """Initialization on application startup."""
