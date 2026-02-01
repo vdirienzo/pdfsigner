@@ -18,9 +18,13 @@ class MFAEnrollRequest(BaseModel):
 class MFAEnrollResponse(BaseModel):
     """Response with MFA enrollment data."""
 
-    qr_code_base64: str = Field(..., description="Base64-encoded QR code PNG image")
-    provisioning_uri: str = Field(..., description="otpauth:// URI for manual entry")
-    secret: str = Field(..., description="Base32-encoded secret for manual entry")
+    qr_code_base64: str = Field(
+        ..., max_length=1048576, description="Base64-encoded QR code PNG image"
+    )
+    provisioning_uri: str = Field(
+        ..., max_length=1024, description="otpauth:// URI for manual entry"
+    )
+    secret: str = Field(..., max_length=64, description="Base32-encoded secret for manual entry")
     backup_codes: list[str] = Field(..., description="One-time use backup codes")
 
     model_config = {
@@ -68,7 +72,7 @@ class MFAVerifyResponse(BaseModel):
 class MFABackupCodeRequest(BaseModel):
     """Request to verify backup code."""
 
-    code: str = Field(..., description="Backup code (XXXX-XXXX format)")
+    code: str = Field(..., max_length=64, description="Backup code (XXXX-XXXX format)")
 
     model_config = {"json_schema_extra": {"example": {"code": "1234-5678"}}}
 
@@ -77,7 +81,7 @@ class MFABackupCodeResponse(BaseModel):
     """Response from backup code verification."""
 
     success: bool = Field(..., description="Whether verification succeeded")
-    message: str = Field(..., description="Status message")
+    message: str = Field(..., max_length=255, description="Status message")
     remaining_codes: int | None = Field(None, description="Number of remaining backup codes")
 
     model_config = {
@@ -114,16 +118,18 @@ class MFAStatusResponse(BaseModel):
 class MFADisableRequest(BaseModel):
     """Request to disable MFA."""
 
-    password: str | None = Field(None, description="User password for confirmation")
+    current_password: str = Field(
+        ..., max_length=255, description="User password for confirmation (required)"
+    )
 
-    model_config = {"json_schema_extra": {"example": {"password": "user_password"}}}
+    model_config = {"json_schema_extra": {"example": {"current_password": "user_password"}}}
 
 
 class MFADisableResponse(BaseModel):
     """Response from MFA disable."""
 
     success: bool = Field(..., description="Whether MFA was disabled")
-    message: str = Field(..., description="Status message")
+    message: str = Field(..., max_length=255, description="Status message")
 
     model_config = {
         "json_schema_extra": {
@@ -139,7 +145,7 @@ class MFARegenerateBackupCodesResponse(BaseModel):
     """Response with regenerated backup codes."""
 
     backup_codes: list[str] = Field(..., description="New backup codes")
-    message: str = Field(..., description="Status message")
+    message: str = Field(..., max_length=255, description="Status message")
 
     model_config = {
         "json_schema_extra": {

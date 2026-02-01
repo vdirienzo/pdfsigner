@@ -13,12 +13,14 @@ Run with: uvicorn pdfsigner.api.main:app --reload
 from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from loguru import logger
 
 from pdfsigner.api.config import get_api_settings
 from pdfsigner.api.routes import (
+    api_keys_router,
     auth_router,
     backup_router,
     breach_router,
@@ -91,6 +93,43 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # - Cleanup temporary files
 
 
+async def global_exception_handler(request: Request, exc: Exception) -> JSONResponse:
+    """
+    Global exception handler to prevent stack trace exposure.
+
+    Logs full error internally for debugging, but returns generic response to client.
+    In DEBUG mode, includes exception type for easier troubleshooting.
+
+    Args:
+        request: The incoming request that caused the exception
+        exc: The unhandled exception
+
+    Returns:
+        JSONResponse with generic error message (no stack traces)
+    """
+    settings = get_api_settings()
+
+    # Log full exception with stack trace for internal debugging
+    logger.exception(
+        f"Unhandled exception in {request.method} {request.url.path}: {type(exc).__name__}: {exc}"
+    )
+
+    # Determine response detail based on log level (DEBUG shows more info)
+    if settings.log_level == "DEBUG":
+        detail = f"Internal server error: {type(exc).__name__}"
+    else:
+        # Production: generic message only (no implementation details)
+        detail = "Internal server error"
+
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": detail,
+            "error_id": None,  # Could add request ID tracking here
+        },
+    )
+
+
 def create_app() -> FastAPI:
     """
     Create and configure FastAPI application.
@@ -119,6 +158,22 @@ def create_app() -> FastAPI:
         allow_headers=settings.cors_allow_headers,
     )
 
+    # Configure CSRF protection
+    from pdfsigner.api.middleware.csrf import CSRFMiddleware
+
+    app.add_middleware(
+        CSRFMiddleware,
+        enabled=True,  # Always enabled for state-changing requests
+        secure=settings.tls_enabled,  # Secure cookie only with HTTPS
+        samesite="strict",
+    )
+    logger.info("CSRF protection enabled (Double Submit Cookie)")
+
+    # Configure rate limiting
+    from pdfsigner.api.middleware.rate_limit import setup_rate_limiting
+
+    setup_rate_limiting(app)
+
     # Configure TLS middleware
     if settings.tls_enabled:
         from pdfsigner.api.middleware.tls import TLSRedirectMiddleware, TLSRequirementMiddleware
@@ -131,6 +186,10 @@ def create_app() -> FastAPI:
         elif settings.tls_redirect_http:
             app.add_middleware(TLSRedirectMiddleware, tls_redirect_enabled=True)
             logger.info("TLS redirect enabled: HTTP requests will redirect to HTTPS")
+
+    # Register global exception handler (prevents stack trace exposure)
+    app.add_exception_handler(Exception, global_exception_handler)
+    logger.info("Global exception handler registered (stack traces will not be exposed)")
 
     # Health check endpoint
     @app.get("/health", tags=["health"])
@@ -151,6 +210,7 @@ def create_app() -> FastAPI:
     app.include_router(validate_router)
     app.include_router(certificates_router)
     app.include_router(users_router)
+    app.include_router(api_keys_router)
     app.include_router(sessions_router)
     app.include_router(emergency_router)
     app.include_router(sign_router)
@@ -167,7 +227,7 @@ def create_app() -> FastAPI:
 
     # Vulnerability management (conditional - only if no import errors)
     try:
-        from pdfsigner.api.routes.vulnerabilities import router as vulnerabilities_router
+        pass
 
     except Exception as e:
         logger.warning(f"Could not load vulnerabilities router: {e}")

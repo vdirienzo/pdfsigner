@@ -24,10 +24,68 @@ from pdfsigner.api.middleware.auth import (
     verify_token,
 )
 from pdfsigner.config.settings import get_settings
+from pdfsigner.core.auth.password_validator import get_password_validator
 from pdfsigner.core.session import get_session_manager
-from pdfsigner.core.users.user_model import UserRole, UserStatus
+from pdfsigner.core.users.user_repository import get_user_repository
 
 router = APIRouter(prefix="/auth", tags=["authentication"])
+
+
+# --- Authentication Service ---
+
+
+def authenticate_user(username: str, password: str) -> User | None:
+    """
+    Authenticate user with username and password.
+
+    Validates credentials against database and checks user status.
+    Implements account lockout after 5 failed attempts (NIST AC-7).
+
+    Args:
+        username: Username to authenticate
+        password: Password to verify
+
+    Returns:
+        User object if authenticated, None otherwise
+    """
+    if not username or not password:
+        return None
+
+    user_repo = get_user_repository()
+    password_validator = get_password_validator()
+
+    # Get user from database
+    db_user = user_repo.get_user_by_username(username)
+    if db_user is None:
+        return None
+
+    # Check if user is locked
+    if not db_user.is_active:
+        return None
+
+    # Get password hash from credentials table
+    password_hash = user_repo.get_password_hash(db_user.id)
+    if password_hash is None:
+        return None
+
+    # Verify password
+    if not password_validator.verify_password(password, password_hash):
+        # Record failed login attempt
+        db_user.record_login(success=False)
+        user_repo.update_user(db_user)
+        return None
+
+    # Record successful login
+    db_user.record_login(success=True)
+    user_repo.update_user(db_user)
+
+    return User(
+        id=db_user.id,
+        username=db_user.username,
+        email=db_user.email or "",
+        role=db_user.role,
+        status=db_user.status,
+    )
 
 
 # --- Request/Response Models ---
@@ -86,44 +144,6 @@ class LogoutResponse(BaseModel):
     message: str = Field(..., description="Logout status message")
 
 
-# --- Helper Functions ---
-
-
-def authenticate_user(username: str, password: str) -> User | None:
-    """
-    Authenticate user with username and password.
-
-    **NOTE:** This is a DEMO implementation that accepts any username/password.
-    In production, this MUST:
-    - Query user database
-    - Verify password hash (bcrypt/argon2)
-    - Check user status
-    - Return None for invalid credentials
-
-    Args:
-        username: Username to authenticate
-        password: Password to verify
-
-    Returns:
-        User object if authenticated, None otherwise
-    """
-    # DEMO: Accept any non-empty username/password
-    # In production, check against database with proper password hashing
-    if not username or not password:
-        return None
-
-    # DEMO: Create user with role based on username
-    role = UserRole.ADMIN if username == "admin" else UserRole.SIGNER
-
-    return User(
-        id=username,
-        username=username,
-        email=f"{username}@example.com",
-        role=role,
-        status=UserStatus.ACTIVE,
-    )
-
-
 # --- Routes ---
 
 
@@ -134,10 +154,8 @@ def authenticate_user(username: str, password: str) -> User | None:
     description="""
     Get JWT access token with username and password.
 
-    **DEMO MODE:** Currently accepts any username/password.
-    In production, this would validate against a real user database.
-
-    Use 'admin' as username to get admin role, any other username gets user role.
+    Validates credentials against user database with Argon2 password hashing.
+    Implements account lockout after 5 failed attempts (NIST AC-7).
 
     When healthcare_mode is enabled, creates a session with sliding window expiration.
     """,
@@ -175,6 +193,14 @@ async def login_for_access_token(form_data: TokenRequest, request: Request) -> T
         ip_address = request.client.host if request.client else None
         user_agent = request.headers.get("user-agent")
 
+        # Security: Invalidate any existing sessions for the user before creating new one
+        # This prevents Session Fixation attacks by ensuring a fresh session ID after login
+        existing_sessions = session_mgr.get_user_sessions(user.username)
+        if existing_sessions:
+            for old_session in existing_sessions:
+                session_mgr.terminate_session(old_session.id)
+
+        # Create new session with fresh ID
         session = session_mgr.create_session(
             user_id=user.username,
             ip_address=ip_address,
@@ -269,18 +295,19 @@ async def get_current_user_info(
     "/logout",
     response_model=LogoutResponse,
     summary="Logout",
-    description="Terminate session and invalidate token. "
-    "Only has effect when healthcare_mode is enabled.",
+    description="Revoke JWT token and terminate session. "
+    "Token is added to blacklist for real logout. "
+    "When healthcare_mode is enabled, also terminates the associated session.",
 )
 async def logout(
     current_user: Annotated[User, Depends(get_current_active_user)],
     credentials: Annotated[HTTPAuthorizationCredentials, Depends(http_bearer)],
 ) -> LogoutResponse:
     """
-    Logout and terminate session.
+    Logout and revoke token.
 
-    When healthcare_mode is enabled, terminates the session associated with the JWT token.
-    When healthcare_mode is disabled, this is a no-op but returns success.
+    Adds JWT token to blacklist to prevent further use (real logout).
+    When healthcare_mode is enabled, also terminates the session associated with the JWT token.
 
     Args:
         current_user: Authenticated user from token
@@ -289,17 +316,29 @@ async def logout(
     Returns:
         Logout status message
     """
+    from pdfsigner.core.auth.jwt_blacklist import get_jwt_blacklist
+
     settings = get_settings()
+    token_data = verify_token(credentials.credentials)
 
-    if settings.healthcare_mode:
-        token_data = verify_token(credentials.credentials)
-        if token_data.session_id:
-            session_mgr = get_session_manager()
-            session_mgr.terminate_session(token_data.session_id)
-            return LogoutResponse(message="Successfully logged out and session terminated")
-        return LogoutResponse(message="Successfully logged out (no session found)")
+    # Add token to blacklist for real logout
+    if token_data.jti and token_data.exp:
+        blacklist = get_jwt_blacklist()
+        blacklist.add_token(
+            jti=token_data.jti,
+            expires_at=token_data.exp,
+            reason="logout",
+        )
 
-    return LogoutResponse(message="Successfully logged out (healthcare mode disabled)")
+    # Also terminate session if healthcare_mode is enabled
+    if settings.healthcare_mode and token_data.session_id:
+        session_mgr = get_session_manager()
+        session_mgr.terminate_session(token_data.session_id)
+        return LogoutResponse(
+            message="Successfully logged out, token revoked, and session terminated"
+        )
+
+    return LogoutResponse(message="Successfully logged out and token revoked")
 
 
 # --- Public Exports ---

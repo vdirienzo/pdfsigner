@@ -11,7 +11,7 @@ All schemas are based on Pydantic BaseModel for validation and serialization.
 from datetime import datetime
 from enum import Enum
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class StatusEnum(str, Enum):
@@ -54,8 +54,8 @@ class ErrorResponse(BaseModel):
         code: Optional machine-readable error code for client handling
     """
 
-    detail: str
-    code: str | None = None
+    detail: str = Field(..., max_length=4096)
+    code: str | None = Field(None, max_length=64)
 
 
 class JobStatus(BaseModel):
@@ -70,9 +70,9 @@ class JobStatus(BaseModel):
         error: Optional error message if status is FAILED
     """
 
-    job_id: str
+    job_id: str = Field(..., max_length=64)
     status: StatusEnum
     created_at: datetime
     completed_at: datetime | None = None
-    message: str | None = None
-    error: str | None = None
+    message: str | None = Field(None, max_length=4096)
+    error: str | None = Field(None, max_length=4096)

@@ -7,6 +7,7 @@ Settings can be loaded from:
 3. Defaults defined here
 """
 
+import warnings
 from pathlib import Path
 from typing import Literal
 
@@ -51,18 +52,20 @@ class APISettings(BaseSettings):
         description="Allow credentials in CORS requests",
     )
     cors_allow_methods: list[str] = Field(
-        default_factory=lambda: ["*"],
+        default_factory=lambda: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
         description="Allowed HTTP methods for CORS",
     )
     cors_allow_headers: list[str] = Field(
-        default_factory=lambda: ["*"],
+        default_factory=lambda: ["Content-Type", "Authorization", "X-CSRF-Token", "X-API-Key"],
         description="Allowed HTTP headers for CORS",
     )
 
     # --- Authentication ---
-    jwt_secret_key: SecretStr = Field(
-        default=SecretStr("CHANGE_THIS_IN_PRODUCTION_USE_ENV_VAR"),
-        description="Secret key for JWT token signing (MUST be changed in production)",
+    jwt_secret_key: SecretStr | None = Field(
+        default=None,
+        description=(
+            "Secret key for JWT token signing (REQUIRED - set via PDFSIGNER_API_JWT_SECRET_KEY)"
+        ),
     )
     jwt_algorithm: str = Field(
         default="HS256",
@@ -220,17 +223,44 @@ class APISettings(BaseSettings):
 
     @field_validator("jwt_secret_key")
     @classmethod
-    def validate_jwt_secret(cls, v: SecretStr) -> SecretStr:
-        """Warn if using default JWT secret."""
-        if v.get_secret_value() == "CHANGE_THIS_IN_PRODUCTION_USE_ENV_VAR":
-            import warnings
+    def validate_jwt_secret(cls, v: SecretStr | None) -> SecretStr:
+        """
+        Validate JWT secret key is provided.
 
-            warnings.warn(
-                "Using default JWT secret key. "
-                "Set PDFSIGNER_API_JWT_SECRET_KEY environment variable.",
-                UserWarning,
-                stacklevel=2,
+        Security: JWT secret MUST be explicitly configured via environment variable.
+        Using a default/hardcoded secret is a critical security vulnerability.
+        """
+        if v is None:
+            raise ValueError(
+                "JWT secret key is required. "
+                "Set PDFSIGNER_API_JWT_SECRET_KEY environment variable with a secure random value. "
+                'Generate one with: python -c "import secrets; print(secrets.token_urlsafe(32))"'
             )
+
+        secret_value = v.get_secret_value()
+
+        # Reject obviously weak secrets
+        if len(secret_value) < 32:
+            raise ValueError(
+                "JWT secret key must be at least 32 characters. "
+                "Generate a secure one with: "
+                'python -c "import secrets; print(secrets.token_urlsafe(32))"'
+            )
+
+        # Reject common/default values
+        weak_secrets = {
+            "CHANGE_THIS_IN_PRODUCTION_USE_ENV_VAR",
+            "secret",
+            "change_me",
+            "your-secret-key",
+            "jwt-secret",
+        }
+        if secret_value in weak_secrets:
+            raise ValueError(
+                "JWT secret key appears to be a default/weak value. "
+                "Set a secure random value via PDFSIGNER_API_JWT_SECRET_KEY."
+            )
+
         return v
 
     @field_validator("tls_cert_path", "tls_key_path", "tls_ca_cert_path")
@@ -239,6 +269,44 @@ class APISettings(BaseSettings):
         """Validate TLS file paths if TLS is enabled."""
         # Don't validate at model creation - will be validated at runtime by validate_tls_config()
         # This allows the settings to be loaded even if files don't exist yet
+        return v
+
+    @field_validator("cors_allow_methods")
+    @classmethod
+    def validate_cors_methods(cls, v: list[str]) -> list[str]:
+        """
+        Validate CORS allowed methods configuration.
+
+        Security: Using wildcard "*" for CORS methods is insecure and should be avoided.
+        Explicitly list allowed methods instead.
+        """
+        if "*" in v:
+            warnings.warn(
+                "CORS allow_methods contains wildcard '*' which is insecure. "
+                "Consider explicitly listing allowed methods: "
+                "['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS']",
+                UserWarning,
+                stacklevel=2,
+            )
+        return v
+
+    @field_validator("cors_allow_headers")
+    @classmethod
+    def validate_cors_headers(cls, v: list[str]) -> list[str]:
+        """
+        Validate CORS allowed headers configuration.
+
+        Security: Using wildcard "*" for CORS headers is insecure and should be avoided.
+        Explicitly list allowed headers instead.
+        """
+        if "*" in v:
+            warnings.warn(
+                "CORS allow_headers contains wildcard '*' which is insecure. "
+                "Consider explicitly listing allowed headers: "
+                "['Content-Type', 'Authorization', 'X-CSRF-Token', 'X-API-Key']",
+                UserWarning,
+                stacklevel=2,
+            )
         return v
 
 

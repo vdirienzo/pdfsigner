@@ -92,6 +92,15 @@ class UserRepository:
                 CREATE INDEX IF NOT EXISTS idx_users_username ON users(username);
                 CREATE INDEX IF NOT EXISTS idx_users_certificate ON users(certificate_serial, certificate_issuer);
                 CREATE INDEX IF NOT EXISTS idx_users_status ON users(status);
+
+                -- Credentials table for password authentication (NIST IA-5)
+                CREATE TABLE IF NOT EXISTS credentials (
+                    user_id TEXT PRIMARY KEY,
+                    password_hash TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL,
+                    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+                );
             """)
 
     # --- User CRUD ---
@@ -318,6 +327,74 @@ class UserRepository:
         with self._get_connection() as conn:
             rows = conn.execute("SELECT * FROM departments ORDER BY name").fetchall()
             return [self._row_to_department(row) for row in rows]
+
+    # --- Credentials CRUD (NIST IA-5) ---
+
+    def set_password(self, user_id: str, password_hash: str) -> bool:
+        """
+        Set password hash for user.
+
+        Args:
+            user_id: User ID
+            password_hash: Argon2 hash of password
+
+        Returns:
+            True if password was set, False if user not found
+        """
+        with self._get_connection() as conn:
+            # Verify user exists
+            user = conn.execute("SELECT id FROM users WHERE id = ?", (user_id,)).fetchone()
+            if not user:
+                return False
+
+            now = datetime.now().isoformat()
+            # Insert or update credentials
+            conn.execute(
+                """
+                INSERT INTO credentials (user_id, password_hash, created_at, updated_at)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    password_hash = excluded.password_hash,
+                    updated_at = excluded.updated_at
+                """,
+                (user_id, password_hash, now, now),
+            )
+            # Update password_changed_at on user
+            conn.execute(
+                "UPDATE users SET password_changed_at = ?, updated_at = ? WHERE id = ?",
+                (now, now, user_id),
+            )
+            logger.debug(f"Set password for user: {user_id}")
+            return True
+
+    def get_password_hash(self, user_id: str) -> str | None:
+        """
+        Get password hash for user.
+
+        Args:
+            user_id: User ID
+
+        Returns:
+            Password hash or None if not found
+        """
+        with self._get_connection() as conn:
+            row = conn.execute(
+                "SELECT password_hash FROM credentials WHERE user_id = ?",
+                (user_id,),
+            ).fetchone()
+            return row["password_hash"] if row else None
+
+    def has_password(self, user_id: str) -> bool:
+        """Check if user has a password set."""
+        return self.get_password_hash(user_id) is not None
+
+    def count_admins(self) -> int:
+        """Count active admin users."""
+        with self._get_connection() as conn:
+            return conn.execute(
+                "SELECT COUNT(*) FROM users WHERE role = ? AND status = ?",
+                (UserRole.ADMIN.value, UserStatus.ACTIVE.value),
+            ).fetchone()[0]
 
     # --- Helpers ---
 

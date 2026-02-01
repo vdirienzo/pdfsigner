@@ -23,6 +23,7 @@ from pdfsigner.api.config import get_api_settings
 from pdfsigner.api.middleware.auth import get_current_user_or_api_key
 from pdfsigner.api.schemas.sign import SignJobStatus, SignRequest, SignResponse
 from pdfsigner.api.services.signing_service import SigningService, get_signing_service
+from pdfsigner.api.utils import sanitize_filename
 from pdfsigner.core.rbac import Permission, check_permission
 from pdfsigner.core.signer.lta_handler import LTAHandler
 from pdfsigner.core.token.nss_handler import NSSHandler
@@ -155,7 +156,16 @@ async def sign_document(
             detail="Filename is required",
         )
 
-    if not file.filename.lower().endswith(".pdf"):
+    # Sanitize filename to prevent Path Traversal
+    try:
+        safe_filename_str = sanitize_filename(file.filename)
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid filename: {e}",
+        ) from e
+
+    if not safe_filename_str.lower().endswith(".pdf"):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Only PDF files are accepted",
@@ -181,7 +191,7 @@ async def sign_document(
 
     # Validate PDF content
     try:
-        SigningService.validate_pdf_file(file_content, file.filename)
+        SigningService.validate_pdf_file(file_content, safe_filename_str)
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -230,7 +240,7 @@ async def sign_document(
     # Create job
     try:
         job_id = signing_service.create_job(
-            filename=file.filename,
+            filename=safe_filename_str,
             input_path=temp_path,
             user_id=current_user.username,
         )

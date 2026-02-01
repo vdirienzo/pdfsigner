@@ -146,6 +146,9 @@ HIPAA_CONTROLS = [
 # ============================================================================
 
 NIST_800_53_CONTROLS = [
+    # ========================================================================
+    # Access Control (AC) Family
+    # ========================================================================
     ControlDefinition(
         control_id="AC-2",
         name="Account Management",
@@ -158,6 +161,40 @@ NIST_800_53_CONTROLS = [
         check_func="_check_nist_account_management",
         weight=1.5,
         tags=["user_management", "accounts"],
+    ),
+    ControlDefinition(
+        control_id="AC-3",
+        name="Access Enforcement",
+        description=(
+            "Enforce approved authorizations for logical access to information and system resources"
+        ),
+        standard=ComplianceStandard.NIST_800_53,
+        category="Access Control",
+        check_func="_check_nist_access_enforcement",
+        weight=2.0,
+        tags=["rbac", "authorization"],
+    ),
+    ControlDefinition(
+        control_id="AC-5",
+        name="Separation of Duties",
+        description=(
+            "Separate duties of individuals to prevent malicious activity without collusion"
+        ),
+        standard=ComplianceStandard.NIST_800_53,
+        category="Access Control",
+        check_func="_check_nist_separation_of_duties",
+        weight=1.5,
+        tags=["rbac", "segregation"],
+    ),
+    ControlDefinition(
+        control_id="AC-6",
+        name="Least Privilege",
+        description="Employ the principle of least privilege, allowing only authorized access",
+        standard=ComplianceStandard.NIST_800_53,
+        category="Access Control",
+        check_func="_check_nist_least_privilege",
+        weight=2.0,
+        tags=["rbac", "privilege"],
     ),
     ControlDefinition(
         control_id="AC-7",
@@ -173,6 +210,16 @@ NIST_800_53_CONTROLS = [
         tags=["authentication", "brute_force"],
     ),
     ControlDefinition(
+        control_id="AC-8",
+        name="System Use Notification",
+        description="Display system use notification message or banner before granting access",
+        standard=ComplianceStandard.NIST_800_53,
+        category="Access Control",
+        check_func="_check_nist_system_use_notification",
+        weight=1.0,
+        tags=["notification", "consent"],
+    ),
+    ControlDefinition(
         control_id="AC-11",
         name="Session Lock",
         description=(
@@ -186,6 +233,41 @@ NIST_800_53_CONTROLS = [
         tags=["session", "timeout"],
     ),
     ControlDefinition(
+        control_id="AC-12",
+        name="Session Termination",
+        description="Automatically terminate a user session after a defined condition",
+        standard=ComplianceStandard.NIST_800_53,
+        category="Access Control",
+        check_func="_check_nist_session_termination",
+        weight=2.0,
+        tags=["session", "timeout"],
+    ),
+    ControlDefinition(
+        control_id="AC-17",
+        name="Remote Access",
+        description="Establish and document usage restrictions for remote access to the system",
+        standard=ComplianceStandard.NIST_800_53,
+        category="Access Control",
+        check_func="_check_nist_remote_access",
+        weight=1.5,
+        required=False,  # Only applicable if API is exposed
+        tags=["remote", "api"],
+    ),
+    ControlDefinition(
+        control_id="AC-20",
+        name="Use of External Systems",
+        description="Establish terms and conditions for authorized use of external systems",
+        standard=ComplianceStandard.NIST_800_53,
+        category="Access Control",
+        check_func="_check_nist_external_systems",
+        weight=1.0,
+        required=False,
+        tags=["external", "integration"],
+    ),
+    # ========================================================================
+    # Audit and Accountability (AU) Family
+    # ========================================================================
+    ControlDefinition(
         control_id="AU-2",
         name="Audit Events",
         description="Identify types of events that the system is capable of logging",
@@ -194,6 +276,48 @@ NIST_800_53_CONTROLS = [
         check_func="_check_nist_audit_events",
         weight=2.0,
         tags=["audit", "logging"],
+    ),
+    ControlDefinition(
+        control_id="AU-3",
+        name="Content of Audit Records",
+        description="Generate audit records containing information that establishes context",
+        standard=ComplianceStandard.NIST_800_53,
+        category="Audit and Accountability",
+        check_func="_check_nist_audit_content",
+        weight=2.0,
+        tags=["audit", "records"],
+    ),
+    ControlDefinition(
+        control_id="AU-4",
+        name="Audit Storage Capacity",
+        description="Allocate audit log storage capacity to accommodate requirements",
+        standard=ComplianceStandard.NIST_800_53,
+        category="Audit and Accountability",
+        check_func="_check_nist_audit_storage",
+        weight=1.5,
+        tags=["audit", "storage"],
+    ),
+    ControlDefinition(
+        control_id="AU-6",
+        name="Audit Review, Analysis, and Reporting",
+        description=(
+            "Review and analyze system audit records for indications of inappropriate activity"
+        ),
+        standard=ComplianceStandard.NIST_800_53,
+        category="Audit and Accountability",
+        check_func="_check_nist_audit_review",
+        weight=1.5,
+        tags=["audit", "analysis"],
+    ),
+    ControlDefinition(
+        control_id="AU-8",
+        name="Time Stamps",
+        description="Use internal system clocks to generate time stamps for audit records",
+        standard=ComplianceStandard.NIST_800_53,
+        category="Audit and Accountability",
+        check_func="_check_nist_timestamps",
+        weight=1.5,
+        tags=["audit", "time"],
     ),
     ControlDefinition(
         control_id="AU-9",
@@ -208,6 +332,31 @@ NIST_800_53_CONTROLS = [
         weight=2.0,
         tags=["audit", "integrity"],
     ),
+    ControlDefinition(
+        control_id="AU-11",
+        name="Audit Record Retention",
+        description=(
+            "Retain audit records for defined time period consistent with records retention policy"
+        ),
+        standard=ComplianceStandard.NIST_800_53,
+        category="Audit and Accountability",
+        check_func="_check_nist_audit_retention",
+        weight=1.5,
+        tags=["audit", "retention"],
+    ),
+    ControlDefinition(
+        control_id="AU-12",
+        name="Audit Generation",
+        description="Provide audit record generation capability for auditable events",
+        standard=ComplianceStandard.NIST_800_53,
+        category="Audit and Accountability",
+        check_func="_check_nist_audit_generation",
+        weight=2.0,
+        tags=["audit", "logging"],
+    ),
+    # ========================================================================
+    # Identification and Authentication (IA) Family
+    # ========================================================================
     ControlDefinition(
         control_id="IA-2",
         name="Identification and Authentication (Organizational Users)",
@@ -231,6 +380,9 @@ NIST_800_53_CONTROLS = [
         weight=1.5,
         tags=["passwords", "credentials"],
     ),
+    # ========================================================================
+    # System and Communications Protection (SC) Family
+    # ========================================================================
     ControlDefinition(
         control_id="SC-8",
         name="Transmission Confidentiality and Integrity",
@@ -243,6 +395,16 @@ NIST_800_53_CONTROLS = [
         tags=["tls", "encryption"],
     ),
     ControlDefinition(
+        control_id="SC-12",
+        name="Cryptographic Key Establishment and Management",
+        description="Establish and manage cryptographic keys for required cryptography",
+        standard=ComplianceStandard.NIST_800_53,
+        category="System and Communications Protection",
+        check_func="_check_nist_key_management",
+        weight=2.0,
+        tags=["crypto", "keys"],
+    ),
+    ControlDefinition(
         control_id="SC-13",
         name="Cryptographic Protection",
         description="Implement FIPS-validated or NSA-approved cryptography",
@@ -251,6 +413,38 @@ NIST_800_53_CONTROLS = [
         check_func="_check_nist_crypto_protection",
         weight=2.0,
         tags=["fips", "cryptography"],
+    ),
+    ControlDefinition(
+        control_id="SC-17",
+        name="Public Key Infrastructure Certificates",
+        description=(
+            "Issue public key certificates or obtain public key certificates from approved source"
+        ),
+        standard=ComplianceStandard.NIST_800_53,
+        category="System and Communications Protection",
+        check_func="_check_nist_pki_certificates",
+        weight=1.5,
+        tags=["pki", "certificates"],
+    ),
+    ControlDefinition(
+        control_id="SC-23",
+        name="Session Authenticity",
+        description="Protect the authenticity of communications sessions",
+        standard=ComplianceStandard.NIST_800_53,
+        category="System and Communications Protection",
+        check_func="_check_nist_session_authenticity",
+        weight=1.5,
+        tags=["session", "integrity"],
+    ),
+    ControlDefinition(
+        control_id="SC-28",
+        name="Protection of Information at Rest",
+        description="Protect the confidentiality and integrity of information at rest",
+        standard=ComplianceStandard.NIST_800_53,
+        category="System and Communications Protection",
+        check_func="_check_nist_data_at_rest",
+        weight=2.0,
+        tags=["encryption", "storage"],
     ),
 ]
 
@@ -414,6 +608,151 @@ GDPR_CONTROLS = [
 # ============================================================================
 
 SOC2_CONTROLS = [
+    # CC1: Control Environment
+    ControlDefinition(
+        control_id="CC1.1",
+        name="Organization Structure",
+        description="Define organizational structure with security responsibilities",
+        standard=ComplianceStandard.SOC2,
+        category="Control Environment",
+        check_func="_check_soc2_governance",
+        weight=1.5,
+        tags=["governance", "rbac", "roles"],
+    ),
+    ControlDefinition(
+        control_id="CC1.2",
+        name="Management Philosophy",
+        description="Demonstrate commitment to integrity and ethical values",
+        standard=ComplianceStandard.SOC2,
+        category="Control Environment",
+        check_func="_check_soc2_governance",
+        weight=1.5,
+        tags=["governance", "policies", "documentation"],
+    ),
+    ControlDefinition(
+        control_id="CC1.3",
+        name="Board Oversight",
+        description="Establish oversight responsibilities for security and compliance",
+        standard=ComplianceStandard.SOC2,
+        category="Control Environment",
+        check_func="_check_soc2_governance",
+        weight=1.5,
+        tags=["governance", "audit", "oversight"],
+    ),
+    ControlDefinition(
+        control_id="CC1.4",
+        name="Competence and Separation of Duties",
+        description="Demonstrate commitment to competence and enforce separation of duties",
+        standard=ComplianceStandard.SOC2,
+        category="Control Environment",
+        check_func="_check_soc2_governance",
+        weight=2.0,
+        tags=["governance", "rbac", "permissions"],
+    ),
+    ControlDefinition(
+        control_id="CC1.5",
+        name="Accountability",
+        description="Hold individuals accountable for internal control responsibilities",
+        standard=ComplianceStandard.SOC2,
+        category="Control Environment",
+        check_func="_check_soc2_governance",
+        weight=2.0,
+        tags=["governance", "audit", "accountability"],
+    ),
+    # CC2: Communication and Information
+    ControlDefinition(
+        control_id="CC2.1",
+        name="Internal Communication",
+        description="Communicate information internally to support internal control",
+        standard=ComplianceStandard.SOC2,
+        category="Communication",
+        check_func="_check_soc2_communication",
+        weight=1.0,
+        tags=["communication", "policies", "documentation"],
+    ),
+    ControlDefinition(
+        control_id="CC2.2",
+        name="External Communication",
+        description="Communicate with external parties regarding security matters",
+        standard=ComplianceStandard.SOC2,
+        category="Communication",
+        check_func="_check_soc2_communication",
+        weight=1.0,
+        tags=["communication", "documentation", "api"],
+    ),
+    ControlDefinition(
+        control_id="CC2.3",
+        name="Communication Channels",
+        description="Select and develop communication channels for security information",
+        standard=ComplianceStandard.SOC2,
+        category="Communication",
+        check_func="_check_soc2_communication",
+        weight=1.5,
+        tags=["communication", "tls", "audit"],
+    ),
+    # CC3: Risk Assessment
+    ControlDefinition(
+        control_id="CC3.1",
+        name="Risk Identification",
+        description="Identify and assess changes that could impact the control system",
+        standard=ComplianceStandard.SOC2,
+        category="Risk Assessment",
+        check_func="_check_soc2_risk_assessment",
+        weight=1.5,
+        tags=["risk", "threats", "documentation"],
+    ),
+    ControlDefinition(
+        control_id="CC3.2",
+        name="Risk Analysis",
+        description="Analyze identified risks to determine their impact",
+        standard=ComplianceStandard.SOC2,
+        category="Risk Assessment",
+        check_func="_check_soc2_risk_assessment",
+        weight=1.5,
+        tags=["risk", "vulnerabilities", "analysis"],
+    ),
+    ControlDefinition(
+        control_id="CC3.3",
+        name="Risk Mitigation",
+        description="Manage risks through response and mitigation activities",
+        standard=ComplianceStandard.SOC2,
+        category="Risk Assessment",
+        check_func="_check_soc2_risk_assessment",
+        weight=2.0,
+        tags=["risk", "remediation", "sla"],
+    ),
+    ControlDefinition(
+        control_id="CC3.4",
+        name="Risk Monitoring",
+        description="Continuously monitor risk factors and control effectiveness",
+        standard=ComplianceStandard.SOC2,
+        category="Risk Assessment",
+        check_func="_check_soc2_risk_assessment",
+        weight=2.0,
+        tags=["risk", "monitoring", "breach_detection"],
+    ),
+    # CC4: Monitoring Activities
+    ControlDefinition(
+        control_id="CC4.1",
+        name="Monitoring Controls",
+        description="Establish baseline comparisons and evaluate monitoring results",
+        standard=ComplianceStandard.SOC2,
+        category="Monitoring",
+        check_func="_check_soc2_monitoring_activities",
+        weight=2.0,
+        tags=["monitoring", "audit", "siem"],
+    ),
+    ControlDefinition(
+        control_id="CC4.2",
+        name="Reporting Deficiencies",
+        description="Report control deficiencies to appropriate personnel",
+        standard=ComplianceStandard.SOC2,
+        category="Monitoring",
+        check_func="_check_soc2_monitoring_activities",
+        weight=1.5,
+        tags=["monitoring", "reporting", "compliance"],
+    ),
+    # CC6: Logical and Physical Access Controls
     ControlDefinition(
         control_id="CC6.1",
         name="Logical Access Controls",
@@ -444,6 +783,7 @@ SOC2_CONTROLS = [
         weight=2.0,
         tags=["encryption", "confidentiality"],
     ),
+    # CC7: System Operations
     ControlDefinition(
         control_id="CC7.2",
         name="System Monitoring",
@@ -454,6 +794,7 @@ SOC2_CONTROLS = [
         weight=1.5,
         tags=["audit", "logging"],
     ),
+    # CC8: Change Management
     ControlDefinition(
         control_id="CC8.1",
         name="Change Detection",
@@ -464,6 +805,28 @@ SOC2_CONTROLS = [
         weight=1.0,
         required=False,
         tags=["integrity", "audit"],
+    ),
+    # CC9: Risk Mitigation
+    ControlDefinition(
+        control_id="CC9.1",
+        name="Vulnerability Management",
+        description="Identify, prioritize, and remediate security vulnerabilities",
+        standard=ComplianceStandard.SOC2,
+        category="Risk Mitigation",
+        check_func="_check_soc2_risk_mitigation",
+        weight=1.5,
+        tags=["vulnerabilities", "remediation", "scanning"],
+    ),
+    ControlDefinition(
+        control_id="CC9.2",
+        name="Vendor Risk Management",
+        description="Assess and manage third-party vendor security risks",
+        standard=ComplianceStandard.SOC2,
+        category="Risk Mitigation",
+        check_func="_check_soc2_risk_mitigation",
+        weight=1.0,
+        required=False,
+        tags=["vendors", "dependencies", "supply_chain"],
     ),
 ]
 

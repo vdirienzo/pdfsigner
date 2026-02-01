@@ -28,14 +28,14 @@ class SessionResponse(BaseModel):
         user_agent: Client user agent string (if available)
     """
 
-    id: str = Field(..., description="Session ID")
-    user_id: str = Field(..., description="User ID")
+    id: str = Field(..., max_length=64, description="Session ID")
+    user_id: str = Field(..., max_length=64, description="User ID")
     created_at: datetime = Field(..., description="Creation timestamp")
     last_activity: datetime = Field(..., description="Last activity timestamp")
     expires_at: datetime = Field(..., description="Expiration timestamp")
     is_active: bool = Field(..., description="Whether session is active")
-    ip_address: str | None = Field(None, description="Client IP address")
-    user_agent: str | None = Field(None, description="Client user agent")
+    ip_address: str | None = Field(None, max_length=64, description="Client IP address")
+    user_agent: str | None = Field(None, max_length=1024, description="Client user agent")
 
     @classmethod
     def from_session(cls, session: Session) -> "SessionResponse":
@@ -96,8 +96,8 @@ class SessionDeleteResponse(BaseModel):
         sessions_terminated: Number of sessions terminated (for bulk delete)
     """
 
-    message: str = Field(..., description="Success message")
-    session_id: str | None = Field(default=None, description="Deleted session ID")
+    message: str = Field(..., max_length=4096, description="Success message")
+    session_id: str | None = Field(default=None, max_length=64, description="Deleted session ID")
     sessions_terminated: int | None = Field(
         default=None, description="Number of sessions terminated"
     )

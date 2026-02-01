@@ -4,11 +4,25 @@ conftest.py - Fixtures de pytest para PDFSigner
 Autor: Homero Thompson del Lago del Terror
 """
 
+import os
 import tempfile
 from pathlib import Path
 from unittest.mock import MagicMock
 
 import pytest
+
+
+def pytest_configure(config):
+    """
+    Configure pytest environment before test collection.
+
+    Set required environment variables for API settings validation.
+    """
+    # Set JWT secret key for API tests (required by APISettings validator)
+    if "PDFSIGNER_API_JWT_SECRET_KEY" not in os.environ:
+        os.environ["PDFSIGNER_API_JWT_SECRET_KEY"] = (
+            "test-secret-key-for-pytest-only-not-for-production-use"
+        )
 
 
 @pytest.fixture

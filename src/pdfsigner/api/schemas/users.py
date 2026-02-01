@@ -27,12 +27,12 @@ class UserResponse(BaseModel):
         last_login_at: Last successful login timestamp
     """
 
-    id: str = Field(..., description="Unique user ID")
-    username: str = Field(..., description="Unique username")
-    display_name: str = Field(..., description="Display name")
-    email: str = Field(..., description="Email address")
-    role: str = Field(..., description="User role")
-    status: str = Field(..., description="Account status")
+    id: str = Field(..., max_length=64, description="Unique user ID")
+    username: str = Field(..., max_length=255, description="Unique username")
+    display_name: str = Field(..., max_length=255, description="Display name")
+    email: str = Field(..., max_length=255, description="Email address")
+    role: str = Field(..., max_length=64, description="User role")
+    status: str = Field(..., max_length=64, description="Account status")
     created_at: datetime = Field(..., description="Creation timestamp")
     last_login_at: datetime | None = Field(None, description="Last login timestamp")
 

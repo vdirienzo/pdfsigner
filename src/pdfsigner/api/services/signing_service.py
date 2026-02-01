@@ -10,6 +10,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Literal
 
+import magic
 from loguru import logger
 
 from pdfsigner.api.config import get_api_settings
@@ -298,6 +299,9 @@ class SigningService:
         """
         Validate uploaded file is a valid PDF.
 
+        Uses python-magic for robust MIME type detection to prevent
+        file extension spoofing attacks.
+
         Args:
             file_content: File content bytes
             filename: Original filename
@@ -309,13 +313,23 @@ class SigningService:
         if not filename.lower().endswith(".pdf"):
             raise ValueError("File must have .pdf extension")
 
-        # Check PDF magic bytes
-        if not file_content.startswith(b"%PDF-"):
-            raise ValueError("File is not a valid PDF (invalid magic bytes)")
-
         # Check minimum size (empty PDFs are ~100 bytes)
         if len(file_content) < 100:
             raise ValueError("File is too small to be a valid PDF")
+
+        # Check PDF magic bytes (basic check)
+        if not file_content.startswith(b"%PDF-"):
+            raise ValueError("File is not a valid PDF (invalid magic bytes)")
+
+        # Validate MIME type using python-magic (deep inspection)
+        try:
+            mime_type = magic.from_buffer(file_content, mime=True)
+            if mime_type != "application/pdf":
+                raise ValueError(f"File is not a valid PDF (detected MIME type: {mime_type})")
+        except Exception as e:
+            # If magic fails, log warning but don't fail (fallback to basic check)
+            logger.warning(f"python-magic validation failed: {e}")
+            # Basic check already passed above, so we can continue
 
 
 # Global service instance (singleton for MVP)

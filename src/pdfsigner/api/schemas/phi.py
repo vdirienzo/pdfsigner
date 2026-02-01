@@ -23,15 +23,15 @@ class PIIMatchResponse(BaseModel):
         context: Surrounding text context
     """
 
-    pii_type: str
-    pii_type_display: str
-    redacted_value: str
+    pii_type: str = Field(..., max_length=64)
+    pii_type_display: str = Field(..., max_length=255)
+    redacted_value: str = Field(..., max_length=255)
     confidence: float
     start_pos: int
     end_pos: int
     page: int | None = None
     bbox: list[float] | None = None
-    context: str = ""
+    context: str = Field(default="", max_length=4096)
 
 
 class PIIScanResponse(BaseModel):
@@ -49,7 +49,7 @@ class PIIScanResponse(BaseModel):
         error: Error message if scan failed (null on success)
     """
 
-    filename: str
+    filename: str = Field(..., max_length=255)
     has_pii: bool
     total_matches: int
     risk_score: float
@@ -57,7 +57,7 @@ class PIIScanResponse(BaseModel):
     matches: list[PIIMatchResponse] = Field(default_factory=list)
     scan_time_ms: float
     pages_scanned: int = 0
-    error: str | None = None
+    error: str | None = Field(None, max_length=4096)
 
 
 # Backwards compatibility aliases

@@ -24,7 +24,9 @@ class ConsentRequest(BaseModel):
         description="Type of consent",
         pattern="^(processing|analytics|marketing|third_party|research)$",
     )
-    policy_version: str | None = Field(None, description="Version of privacy policy accepted")
+    policy_version: str | None = Field(
+        None, max_length=64, description="Version of privacy policy accepted"
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -51,14 +53,14 @@ class ConsentResponse(BaseModel):
         policy_version: Version of privacy policy accepted
     """
 
-    id: str = Field(..., description="Consent record ID")
-    user_id: str = Field(..., description="User ID")
-    consent_type: str = Field(..., description="Consent type")
+    id: str = Field(..., max_length=64, description="Consent record ID")
+    user_id: str = Field(..., max_length=64, description="User ID")
+    consent_type: str = Field(..., max_length=64, description="Consent type")
     granted: bool = Field(..., description="Whether consent is granted")
     granted_at: datetime = Field(..., description="Timestamp when granted")
     withdrawn_at: datetime | None = Field(None, description="Timestamp when withdrawn")
-    ip_address: str | None = Field(None, description="IP address")
-    policy_version: str | None = Field(None, description="Policy version")
+    ip_address: str | None = Field(None, max_length=64, description="IP address")
+    policy_version: str | None = Field(None, max_length=64, description="Policy version")
 
     model_config = {
         "json_schema_extra": {
@@ -129,7 +131,7 @@ class ConsentSummaryResponse(BaseModel):
         last_updated: Timestamp of most recent consent action
     """
 
-    user_id: str = Field(..., description="User ID")
+    user_id: str = Field(..., max_length=64, description="User ID")
     consents: dict[str, bool] = Field(..., description="Consent type status map")
     last_updated: datetime | None = Field(None, description="Last consent update")
 

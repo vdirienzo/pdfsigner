@@ -46,15 +46,17 @@ class EmergencyRequestResponse(BaseModel):
         revoked_at: Timestamp when access was revoked
     """
 
-    id: str = Field(..., description="Unique request identifier")
-    requester_id: str = Field(..., description="User ID who requested access")
-    reason: str = Field(..., description="Justification for emergency access")
-    status: str = Field(..., description="Request status")
+    id: str = Field(..., max_length=64, description="Unique request identifier")
+    requester_id: str = Field(..., max_length=64, description="User ID who requested access")
+    reason: str = Field(..., max_length=500, description="Justification for emergency access")
+    status: str = Field(..., max_length=64, description="Request status")
     requested_at: datetime = Field(..., description="Request creation timestamp")
-    approved_by: str | None = Field(None, description="User ID who made the decision")
+    approved_by: str | None = Field(
+        None, max_length=64, description="User ID who made the decision"
+    )
     approved_at: datetime | None = Field(None, description="Decision timestamp")
     expires_at: datetime | None = Field(None, description="Access expiration timestamp")
-    revoked_by: str | None = Field(None, description="User ID who revoked access")
+    revoked_by: str | None = Field(None, max_length=64, description="User ID who revoked access")
     revoked_at: datetime | None = Field(None, description="Revocation timestamp")
 
     model_config = {
@@ -100,7 +102,7 @@ class EmergencyStatusResponse(BaseModel):
     """
 
     has_active_access: bool = Field(..., description="Has active emergency access")
-    active_request_id: str | None = Field(None, description="Active request ID")
+    active_request_id: str | None = Field(None, max_length=64, description="Active request ID")
     expires_at: datetime | None = Field(None, description="Access expiration time")
 
     model_config = {

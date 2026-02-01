@@ -12,31 +12,41 @@ from pydantic import BaseModel, Field
 class BreachIncidentCreate(BaseModel):
     """Request model for manual breach reporting."""
 
-    breach_type: str = Field(..., description="Type of breach (mass_data_export, etc.)")
-    severity: str = Field(..., description="Severity level (low, medium, high, critical)")
-    description: str = Field(..., description="Detailed description of the incident")
+    breach_type: str = Field(
+        ..., max_length=64, description="Type of breach (mass_data_export, etc.)"
+    )
+    severity: str = Field(
+        ..., max_length=64, description="Severity level (low, medium, high, critical)"
+    )
+    description: str = Field(
+        ..., max_length=4096, description="Detailed description of the incident"
+    )
     affected_users: int = Field(default=0, description="Number of affected users")
     affected_records: int = Field(default=0, description="Number of affected records")
-    source_ip: str | None = Field(default=None, description="Source IP address if known")
-    user_id: str | None = Field(default=None, description="User ID associated with breach")
+    source_ip: str | None = Field(
+        default=None, max_length=64, description="Source IP address if known"
+    )
+    user_id: str | None = Field(
+        default=None, max_length=64, description="User ID associated with breach"
+    )
     metadata: dict = Field(default_factory=dict, description="Additional context")
 
 
 class BreachIncidentResponse(BaseModel):
     """Response model for breach incident."""
 
-    id: str
-    breach_type: str
-    severity: str
-    status: str
+    id: str = Field(..., max_length=64)
+    breach_type: str = Field(..., max_length=64)
+    severity: str = Field(..., max_length=64)
+    status: str = Field(..., max_length=64)
     detected_at: datetime
     resolved_at: datetime | None
     notified_at: datetime | None
-    description: str
+    description: str = Field(..., max_length=4096)
     affected_users: int
     affected_records: int
-    source_ip: str | None
-    user_id: str | None
+    source_ip: str | None = Field(None, max_length=64)
+    user_id: str | None = Field(None, max_length=64)
     metadata: dict
     status_history: list[dict]
 
@@ -45,9 +55,9 @@ class BreachStatusUpdate(BaseModel):
     """Request model for updating breach status."""
 
     status: str = Field(
-        ..., description="New status (investigating, contained, resolved, notified)"
+        ..., max_length=64, description="New status (investigating, contained, resolved, notified)"
     )
-    note: str = Field(default="", description="Optional note about status change")
+    note: str = Field(default="", max_length=4096, description="Optional note about status change")
 
 
 class BreachNotificationRequest(BaseModel):
@@ -56,14 +66,16 @@ class BreachNotificationRequest(BaseModel):
     channels: list[str] = Field(..., description="Notification channels (email, webhook, sms)")
     recipients: list[str] = Field(..., description="Recipient addresses/endpoints")
     message: str | None = Field(
-        default=None, description="Optional custom message (default: auto-generated)"
+        default=None,
+        max_length=4096,
+        description="Optional custom message (default: auto-generated)",
     )
 
 
 class BreachNotificationResponse(BaseModel):
     """Response model for notification delivery."""
 
-    incident_id: str
+    incident_id: str = Field(..., max_length=64)
     results: dict = Field(..., description="Delivery results per channel")
     sent_at: datetime
 
@@ -80,7 +92,7 @@ class BreachListResponse(BaseModel):
 class BreachSummaryResponse(BaseModel):
     """Response model for breach summary report."""
 
-    report_type: str
+    report_type: str = Field(..., max_length=64)
     start_date: datetime
     end_date: datetime
     generated_at: datetime

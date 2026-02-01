@@ -28,10 +28,10 @@ class CertificateInfo(BaseModel):
         is_ca: Whether this is a Certificate Authority certificate
     """
 
-    id: str
-    subject: str
-    issuer: str
-    serial_number: str
+    id: str = Field(..., max_length=64)
+    subject: str = Field(..., max_length=255)
+    issuer: str = Field(..., max_length=255)
+    serial_number: str = Field(..., max_length=64)
     not_before: datetime
     not_after: datetime
     is_expired: bool

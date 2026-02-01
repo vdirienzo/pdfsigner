@@ -29,7 +29,9 @@ class BackupCreateRequest(BaseModel):
         description="Type of backup to create",
     )
     encrypt: bool = Field(default=False, description="Whether to encrypt backup")
-    password: str | None = Field(default=None, description="Password for encryption")
+    password: str | None = Field(
+        default=None, max_length=255, description="Password for encryption"
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -61,16 +63,16 @@ class BackupResponse(BaseModel):
         includes_databases: Whether databases were backed up
     """
 
-    backup_id: str = Field(..., description="Backup ID")
-    backup_type: str = Field(..., description="Backup type")
-    status: str = Field(..., description="Backup status")
+    backup_id: str = Field(..., max_length=64, description="Backup ID")
+    backup_type: str = Field(..., max_length=64, description="Backup type")
+    status: str = Field(..., max_length=64, description="Backup status")
     created_at: datetime = Field(..., description="Creation timestamp")
     completed_at: datetime | None = Field(None, description="Completion timestamp")
     size_bytes: int = Field(..., description="Backup size in bytes")
     file_count: int = Field(..., description="Number of files")
     encrypted: bool = Field(..., description="Whether backup is encrypted")
-    backup_path: str = Field(..., description="Path to backup file")
-    error: str | None = Field(None, description="Error message if failed")
+    backup_path: str = Field(..., max_length=1024, description="Path to backup file")
+    error: str | None = Field(None, max_length=4096, description="Error message if failed")
     includes_config: bool = Field(..., description="Config included")
     includes_audit: bool = Field(..., description="Audit logs included")
     includes_databases: bool = Field(..., description="Databases included")
@@ -146,8 +148,10 @@ class BackupRestoreRequest(BaseModel):
         restore_databases: Whether to restore databases
     """
 
-    backup_id: str = Field(..., description="Backup ID to restore")
-    password: str | None = Field(default=None, description="Password for encrypted backup")
+    backup_id: str = Field(..., max_length=64, description="Backup ID to restore")
+    password: str | None = Field(
+        default=None, max_length=255, description="Password for encrypted backup"
+    )
     restore_config: bool = Field(default=True, description="Restore configuration")
     restore_audit: bool = Field(default=True, description="Restore audit logs")
     restore_databases: bool = Field(default=True, description="Restore databases")
@@ -175,8 +179,8 @@ class BackupRestoreResponse(BaseModel):
     """
 
     success: bool = Field(..., description="Whether restore succeeded")
-    message: str = Field(..., description="Status message")
-    backup_id: str = Field(..., description="Restored backup ID")
+    message: str = Field(..., max_length=4096, description="Status message")
+    backup_id: str = Field(..., max_length=64, description="Restored backup ID")
 
 
 class BackupDeleteResponse(BaseModel):
@@ -189,5 +193,5 @@ class BackupDeleteResponse(BaseModel):
     """
 
     success: bool = Field(..., description="Whether delete succeeded")
-    message: str = Field(..., description="Status message")
-    backup_id: str = Field(..., description="Deleted backup ID")
+    message: str = Field(..., max_length=4096, description="Status message")
+    backup_id: str = Field(..., max_length=64, description="Deleted backup ID")

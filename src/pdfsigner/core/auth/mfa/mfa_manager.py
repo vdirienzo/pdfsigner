@@ -450,13 +450,34 @@ class MFAManager:
         return backup_codes
 
     def _store_secret(self, user_id: str, secret: str, enabled: bool = False) -> None:
-        """Store TOTP secret (base64 encoded for basic obfuscation)."""
-        try:
-            # Simple base64 encoding for storage
-            # In production, use KeyManager for proper encryption
-            import base64
+        """
+        Store TOTP secret with AES-256-GCM encryption.
 
-            encoded_secret = base64.b64encode(secret.encode()).decode()
+        Security: Uses KeyManager for proper encryption instead of base64 obfuscation.
+        """
+        try:
+            # Try to use KeyManager for proper encryption
+            try:
+                from pdfsigner.core.crypto.key_manager import get_key_manager
+
+                key_mgr = get_key_manager()
+                mfa_key_id = key_mgr.get_or_create_mfa_key()
+
+                # Encrypt the secret
+                encrypted_bytes = key_mgr.encrypt_data(mfa_key_id, secret.encode())
+                encoded_secret = base64.b64encode(encrypted_bytes).decode()
+                key_id = mfa_key_id
+
+                logger.debug(f"MFA secret encrypted with AES-256-GCM for user {user_id}")
+
+            except RuntimeError:
+                # KeyManager not initialized - fall back to base64 (not secure!)
+                logger.warning(
+                    "KeyManager not initialized - using base64 encoding for MFA secret. "
+                    "This is NOT secure! Initialize KeyManager for production use."
+                )
+                encoded_secret = base64.b64encode(secret.encode()).decode()
+                key_id = "base64"
 
             # Store in database
             conn = self._get_connection()
@@ -470,7 +491,7 @@ class MFAManager:
                 (user_id, encrypted_secret, key_id, enabled, enrolled_at, last_used_at)
                 VALUES (?, ?, ?, ?, ?, NULL)
             """,
-                (user_id, encoded_secret, "base64", int(enabled), enrolled_at),
+                (user_id, encoded_secret, key_id, int(enabled), enrolled_at),
             )
             conn.commit()
             conn.close()
@@ -480,13 +501,17 @@ class MFAManager:
             raise
 
     def _get_secret(self, user_id: str) -> str | None:
-        """Retrieve TOTP secret (base64 decode)."""
+        """
+        Retrieve and decrypt TOTP secret.
+
+        Supports both AES-256-GCM encrypted secrets and legacy base64 encoded secrets.
+        """
         try:
             conn = self._get_connection()
             cursor = conn.cursor()
 
             cursor.execute(
-                "SELECT encrypted_secret FROM mfa_secrets WHERE user_id = ?",
+                "SELECT encrypted_secret, key_id FROM mfa_secrets WHERE user_id = ?",
                 (user_id,),
             )
             row = cursor.fetchone()
@@ -496,11 +521,31 @@ class MFAManager:
                 return None
 
             encoded_secret = row[0]
+            key_id = row[1]
 
-            # Decode from base64
-            import base64
+            # Handle legacy base64 encoding
+            if key_id == "base64":
+                logger.warning(
+                    f"MFA secret for user {user_id} uses legacy base64 encoding. "
+                    "Consider re-enrolling for AES-256-GCM encryption."
+                )
+                return base64.b64decode(encoded_secret).decode()
 
-            return base64.b64decode(encoded_secret).decode()
+            # Decrypt with KeyManager
+            try:
+                from pdfsigner.core.crypto.key_manager import get_key_manager
+
+                key_mgr = get_key_manager()
+                encrypted_bytes = base64.b64decode(encoded_secret)
+                decrypted = key_mgr.decrypt_data(key_id, encrypted_bytes)
+                return decrypted.decode()
+
+            except RuntimeError:
+                logger.error(
+                    f"KeyManager not initialized but MFA secret for user {user_id} "
+                    f"requires key {key_id} for decryption"
+                )
+                return None
 
         except Exception as e:
             logger.error(f"Failed to retrieve MFA secret for user {user_id}: {e}")

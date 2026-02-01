@@ -10,6 +10,7 @@ Supports multiple formats: CEF, LEEF, JSON, Syslog.
 import socket
 import ssl
 import threading
+import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
@@ -58,7 +59,8 @@ class SIEMConfig:
 
     # TLS settings for secure syslog
     tls_cert_path: str = ""
-    tls_verify: bool = True
+    tls_verify: bool = True  # DEPRECATED: Use allow_insecure_tls=True to disable verification
+    allow_insecure_tls: bool = False  # Explicitly allow insecure TLS (disables verification)
 
 
 @dataclass
@@ -273,9 +275,34 @@ class SIEMExporter:
             if self.config.tls_cert_path:
                 context.load_verify_locations(self.config.tls_cert_path)
 
+            # Security: TLS verification should always be enabled by default
+            # Check for deprecated tls_verify parameter
             if not self.config.tls_verify:
+                warnings.warn(
+                    "tls_verify parameter is deprecated. Use allow_insecure_tls=True instead.",
+                    DeprecationWarning,
+                    stacklevel=3,
+                )
+                logger.warning(
+                    "DEPRECATED: tls_verify=False is deprecated. "
+                    "Use allow_insecure_tls=True to explicitly disable TLS verification."
+                )
+
+            # Only disable TLS verification if explicitly allowed
+            if self.config.allow_insecure_tls or not self.config.tls_verify:
+                logger.warning(
+                    "SECURITY WARNING: TLS certificate verification is DISABLED for SIEM connection to "
+                    f"{self.config.syslog_host}:{self.config.syslog_port}. "
+                    "This connection is vulnerable to man-in-the-middle attacks."
+                )
                 context.check_hostname = False
                 context.verify_mode = ssl.CERT_NONE
+            else:
+                # Enforce secure TLS verification (default)
+                logger.debug(
+                    f"TLS certificate verification enabled for SIEM connection to "
+                    f"{self.config.syslog_host}:{self.config.syslog_port}"
+                )
 
             raw_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             raw_socket.settimeout(10.0)

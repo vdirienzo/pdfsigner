@@ -30,16 +30,16 @@ class SignatureInfo(BaseModel):
         pades_level: PAdES conformance level (B-B, B-T, B-LT, B-LTA)
     """
 
-    signer_name: str | None = None
-    signer_email: str | None = None
+    signer_name: str | None = Field(None, max_length=255)
+    signer_email: str | None = Field(None, max_length=255)
     signing_time: datetime | None = None
-    reason: str | None = None
-    location: str | None = None
+    reason: str | None = Field(None, max_length=255)
+    location: str | None = Field(None, max_length=255)
     is_valid: bool
     validation_errors: list[str] = Field(default_factory=list)
     has_timestamp: bool = False
     timestamp_time: datetime | None = None
-    pades_level: str = "B-B"
+    pades_level: str = Field(default="B-B", max_length=64)
 
 
 class LTVInfo(BaseModel):
@@ -74,13 +74,13 @@ class ValidateResponse(BaseModel):
         errors: List of validation errors (for unsigned or invalid PDFs)
     """
 
-    filename: str
+    filename: str = Field(..., max_length=255)
     is_signed: bool
     is_valid: bool
     signature_count: int
     signatures: list[SignatureInfo] = Field(default_factory=list)
     ltv_info: LTVInfo | None = None
-    pades_level: str = "unknown"
+    pades_level: str = Field(default="unknown", max_length=64)
     errors: list[str] = Field(default_factory=list)
 
 

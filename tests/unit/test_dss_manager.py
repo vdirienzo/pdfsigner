@@ -481,3 +481,234 @@ class TestDSSManager:
 
         # Should only check first 2 certs (excluding root which is last)
         assert mock_check.call_count == 2
+
+
+class TestDSSManagerErrorHandling:
+    """Tests for DSSManager error handling and edge cases."""
+
+    @pytest.fixture
+    def dss_manager(self):
+        """Create DSSManager instance."""
+        return DSSManager(ocsp_timeout=5, crl_timeout=10)
+
+    @pytest.fixture
+    def mock_cert(self):
+        """Create a mock certificate."""
+        cert = Mock(spec=x509.Certificate)
+        cert.public_bytes.return_value = b"mock_cert_der"
+        return cert
+
+    @pytest.fixture
+    def mock_cert_chain(self, mock_cert):
+        """Create a mock certificate chain."""
+        cert1 = Mock(spec=x509.Certificate)
+        cert1.public_bytes.return_value = b"cert1_der"
+
+        cert2 = Mock(spec=x509.Certificate)
+        cert2.public_bytes.return_value = b"cert2_der"
+
+        cert3 = Mock(spec=x509.Certificate)
+        cert3.public_bytes.return_value = b"cert3_der"
+
+        return [cert1, cert2, cert3]
+
+    @pytest.mark.security
+    @patch("pdfsigner.core.signer.dss_manager.DocumentSecurityStore")
+    @patch("shutil.move")
+    def test_embed_dss_shutil_move_failure_raises_runtime_error(
+        self, mock_move, mock_dss_class, dss_manager, tmp_path
+    ):
+        """Test embed_dss handles shutil.move() permission errors."""
+        pdf_path = tmp_path / "test.pdf"
+        pdf_path.write_bytes(b"mock pdf content")
+
+        validation_info = ValidationInfo(
+            ocsp_responses=[b"ocsp1"],
+            crls=[b"crl1"],
+            certificates=[b"cert1"],
+        )
+
+        # Mock successful DSS add but shutil.move fails
+        mock_dss_class.add_dss = Mock()
+        mock_move.side_effect = PermissionError("Permission denied")
+
+        with patch("asn1crypto.x509.Certificate.load", return_value=Mock()):
+            with pytest.raises(RuntimeError, match="Fallo al embeber DSS"):
+                dss_manager.embed_dss(pdf_path, validation_info)
+
+    @pytest.mark.security
+    @patch("pdfsigner.core.signer.dss_manager.DocumentSecurityStore")
+    def test_embed_dss_temp_cleanup_on_error_removes_temp_file(
+        self, mock_dss_class, dss_manager, tmp_path
+    ):
+        """Test embed_dss cleans up temporary files on any error."""
+        pdf_path = tmp_path / "test.pdf"
+        pdf_path.write_bytes(b"mock pdf content")
+
+        validation_info = ValidationInfo([b"ocsp"], [], [b"cert1"])
+
+        # Mock DSS add to fail
+        mock_dss_class.add_dss = Mock(side_effect=Exception("DSS write error"))
+
+        with patch("asn1crypto.x509.Certificate.load", return_value=Mock()):
+            with pytest.raises(RuntimeError, match="Fallo al embeber DSS"):
+                dss_manager.embed_dss(pdf_path, validation_info)
+
+        # Check that no temp files remain (they should be auto-cleaned or moved)
+        temp_files = list(tmp_path.glob("*.pdf"))
+        # Only the original should remain, no orphaned temp files
+        assert len(temp_files) == 1
+        assert temp_files[0] == pdf_path
+
+    @pytest.mark.security
+    def test_verify_revocation_ocsp_crl_conflicting_status_returns_false(
+        self, dss_manager, mock_cert_chain
+    ):
+        """Test verify_revocation handles conflicting OCSP (valid) and CRL (revoked) status."""
+        # OCSP says GOOD
+        good_result = RevocationResult(
+            status=RevocationStatus.GOOD,
+            checked_at=datetime.now(),
+        )
+
+        # CRL says REVOKED
+        revoked_result = RevocationResult(
+            status=RevocationStatus.REVOKED,
+            checked_at=datetime.now(),
+            revocation_reason="keyCompromise",
+        )
+
+        # First cert: OCSP returns GOOD
+        # Second cert: OCSP returns UNKNOWN, CRL returns REVOKED
+        with patch.object(
+            dss_manager.ocsp_checker,
+            "check",
+            side_effect=[
+                good_result,
+                RevocationResult(
+                    status=RevocationStatus.UNKNOWN,
+                    checked_at=datetime.now(),
+                    error_message="OCSP unavailable",
+                ),
+            ],
+        ):
+            with patch.object(dss_manager.crl_checker, "check", return_value=revoked_result):
+                result = dss_manager.verify_revocation_status(mock_cert_chain)
+
+        # Should return False because one cert is revoked
+        assert result is False
+
+    @pytest.mark.security
+    @patch("pdfsigner.core.signer.dss_manager.ValidationContext")
+    def test_build_validation_context_invalid_kwargs_raises_exception(
+        self, mock_context_class, dss_manager
+    ):
+        """Test build_validation_context handles invalid kwargs gracefully."""
+        # Mock ValidationContext to raise TypeError for invalid kwargs
+        mock_context_class.side_effect = TypeError("unexpected keyword argument")
+
+        validation_info = ValidationInfo([b"ocsp"], [b"crl"], [b"cert"])
+
+        with pytest.raises(TypeError, match="unexpected keyword argument"):
+            dss_manager.build_validation_context(validation_info=validation_info)
+
+    @pytest.mark.security
+    @patch("pdfsigner.core.signer.dss_manager.requests.post")
+    @patch("pdfsigner.core.signer.dss_manager.ocsp.OCSPRequestBuilder")
+    def test_collect_validation_info_network_timeout_falls_back_to_crl(
+        self, mock_builder_class, mock_post, dss_manager, mock_cert_chain
+    ):
+        """Test collect_validation_info handles network timeouts gracefully."""
+        # Mock OCSP request builder
+        mock_builder = Mock()
+        mock_request = Mock()
+        mock_request.public_bytes.return_value = b"ocsp_request"
+        mock_builder.add_certificate.return_value = mock_builder
+        mock_builder.build.return_value = mock_request
+        mock_builder_class.return_value = mock_builder
+
+        # Mock OCSP URL extraction
+        with patch.object(
+            dss_manager, "_get_ocsp_responder_url", return_value="https://ocsp.example.com"
+        ):
+            # Mock network timeout
+            import requests
+
+            mock_post.side_effect = requests.exceptions.Timeout("Connection timeout")
+
+            # Mock CRL fallback succeeds
+            with patch.object(dss_manager, "_get_crl_bytes", return_value=b"crl_data"):
+                result = dss_manager.collect_validation_info(mock_cert_chain)
+
+        # Should have CRLs from fallback
+        assert len(result.crls) == 2
+        assert len(result.ocsp_responses) == 0
+
+    @pytest.mark.security
+    @patch("pdfsigner.core.signer.dss_manager.DocumentSecurityStore")
+    def test_embed_dss_disk_full_raises_runtime_error(self, mock_dss_class, dss_manager, tmp_path):
+        """Test embed_dss handles disk full errors."""
+        pdf_path = tmp_path / "test.pdf"
+        pdf_path.write_bytes(b"mock pdf content")
+
+        validation_info = ValidationInfo([b"ocsp"], [], [b"cert1"])
+
+        # Mock OSError for disk full
+        mock_dss_class.add_dss = Mock(side_effect=OSError(28, "No space left on device"))
+
+        with patch("asn1crypto.x509.Certificate.load", return_value=Mock()):
+            with pytest.raises(RuntimeError, match="Fallo al embeber DSS"):
+                dss_manager.embed_dss(pdf_path, validation_info)
+
+    @pytest.mark.security
+    def test_verify_revocation_both_fail_logs_warning(self, dss_manager, mock_cert_chain):
+        """Test verify_revocation handles both OCSP and CRL failing."""
+        unknown_result = RevocationResult(
+            status=RevocationStatus.UNKNOWN,
+            checked_at=datetime.now(),
+            error_message="Service unavailable",
+        )
+
+        # Both OCSP and CRL return UNKNOWN
+        with patch.object(dss_manager.ocsp_checker, "check", return_value=unknown_result):
+            with patch.object(dss_manager.crl_checker, "check", return_value=unknown_result):
+                # Should not crash, but return True (fail-open behavior)
+                result = dss_manager.verify_revocation_status(mock_cert_chain)
+
+        # Returns True because no explicit REVOKED status found
+        assert result is True
+
+    @pytest.mark.security
+    @patch("pdfsigner.core.signer.dss_manager.requests.post")
+    @patch("pdfsigner.core.signer.dss_manager.ocsp.load_der_ocsp_response")
+    @patch("pdfsigner.core.signer.dss_manager.ocsp.OCSPRequestBuilder")
+    def test_dss_manager_handles_corrupted_response_returns_none(
+        self, mock_builder_class, mock_load_ocsp, mock_post, dss_manager, mock_cert_chain
+    ):
+        """Test DSSManager handles malformed OCSP/CRL responses."""
+        cert, issuer = mock_cert_chain[0], mock_cert_chain[1]
+
+        # Mock OCSP request builder
+        mock_builder = Mock()
+        mock_request = Mock()
+        mock_request.public_bytes.return_value = b"ocsp_request"
+        mock_builder.add_certificate.return_value = mock_builder
+        mock_builder.build.return_value = mock_request
+        mock_builder_class.return_value = mock_builder
+
+        with patch.object(
+            dss_manager, "_get_ocsp_responder_url", return_value="https://ocsp.example.com"
+        ):
+            # Mock corrupted OCSP response
+            mock_response = Mock()
+            mock_response.content = b"corrupted_data"
+            mock_response.raise_for_status = Mock()
+            mock_post.return_value = mock_response
+
+            # Mock load fails due to corruption
+            mock_load_ocsp.side_effect = ValueError("Invalid OCSP response")
+
+            result = dss_manager._get_ocsp_response_bytes(cert, issuer)
+
+        # Should return None, not crash
+        assert result is None

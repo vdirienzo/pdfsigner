@@ -22,6 +22,7 @@ This package contains FastAPI routers for:
 - /vulnerabilities - Vulnerability scanning endpoints
 """
 
+from pdfsigner.api.routes.api_keys import router as api_keys_router
 from pdfsigner.api.routes.auth import router as auth_router
 from pdfsigner.api.routes.backup import router as backup_router
 from pdfsigner.api.routes.breach import router as breach_router
@@ -42,6 +43,7 @@ from pdfsigner.api.routes.validate import router as validate_router
 from pdfsigner.api.routes.vulnerabilities import router as vulnerabilities_router
 
 __all__ = [
+    "api_keys_router",
     "auth_router",
     "backup_router",
     "breach_router",

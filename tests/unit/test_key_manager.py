@@ -516,3 +516,483 @@ class TestPBKDF2Security:
     def test_pbkdf2_salt_length(self, key_manager: KeyManager):
         """Test that salt length is secure."""
         assert key_manager.SALT_LENGTH == 32
+
+
+@pytest.mark.security
+class TestKeyManagerConcurrency:
+    """Test KeyManager thread safety and race conditions."""
+
+    def test_concurrent_key_generation_no_duplicates(self, key_manager: KeyManager):
+        """Test that concurrent key generation produces unique keys."""
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        num_threads = 20
+        generated_keys = []
+
+        def generate_key(index: int) -> str:
+            key_id = key_manager.generate_key(KeyType.SYMMETRIC, f"AES-256-{index}", key_size=256)
+            return key_id
+
+        with ThreadPoolExecutor(max_workers=num_threads) as executor:
+            futures = [executor.submit(generate_key, i) for i in range(num_threads)]
+
+            for future in as_completed(futures, timeout=30):
+                key_id = future.result()
+                generated_keys.append(key_id)
+
+        # All keys should be unique
+        assert len(generated_keys) == num_threads
+        assert len(set(generated_keys)) == num_threads
+
+        # All keys should be retrievable
+        for key_id in generated_keys:
+            key_bytes = key_manager.get_key(key_id)
+            assert len(key_bytes) == 32
+
+    def test_concurrent_cleanup_expired_no_double_delete(self, key_manager: KeyManager):
+        """Test that concurrent cleanup operations don't cause errors."""
+        import sqlite3
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+        from datetime import datetime, timedelta
+
+        # Generate keys and manually expire them
+        key_ids = []
+        for i in range(10):
+            key_id = key_manager.generate_key(
+                KeyType.SYMMETRIC, f"AES-256-{i}", key_size=256, expires_days=30
+            )
+            key_ids.append(key_id)
+
+        # Manually expire all keys
+        conn = sqlite3.connect(key_manager.db_path)
+        cursor = conn.cursor()
+        past_date = (datetime.now() - timedelta(days=1)).isoformat()
+        for key_id in key_ids:
+            cursor.execute("UPDATE keys SET expires_at = ? WHERE key_id = ?", (past_date, key_id))
+        conn.commit()
+        conn.close()
+
+        # Run cleanup from multiple threads
+        num_threads = 10
+
+        def cleanup_expired() -> int:
+            return key_manager.cleanup_expired()
+
+        with ThreadPoolExecutor(max_workers=num_threads) as executor:
+            futures = [executor.submit(cleanup_expired) for _ in range(num_threads)]
+
+            results = []
+            for future in as_completed(futures, timeout=30):
+                count = future.result()
+                results.append(count)
+
+        # All cleanups should succeed (idempotent)
+        assert len(results) == num_threads
+        # First cleanup should mark keys, subsequent ones should return same count
+        assert all(count >= 0 for count in results)
+
+    def test_get_key_during_rotation_returns_valid(self, key_manager: KeyManager):
+        """Test that getting key during rotation returns valid key."""
+        import time
+        from concurrent.futures import ThreadPoolExecutor
+
+        # Generate initial key
+        key_id = key_manager.generate_key(KeyType.SYMMETRIC, "AES-256", key_size=256)
+        original_key = key_manager.get_key(key_id)
+
+        results = {"rotation_completed": False, "new_key_id": None, "get_errors": []}
+
+        def rotate_key_slow():
+            """Rotate key with artificial delay."""
+            time.sleep(0.1)  # Simulate slow rotation
+            new_id = key_manager.rotate_key(key_id)
+            results["new_key_id"] = new_id
+            results["rotation_completed"] = True
+            return new_id
+
+        def get_key_repeatedly():
+            """Try to get key multiple times during rotation."""
+            for _ in range(10):
+                try:
+                    # Try to get original key (might be rotated)
+                    key_manager.get_key(key_id)
+                    time.sleep(0.01)
+                except (KeyNotFoundError, KeyRevokedError) as e:
+                    # Expected after rotation completes
+                    results["get_errors"].append(str(e))
+                except Exception as e:
+                    # Unexpected errors
+                    results["get_errors"].append(f"Unexpected: {e}")
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            future_rotate = executor.submit(rotate_key_slow)
+            future_get = executor.submit(get_key_repeatedly)
+
+            # Wait for both to complete
+            future_rotate.result(timeout=5)
+            future_get.result(timeout=5)
+
+        # Rotation should have completed
+        assert results["rotation_completed"] is True
+        assert results["new_key_id"] is not None
+
+        # New key should be valid
+        new_key = key_manager.get_key(results["new_key_id"])
+        assert len(new_key) == 32
+        assert new_key != original_key
+
+    def test_database_deadlock_prevention(self, key_manager: KeyManager):
+        """Test that concurrent database operations don't deadlock."""
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        # Create initial keys
+        initial_keys = []
+        for i in range(5):
+            key_id = key_manager.generate_key(KeyType.SYMMETRIC, f"AES-{i}", key_size=256)
+            initial_keys.append(key_id)
+
+        operations = []
+
+        def mixed_operations(index: int) -> str:
+            """Perform mixed operations that access DB."""
+            try:
+                if index % 4 == 0:
+                    # Generate new key
+                    new_id = key_manager.generate_key(
+                        KeyType.SYMMETRIC, f"NEW-{index}", key_size=256
+                    )
+                    return f"generate:{new_id}"
+                elif index % 4 == 1:
+                    # Get existing key
+                    key_id = initial_keys[index % len(initial_keys)]
+                    key_manager.get_key(key_id)
+                    return f"get:{key_id}"
+                elif index % 4 == 2:
+                    # List keys
+                    keys = key_manager.list_keys()
+                    return f"list:{len(keys)}"
+                else:
+                    # Rotate key
+                    key_id = initial_keys[index % len(initial_keys)]
+                    try:
+                        new_id = key_manager.rotate_key(key_id)
+                        return f"rotate:{new_id}"
+                    except KeyNotFoundError:
+                        # Already rotated
+                        return "rotate:already_rotated"
+            except Exception as e:
+                return f"error:{type(e).__name__}"
+
+        # Run many concurrent operations
+        num_operations = 50
+        with ThreadPoolExecutor(max_workers=10) as executor:
+            futures = [executor.submit(mixed_operations, i) for i in range(num_operations)]
+
+            for future in as_completed(futures, timeout=30):
+                result = future.result()
+                operations.append(result)
+
+        # All operations should complete without deadlock
+        assert len(operations) == num_operations
+        # No operations should have timed out or deadlocked
+        assert all("error:TimeoutError" not in op for op in operations)
+
+    def test_concurrent_key_revocation(self, key_manager: KeyManager):
+        """Test that concurrent revocation of same key is idempotent."""
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        # Generate key
+        key_id = key_manager.generate_key(KeyType.SYMMETRIC, "AES-256", key_size=256)
+
+        # Verify key is active
+        assert key_manager.get_key(key_id)
+
+        # Revoke from multiple threads
+        num_threads = 15
+
+        def revoke_key() -> bool:
+            return key_manager.revoke_key(key_id)
+
+        results = []
+        with ThreadPoolExecutor(max_workers=num_threads) as executor:
+            futures = [executor.submit(revoke_key) for _ in range(num_threads)]
+
+            for future in as_completed(futures, timeout=30):
+                result = future.result()
+                results.append(result)
+
+        # All revocations should succeed (idempotent)
+        assert len(results) == num_threads
+        assert all(r is True for r in results)
+
+        # Key should be revoked
+        with pytest.raises(KeyRevokedError):
+            key_manager.get_key(key_id)
+
+    def test_key_rotation_atomic(self, key_manager: KeyManager):
+        """Test that key rotation is atomic (old invalid, new valid)."""
+        from concurrent.futures import ThreadPoolExecutor
+
+        # Generate initial key
+        old_key_id = key_manager.generate_key(KeyType.SYMMETRIC, "AES-256", key_size=256)
+        old_key_bytes = key_manager.get_key(old_key_id)
+
+        new_key_id = None
+
+        def rotate():
+            nonlocal new_key_id
+            new_key_id = key_manager.rotate_key(old_key_id)
+
+        def verify_atomicity():
+            """Verify that at any point, exactly one key is usable."""
+            import time
+
+            time.sleep(0.05)  # Let rotation start
+
+            # Try to check key statuses
+            old_info = key_manager._get_key_info_from_db(old_key_id)
+            assert old_info.status == KeyStatus.ROTATED
+
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            future_rotate = executor.submit(rotate)
+            future_verify = executor.submit(verify_atomicity)
+
+            future_rotate.result(timeout=5)
+            future_verify.result(timeout=5)
+
+        # After rotation, old key should be rotated
+        old_info = key_manager._get_key_info_from_db(old_key_id)
+        assert old_info.status == KeyStatus.ROTATED
+
+        # New key should be active and different
+        new_key_bytes = key_manager.get_key(new_key_id)
+        assert len(new_key_bytes) == 32
+        assert new_key_bytes != old_key_bytes
+
+        new_info = key_manager._get_key_info_from_db(new_key_id)
+        assert new_info.status == KeyStatus.ACTIVE
+
+    def test_concurrent_export_import(self, key_manager: KeyManager):
+        """Test that concurrent export/import operations work correctly."""
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        # Generate keys to export with their metadata
+        keys_data = []
+        for i in range(5):
+            algorithm = f"AES-{i}"
+            key_id = key_manager.generate_key(KeyType.SYMMETRIC, algorithm, key_size=256)
+            keys_data.append((key_id, algorithm))
+
+        export_results = []
+
+        def export_key(key_id: str, algorithm: str) -> tuple[str, str, bytes]:
+            """Export key with unique password."""
+            export_data = key_manager.export_key(key_id, f"password-{key_id}")
+            return (key_id, algorithm, export_data)
+
+        def import_key(key_id: str, algorithm: str, export_data: bytes) -> str:
+            """Import key with same password and algorithm."""
+            new_id = key_manager.import_key(
+                export_data, f"password-{key_id}", KeyType.SYMMETRIC, algorithm
+            )
+            return new_id
+
+        # Export all keys concurrently
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [
+                executor.submit(export_key, key_id, algorithm) for key_id, algorithm in keys_data
+            ]
+
+            for future in as_completed(futures, timeout=30):
+                result = future.result()
+                export_results.append(result)
+
+        assert len(export_results) == len(keys_data)
+
+        # Import all keys concurrently
+        imported_keys = []
+        with ThreadPoolExecutor(max_workers=5) as executor:
+            futures = [
+                executor.submit(import_key, key_id, algorithm, export_data)
+                for key_id, algorithm, export_data in export_results
+            ]
+
+            for future in as_completed(futures, timeout=30):
+                new_id = future.result()
+                imported_keys.append(new_id)
+
+        # All imports should succeed
+        assert len(imported_keys) == len(keys_data)
+
+        # All imported keys should be valid
+        for new_id in imported_keys:
+            key_bytes = key_manager.get_key(new_id)
+            assert len(key_bytes) == 32
+
+    def test_stress_test_100_concurrent_operations(self, key_manager: KeyManager):
+        """Test system stability under high concurrent load."""
+        import random
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        # Pre-generate some keys for operations
+        existing_keys = []
+        for i in range(10):
+            key_id = key_manager.generate_key(KeyType.SYMMETRIC, f"SEED-{i}", key_size=256)
+            existing_keys.append(key_id)
+
+        def random_operation(index: int) -> str:
+            """Perform random key operation."""
+            op = random.choice(["generate", "get", "list", "rotate", "export"])
+
+            try:
+                if op == "generate":
+                    key_id = key_manager.generate_key(
+                        KeyType.SYMMETRIC, f"STRESS-{index}", key_size=256
+                    )
+                    return f"generate:{key_id}"
+
+                elif op == "get":
+                    key_id = random.choice(existing_keys)
+                    key_manager.get_key(key_id)
+                    return f"get:{key_id}"
+
+                elif op == "list":
+                    keys = key_manager.list_keys()
+                    return f"list:{len(keys)}"
+
+                elif op == "rotate":
+                    key_id = random.choice(existing_keys)
+                    try:
+                        new_id = key_manager.rotate_key(key_id)
+                        return f"rotate:{new_id}"
+                    except KeyNotFoundError:
+                        return "rotate:not_found"
+
+                elif op == "export":
+                    key_id = random.choice(existing_keys)
+                    try:
+                        key_manager.export_key(key_id, f"pass-{index}")
+                        return f"export:{key_id}"
+                    except (KeyNotFoundError, KeyRevokedError):
+                        return "export:unavailable"
+
+            except Exception as e:
+                return f"error:{type(e).__name__}:{op}"
+
+        # Run 100 concurrent operations
+        num_operations = 100
+        results = []
+
+        with ThreadPoolExecutor(max_workers=20) as executor:
+            futures = [executor.submit(random_operation, i) for i in range(num_operations)]
+
+            for future in as_completed(futures, timeout=60):
+                result = future.result()
+                results.append(result)
+
+        # All operations should complete
+        assert len(results) == num_operations
+
+        # Count errors
+        errors = [r for r in results if r.startswith("error:")]
+        error_rate = len(errors) / num_operations
+
+        # Error rate should be very low (< 5%)
+        assert error_rate < 0.05, f"High error rate: {error_rate:.2%}, errors: {errors[:5]}"
+
+    def test_cleanup_during_active_operations(self, key_manager: KeyManager):
+        """Test that cleanup doesn't interfere with active operations."""
+        import sqlite3
+        import time
+        from concurrent.futures import ThreadPoolExecutor
+        from datetime import datetime, timedelta
+
+        # Generate some keys, mix of expired and active
+        active_keys = []
+        expired_keys = []
+
+        for i in range(5):
+            # Active key
+            active_id = key_manager.generate_key(
+                KeyType.SYMMETRIC, f"ACTIVE-{i}", key_size=256, expires_days=365
+            )
+            active_keys.append(active_id)
+
+            # Key to expire
+            expired_id = key_manager.generate_key(
+                KeyType.SYMMETRIC, f"EXPIRED-{i}", key_size=256, expires_days=30
+            )
+            expired_keys.append(expired_id)
+
+        # Manually expire half the keys
+        conn = sqlite3.connect(key_manager.db_path)
+        cursor = conn.cursor()
+        past_date = (datetime.now() - timedelta(days=1)).isoformat()
+        for key_id in expired_keys:
+            cursor.execute("UPDATE keys SET expires_at = ? WHERE key_id = ?", (past_date, key_id))
+        conn.commit()
+        conn.close()
+
+        operation_results = []
+        cleanup_results = []
+
+        def use_active_keys():
+            """Continuously use active keys."""
+            for _ in range(10):
+                for key_id in active_keys:
+                    try:
+                        key_manager.get_key(key_id)
+                        operation_results.append("success")
+                    except Exception as e:
+                        operation_results.append(f"error:{type(e).__name__}")
+                time.sleep(0.01)
+
+        def run_cleanup():
+            """Run cleanup operations."""
+            time.sleep(0.05)  # Let operations start
+            for _ in range(3):
+                count = key_manager.cleanup_expired()
+                cleanup_results.append(count)
+                time.sleep(0.02)
+
+        # Run operations and cleanup concurrently
+        with ThreadPoolExecutor(max_workers=2) as executor:
+            future_ops = executor.submit(use_active_keys)
+            future_cleanup = executor.submit(run_cleanup)
+
+            future_ops.result(timeout=10)
+            future_cleanup.result(timeout=10)
+
+        # All active key operations should succeed
+        errors = [r for r in operation_results if r.startswith("error:")]
+        assert len(errors) == 0, f"Operations failed during cleanup: {errors[:5]}"
+
+        # Cleanup should have run
+        assert len(cleanup_results) == 3
+        assert all(count >= 0 for count in cleanup_results)
+
+        # Active keys should still be usable
+        for key_id in active_keys:
+            key_bytes = key_manager.get_key(key_id)
+            assert len(key_bytes) == 32
+
+    def test_pbkdf2_performance_acceptable(self, key_manager: KeyManager):
+        """Test that PBKDF2 derivation completes in reasonable time."""
+        import time
+
+        password = "test-password-123"
+        salt = secrets.token_bytes(32)
+
+        start_time = time.time()
+        key = key_manager._derive_encryption_key(password, salt)
+        elapsed = time.time() - start_time
+
+        # Should complete in under 2 seconds even with high iterations
+        assert elapsed < 2.0, f"PBKDF2 too slow: {elapsed:.3f}s"
+
+        # Key should be valid
+        assert len(key) == 44  # Base64url encoded 32-byte key
+
+        # Same inputs should produce same key (deterministic)
+        key2 = key_manager._derive_encryption_key(password, salt)
+        assert key == key2

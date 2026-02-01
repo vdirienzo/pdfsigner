@@ -18,7 +18,7 @@ uv run pdfsigner decrypt doc_enc.pdf    # Decrypt PDF
 uv run pdfsigner-api                    # REST API server
 
 # Test
-uv run pytest -v                        # ~2473 tests
+uv run pytest -v                        # ~2675 tests
 uv run pytest --cov=src                 # Coverage (87% core)
 
 # Quality
@@ -55,12 +55,21 @@ MainWindow → SigningHandler → BatchManager → PDFSigner → pyHanko
 | `core/auth/mfa/` | TOTP MFA + backup codes (NIST IA-8) |
 | `core/eidas/tsp_registry.py` | EU Trusted List of TSPs (eIDAS Art. 22) |
 | `core/eidas/qualified_validator.py` | QES validation (eIDAS Art. 25-28) |
+| `core/eidas/lotl_fetcher.py` | EU LOTL XML fetcher with cache (eIDAS) |
+| `core/eidas/tsl_parser.py` | Country TSL XML parser (ETSI TS 119 612) |
+| `core/eidas/pdf_signature_extractor.py` | pyHanko signature extraction |
 | `core/gdpr/consent_manager.py` | GDPR consent tracking (Art. 7) |
 | `core/breach/breach_manager.py` | Breach detection & notification (GDPR Art. 33-34) |
 | `core/compliance/evidence_collector.py` | SOC 2 evidence collection (CC series) |
 | `core/compliance/soc2_report.py` | SOC 2 Type II report generation |
 | `core/security/vuln_scanner.py` | Vulnerability scanning (Semgrep/pip-audit) |
 | `core/security/vuln_tracker.py` | Vulnerability tracking & remediation (NIST RA-5) |
+| `core/compliance/governance.py` | SOC 2 CC1 Control Environment checks |
+| `core/compliance/communication.py` | SOC 2 CC2 Communication checks |
+| `core/compliance/risk_assessment.py` | SOC 2 CC3 Risk Assessment checks |
+| `core/compliance/monitoring.py` | SOC 2 CC4 Monitoring checks |
+| `core/compliance/controls.py` | NIST 800-53 control definitions (26 controls) |
+| `core/compliance/checker.py` | Automated compliance verification (NIST/SOC 2) |
 | `api/` | REST API (FastAPI) |
 | `api/middleware/tls.py` | TLS/HTTPS enforcement, mTLS, redirect middleware |
 | `gui/handlers/` | GUI ↔ Core bridge |

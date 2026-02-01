@@ -19,14 +19,14 @@ from pdfsigner.core.retention import RetentionAction, RetentionPolicy, Retention
 class RetentionPolicyResponse(BaseModel):
     """Retention policy response."""
 
-    id: str = Field(..., description="Policy ID")
-    name: str = Field(..., description="Policy name")
-    description: str = Field(..., description="Policy description")
+    id: str = Field(..., max_length=64, description="Policy ID")
+    name: str = Field(..., max_length=255, description="Policy name")
+    description: str = Field(..., max_length=4096, description="Policy description")
     target: RetentionTarget = Field(..., description="Data target")
     retention_days: int = Field(..., description="Retention period in days", ge=1)
     action: RetentionAction = Field(..., description="Action to take when expired")
     enabled: bool = Field(..., description="Whether policy is enabled")
-    hipaa_reference: str = Field(..., description="HIPAA regulation reference")
+    hipaa_reference: str = Field(..., max_length=64, description="HIPAA regulation reference")
     created_at: datetime = Field(..., description="Creation timestamp")
 
     @classmethod
@@ -78,7 +78,9 @@ class RetentionPolicyCreate(BaseModel):
     retention_days: int = Field(..., description="Retention period in days", ge=1, le=3650)
     action: RetentionAction = Field(..., description="Action to take when expired")
     enabled: bool = Field(default=True, description="Whether policy is enabled")
-    hipaa_reference: str = Field(default="", description="HIPAA regulation reference")
+    hipaa_reference: str = Field(
+        default="", max_length=64, description="HIPAA regulation reference"
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -108,8 +110,8 @@ class RetentionPolicyUpdate(BaseModel):
 class RetentionResultResponse(BaseModel):
     """Retention cleanup result response."""
 
-    policy_id: str = Field(..., description="Policy ID")
-    policy_name: str = Field(..., description="Policy name")
+    policy_id: str = Field(..., max_length=64, description="Policy ID")
+    policy_name: str = Field(..., max_length=255, description="Policy name")
     target: RetentionTarget = Field(..., description="Data target")
     action: RetentionAction = Field(..., description="Action taken")
     items_processed: int = Field(..., description="Number of items processed", ge=0)
@@ -144,7 +146,9 @@ class RetentionResultResponse(BaseModel):
 class RetentionRunRequest(BaseModel):
     """Request to run retention cleanup."""
 
-    policy_id: str | None = Field(None, description="Specific policy ID or None for all policies")
+    policy_id: str | None = Field(
+        None, max_length=64, description="Specific policy ID or None for all policies"
+    )
 
     model_config = {
         "json_schema_extra": {
@@ -159,14 +163,14 @@ class RetentionHistoryResponse(BaseModel):
     """Retention history record response."""
 
     id: int = Field(..., description="History record ID")
-    policy_id: str = Field(..., description="Policy ID")
+    policy_id: str = Field(..., max_length=64, description="Policy ID")
     items_processed: int = Field(..., description="Number of items processed", ge=0)
     items_deleted: int = Field(..., description="Number of items deleted", ge=0)
     items_archived: int = Field(..., description="Number of items archived", ge=0)
     items_failed: int = Field(..., description="Number of items failed", ge=0)
-    started_at: str = Field(..., description="Start timestamp (ISO format)")
-    completed_at: str = Field(..., description="Completion timestamp (ISO format)")
-    errors: str | None = Field(None, description="Comma-separated error messages")
+    started_at: str = Field(..., max_length=64, description="Start timestamp (ISO format)")
+    completed_at: str = Field(..., max_length=64, description="Completion timestamp (ISO format)")
+    errors: str | None = Field(None, max_length=4096, description="Comma-separated error messages")
 
     model_config = {
         "json_schema_extra": {

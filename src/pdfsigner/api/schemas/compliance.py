@@ -12,13 +12,21 @@ from pydantic import BaseModel, Field
 class ComplianceCheckResponse(BaseModel):
     """Response model for a single compliance check."""
 
-    name: str = Field(..., description="Name of the compliance check")
-    category: str = Field(..., description="Category (encryption, audit_controls, etc.)")
-    status: str = Field(..., description="Status (compliant, warning, non_compliant)")
-    hipaa_reference: str = Field(..., description="HIPAA regulation reference (e.g., §164.312(b))")
-    description: str = Field(..., description="Brief description of the control")
-    details: str = Field(..., description="Detailed status information")
-    remediation: str | None = Field(None, description="How to fix if non-compliant")
+    name: str = Field(..., max_length=255, description="Name of the compliance check")
+    category: str = Field(
+        ..., max_length=64, description="Category (encryption, audit_controls, etc.)"
+    )
+    status: str = Field(
+        ..., max_length=64, description="Status (compliant, warning, non_compliant)"
+    )
+    hipaa_reference: str = Field(
+        ..., max_length=64, description="HIPAA regulation reference (e.g., §164.312(b))"
+    )
+    description: str = Field(..., max_length=4096, description="Brief description of the control")
+    details: str = Field(..., max_length=4096, description="Detailed status information")
+    remediation: str | None = Field(
+        None, max_length=4096, description="How to fix if non-compliant"
+    )
     last_checked: datetime = Field(..., description="When the check was performed")
 
     model_config = {
@@ -42,7 +50,7 @@ class ComplianceReportResponse(BaseModel):
 
     checks: list[ComplianceCheckResponse] = Field(..., description="List of all compliance checks")
     overall_status: str = Field(
-        ..., description="Overall status (compliant, warning, non_compliant)"
+        ..., max_length=64, description="Overall status (compliant, warning, non_compliant)"
     )
     compliant_count: int = Field(..., description="Number of compliant checks")
     warning_count: int = Field(..., description="Number of warnings")

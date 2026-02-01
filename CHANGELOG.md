@@ -6,6 +6,45 @@ Format: [SemVer](https://semver.org/) with `Added | Changed | Fixed | Security` 
 
 ---
 
+## [2.2.0] - 2026-02-01
+
+### Added - 100% Compliance Milestone
+
+- **SOC 2 CC1-CC4 Controls** (Trust Service Criteria)
+  - `core/compliance/governance.py` - CC1 Control Environment (5 sub-controls)
+  - `core/compliance/communication.py` - CC2 Communication (3 sub-controls)
+  - `core/compliance/risk_assessment.py` - CC3 Risk Assessment (4 sub-controls)
+  - `core/compliance/monitoring.py` - CC4 Monitoring (2 sub-controls)
+  - 21 SOC 2 controls fully automated
+  - 52 unit tests in `test_soc2_controls.py`
+
+- **NIST 800-53 Automated Checks** (26 controls)
+  - `core/compliance/controls.py` - 17 new control definitions
+    - AC family: AC-3, AC-5, AC-6, AC-8, AC-12, AC-17, AC-20
+    - AU family: AU-3, AU-4, AU-6, AU-8, AU-11, AU-12
+    - SC family: SC-12, SC-17, SC-23, SC-28
+  - `core/compliance/checker.py` - 17 new `_check_nist_*` methods
+  - 50 unit tests in `test_nist_checks.py`
+
+- **eIDAS Production Integration** (EU TSL Real Data)
+  - `core/eidas/lotl_fetcher.py` - EU LOTL XML fetcher with 24h cache
+  - `core/eidas/tsl_parser.py` - Country TSL parser (ETSI TS 119 612)
+  - `core/eidas/pdf_signature_extractor.py` - pyHanko signature extraction
+  - `core/eidas/tsp_registry.py` - Enhanced with real EU TSL integration
+  - `core/eidas/qualified_validator.py` - Production QES validation
+  - 57 unit tests in `test_eidas_production.py`
+
+### Changed
+
+- **Compliance Status:**
+  - SOC 2: 90% → 100% ✅
+  - NIST 800-53: 90% → 100% ✅
+  - eIDAS: 95% → 100% ✅
+- **Test count:** 2,473 → 2,675 (+202 tests)
+- **STANDARDS_COMPLIANCE.md:** All P1-P3 standards at 100%
+
+---
+
 ## [2.1.0] - 2026-02-01
 
 ### Added - Compliance Phase 3 (GDPR & SOC 2)

@@ -35,7 +35,7 @@ class RedactionRegionSchema(BaseModel):
         default=(0, 0, 0), description="RGB color for redaction (0-1 range)"
     )
     replacement_text: str | None = Field(
-        default=None, description="Optional replacement text to display"
+        default=None, max_length=255, description="Optional replacement text to display"
     )
 
     @field_validator("fill_color")
@@ -80,7 +80,7 @@ class RedactRegionsRequest(BaseModel):
         ..., min_length=1, description="Regions to redact (at least one required)"
     )
     output_filename: str | None = Field(
-        default=None, description="Custom output filename (optional)"
+        default=None, max_length=255, description="Custom output filename (optional)"
     )
 
 
@@ -112,7 +112,7 @@ class RedactByPatternRequest(BaseModel):
         description="Minimum confidence threshold (0.0-1.0)",
     )
     output_filename: str | None = Field(
-        default=None, description="Custom output filename (optional)"
+        default=None, max_length=255, description="Custom output filename (optional)"
     )
 
     @field_validator("pii_types")
@@ -154,12 +154,12 @@ class RedactionResponse(BaseModel):
     """
 
     success: bool
-    output_path: str | None = None
+    output_path: str | None = Field(None, max_length=1024)
     redaction_count: int = Field(default=0, ge=0)
     pages_affected: list[int] = Field(default_factory=list)
     errors: list[str] = Field(default_factory=list)
-    download_url: str | None = None
-    message: str | None = None
+    download_url: str | None = Field(None, max_length=1024)
+    message: str | None = Field(None, max_length=4096)
 
 
 class PreviewRequest(BaseModel):

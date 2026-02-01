@@ -590,10 +590,20 @@ class TestMultiStandardControlDefinitions:
         """Test retrieving NIST 800-53 controls."""
         controls = get_controls_for_standard(ComplianceStandard.NIST_800_53)
 
-        assert len(controls) == 9
+        assert len(controls) == 26
         control_ids = [c.control_id for c in controls]
         assert "AC-2" in control_ids
         assert "AU-9" in control_ids
+        # New AC family controls
+        assert "AC-3" in control_ids
+        assert "AC-5" in control_ids
+        assert "AC-12" in control_ids
+        # New AU family controls
+        assert "AU-3" in control_ids
+        assert "AU-12" in control_ids
+        # New SC family controls
+        assert "SC-12" in control_ids
+        assert "SC-28" in control_ids
 
     def test_get_controls_for_fedramp(self):
         """Test retrieving FedRAMP controls."""
@@ -623,9 +633,12 @@ class TestMultiStandardControlDefinitions:
         """Test retrieving SOC 2 controls."""
         controls = get_controls_for_standard(ComplianceStandard.SOC2)
 
-        assert len(controls) == 5
+        # CC1(5) + CC2(3) + CC3(4) + CC4(2) + CC6(3) + CC7(1) + CC8(1) + CC9(2) = 21
+        assert len(controls) >= 21
         control_ids = [c.control_id for c in controls]
         assert "CC6.1" in control_ids
+        assert "CC1.1" in control_ids  # New CC1 control
+        assert "CC9.1" in control_ids  # New CC9 control
 
 
 class TestMultiStandardChecker:

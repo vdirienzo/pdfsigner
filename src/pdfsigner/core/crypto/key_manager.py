@@ -612,6 +612,92 @@ class KeyManager:
         except Exception as e:
             raise ValueError(f"Failed to import key: {e}") from e
 
+    def encrypt_data(self, key_id: str, plaintext: bytes) -> bytes:
+        """
+        Encrypt data using a symmetric key.
+
+        Uses AES-256-GCM via Fernet for authenticated encryption.
+
+        Args:
+            key_id: Key identifier for encryption
+            plaintext: Data to encrypt
+
+        Returns:
+            Encrypted data (Fernet token)
+
+        Raises:
+            KeyNotFoundError: If key doesn't exist
+            KeyRevokedError: If key is revoked
+            KeyExpiredError: If key is expired
+        """
+        # Get the key material
+        key_bytes = self.get_key(key_id)
+
+        # Use Fernet for symmetric encryption
+        # Key must be 32 bytes, URL-safe base64 encoded
+        import base64
+
+        fernet_key = base64.urlsafe_b64encode(key_bytes[:32])
+        cipher = Fernet(fernet_key)
+
+        return cipher.encrypt(plaintext)
+
+    def decrypt_data(self, key_id: str, ciphertext: bytes) -> bytes:
+        """
+        Decrypt data using a symmetric key.
+
+        Args:
+            key_id: Key identifier for decryption
+            ciphertext: Encrypted data (Fernet token)
+
+        Returns:
+            Decrypted plaintext
+
+        Raises:
+            KeyNotFoundError: If key doesn't exist
+            KeyRevokedError: If key is revoked
+            KeyExpiredError: If key is expired
+            ValueError: If decryption fails (invalid token)
+        """
+        # Get the key material
+        key_bytes = self.get_key(key_id)
+
+        # Use Fernet for symmetric decryption
+        import base64
+
+        fernet_key = base64.urlsafe_b64encode(key_bytes[:32])
+        cipher = Fernet(fernet_key)
+
+        try:
+            return cipher.decrypt(ciphertext)
+        except Exception as e:
+            raise ValueError(f"Decryption failed: {e}") from e
+
+    def get_or_create_mfa_key(self) -> str:
+        """
+        Get or create a dedicated key for MFA secret encryption.
+
+        Returns:
+            key_id: Key identifier for MFA encryption
+        """
+        # Look for existing active MFA key
+        keys = self.list_keys(key_type=KeyType.SYMMETRIC, status=KeyStatus.ACTIVE)
+        mfa_keys = [k for k in keys if k.metadata.get("purpose") == "mfa_encryption"]
+
+        if mfa_keys:
+            return mfa_keys[0].key_id
+
+        # Create new MFA encryption key
+        key_id = self.generate_key(
+            key_type=KeyType.SYMMETRIC,
+            algorithm="AES-256-GCM",
+            key_size=256,
+            expires_days=365,
+            metadata={"purpose": "mfa_encryption"},
+        )
+
+        return key_id
+
     def cleanup_expired(self) -> int:
         """
         Remove expired keys from storage.

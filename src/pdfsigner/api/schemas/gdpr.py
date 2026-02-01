@@ -16,7 +16,7 @@ from pydantic import BaseModel, Field
 class AnonymizeUserRequest(BaseModel):
     """Request to anonymize a user (admin only)."""
 
-    user_id: str = Field(..., description="User ID to anonymize")
+    user_id: str = Field(..., max_length=64, description="User ID to anonymize")
 
     model_config = {
         "json_schema_extra": {
@@ -31,10 +31,10 @@ class AnonymizeUserResponse(BaseModel):
     """Response from user anonymization."""
 
     success: bool = Field(..., description="Whether anonymization succeeded")
-    user_id: str = Field(..., description="User ID that was anonymized")
+    user_id: str = Field(..., max_length=64, description="User ID that was anonymized")
     fields_anonymized: list[str] = Field(..., description="Fields that were anonymized")
     audit_records_anonymized: int = Field(..., description="Number of audit records anonymized")
-    error_message: str | None = Field(None, description="Error message if failed")
+    error_message: str | None = Field(None, max_length=4096, description="Error message if failed")
 
     model_config = {
         "json_schema_extra": {
@@ -73,10 +73,10 @@ class ScheduleDeletionResponse(BaseModel):
     """Response from deletion scheduling."""
 
     success: bool = Field(..., description="Whether scheduling succeeded")
-    user_id: str = Field(..., description="User ID scheduled for deletion")
+    user_id: str = Field(..., max_length=64, description="User ID scheduled for deletion")
     deletion_date: datetime = Field(..., description="Date when deletion will occur")
     grace_days: int = Field(..., description="Grace period before deletion")
-    message: str = Field(..., description="Human-readable message")
+    message: str = Field(..., max_length=4096, description="Human-readable message")
 
     model_config = {
         "json_schema_extra": {
@@ -96,8 +96,8 @@ class CancelDeletionResponse(BaseModel):
     """Response from deletion cancellation."""
 
     success: bool = Field(..., description="Whether cancellation succeeded")
-    user_id: str = Field(..., description="User ID")
-    message: str = Field(..., description="Human-readable message")
+    user_id: str = Field(..., max_length=64, description="User ID")
+    message: str = Field(..., max_length=4096, description="Human-readable message")
 
     model_config = {
         "json_schema_extra": {
@@ -113,7 +113,7 @@ class CancelDeletionResponse(BaseModel):
 class RetentionStatusResponse(BaseModel):
     """User data retention status."""
 
-    user_id: str = Field(..., description="User ID")
+    user_id: str = Field(..., max_length=64, description="User ID")
     is_anonymized: bool = Field(..., description="Whether user is anonymized")
     deletion_scheduled: bool = Field(..., description="Whether deletion is scheduled")
     deletion_scheduled_at: datetime | None = Field(None, description="When deletion was scheduled")
@@ -137,8 +137,8 @@ class RetentionStatusResponse(BaseModel):
 class DataExportResponse(BaseModel):
     """Response containing exported user data."""
 
-    user_id: str = Field(..., description="User ID")
-    format: str = Field(..., description="Export format (json)")
+    user_id: str = Field(..., max_length=64, description="User ID")
+    format: str = Field(..., max_length=64, description="Export format (json)")
     generated_at: datetime = Field(..., description="Export generation timestamp")
     data: dict = Field(..., description="Exported data (user_info, certificates, etc.)")
 
@@ -170,7 +170,7 @@ class PurgeExpiredDataResponse(BaseModel):
     users_deleted: int = Field(..., description="Number of users deleted")
     audit_records_purged: int = Field(..., description="Number of audit records purged")
     documents_deleted: int = Field(..., description="Number of documents deleted")
-    error_message: str | None = Field(None, description="Error message if failed")
+    error_message: str | None = Field(None, max_length=4096, description="Error message if failed")
 
     model_config = {
         "json_schema_extra": {

@@ -284,6 +284,80 @@ class SessionManager:
 
         logger.debug(f"Extended session {session_id} until {new_expires_at.isoformat()}")
 
+    def regenerate_session_id(self, old_session_id: str) -> Session:
+        """
+        Regenerate session ID to prevent Session Fixation attacks.
+
+        Creates a new session with a new ID, copying data from the old session.
+        The old session is invalidated/deleted.
+
+        This should be called after successful authentication to ensure that
+        any pre-authentication session ID is replaced with a new one.
+
+        Args:
+            old_session_id: ID of the existing session to regenerate
+
+        Returns:
+            New session with fresh ID and copied data
+
+        Raises:
+            ValueError: If old session does not exist
+
+        Example:
+            >>> # After successful login
+            >>> new_session = session_mgr.regenerate_session_id(old_session_id)
+            >>> new_token = create_access_token(data, session_id=new_session.id)
+        """
+        # Get old session
+        old_session = self.get_session(old_session_id)
+        if not old_session:
+            raise ValueError(f"Session {old_session_id} not found")
+
+        # Create new session with same user_id and metadata but new ID
+        now = datetime.now()
+        timeout_minutes = self._get_timeout_minutes()
+        expires_at = now + timedelta(minutes=timeout_minutes)
+
+        new_session = Session(
+            id=str(uuid.uuid4()),
+            user_id=old_session.user_id,
+            created_at=now,  # New creation time
+            last_activity=now,
+            expires_at=expires_at,
+            ip_address=old_session.ip_address,
+            user_agent=old_session.user_agent,
+        )
+
+        # Atomic operation: insert new session and delete old one
+        with self._get_connection() as conn:
+            # Insert new session
+            conn.execute(
+                """
+                INSERT INTO sessions (
+                    id, user_id, created_at, last_activity, expires_at, ip_address, user_agent
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    new_session.id,
+                    new_session.user_id,
+                    new_session.created_at.isoformat(),
+                    new_session.last_activity.isoformat(),
+                    new_session.expires_at.isoformat(),
+                    new_session.ip_address,
+                    new_session.user_agent,
+                ),
+            )
+            # Delete old session
+            conn.execute("DELETE FROM sessions WHERE id = ?", (old_session_id,))
+
+        logger.info(
+            f"Regenerated session for user {new_session.user_id}: "
+            f"{old_session_id} -> {new_session.id} (Session Fixation prevention)"
+        )
+
+        return new_session
+
     def terminate_session(self, session_id: str) -> None:
         """
         Terminate (delete) session.

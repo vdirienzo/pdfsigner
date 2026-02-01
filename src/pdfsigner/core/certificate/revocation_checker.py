@@ -146,9 +146,23 @@ class OCSPChecker:
             ocsp_request_der = ocsp_request.public_bytes(Encoding.DER)
             headers = {"Content-Type": "application/ocsp-request"}
 
-            logger.debug(f"Sending OCSP request to {responder_url}")
+            # SSRF protection: validate URL before making request
+            from pdfsigner.core.security.url_validator import SSRFError, validate_ocsp_url
+
+            try:
+                validated_url = validate_ocsp_url(responder_url)
+            except SSRFError as e:
+                logger.warning(f"OCSP URL validation failed: {e}")
+                return RevocationResult(
+                    status=RevocationStatus.ERROR,
+                    method="OCSP",
+                    responder_url=responder_url,
+                    error_message=f"SSRF protection: {e}",
+                )
+
+            logger.debug(f"Sending OCSP request to {validated_url}")
             response = requests.post(
-                responder_url,
+                validated_url,
                 data=ocsp_request_der,
                 headers=headers,
                 timeout=self.timeout,
@@ -354,8 +368,22 @@ class CRLChecker:
                 return self._check_cert_in_crl(cert, cached_crl.crl, crl_url)
 
         # Download CRL
-        logger.debug(f"Downloading CRL from {crl_url}")
-        response = requests.get(crl_url, timeout=self.timeout)
+        # SSRF protection: validate URL before making request
+        from pdfsigner.core.security.url_validator import SSRFError, validate_crl_url
+
+        try:
+            validated_url = validate_crl_url(crl_url)
+        except SSRFError as e:
+            logger.warning(f"CRL URL validation failed: {e}")
+            return RevocationResult(
+                status=RevocationStatus.ERROR,
+                method="CRL",
+                responder_url=crl_url,
+                error_message=f"SSRF protection: {e}",
+            )
+
+        logger.debug(f"Downloading CRL from {validated_url}")
+        response = requests.get(validated_url, timeout=self.timeout)
         response.raise_for_status()
 
         # Parse CRL

@@ -23,6 +23,11 @@ Usage:
     )
 """
 
+from pdfsigner.core.users.api_key_repository import (
+    APIKey,
+    APIKeyRepository,
+    get_api_key_repository,
+)
 from pdfsigner.core.users.cert_binding import (
     CertificateBindingService,
     get_certificate_binding_service,
@@ -50,4 +55,8 @@ __all__ = [
     # Certificate binding
     "CertificateBindingService",
     "get_certificate_binding_service",
+    # API Keys
+    "APIKey",
+    "APIKeyRepository",
+    "get_api_key_repository",
 ]

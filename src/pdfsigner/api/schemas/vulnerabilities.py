@@ -18,22 +18,28 @@ from pydantic import BaseModel, Field
 class VulnerabilityResponse(BaseModel):
     """Vulnerability information response."""
 
-    id: str = Field(..., description="Unique vulnerability ID")
-    title: str = Field(..., description="Vulnerability title")
-    description: str = Field(..., description="Detailed description")
-    severity: str = Field(..., description="Severity level (info, low, medium, high, critical)")
-    status: str = Field(
-        ..., description="Status (open, in_progress, resolved, accepted, false_positive)"
+    id: str = Field(..., max_length=64, description="Unique vulnerability ID")
+    title: str = Field(..., max_length=500, description="Vulnerability title")
+    description: str = Field(..., max_length=4096, description="Detailed description")
+    severity: str = Field(
+        ..., max_length=64, description="Severity level (info, low, medium, high, critical)"
     )
-    source: str = Field(..., description="Discovery source (semgrep, pip_audit, manual, pentest)")
-    file_path: str | None = Field(None, description="Affected file path")
+    status: str = Field(
+        ...,
+        max_length=64,
+        description="Status (open, in_progress, resolved, accepted, false_positive)",
+    )
+    source: str = Field(
+        ..., max_length=64, description="Discovery source (semgrep, pip_audit, manual, pentest)"
+    )
+    file_path: str | None = Field(None, max_length=1024, description="Affected file path")
     line_number: int | None = Field(None, description="Line number in file")
-    cwe_id: str | None = Field(None, description="CWE identifier (e.g., CWE-79)")
+    cwe_id: str | None = Field(None, max_length=64, description="CWE identifier (e.g., CWE-79)")
     cvss_score: float | None = Field(None, description="CVSS v3 score (0.0-10.0)")
     discovered_at: datetime = Field(..., description="Discovery timestamp")
     resolved_at: datetime | None = Field(None, description="Resolution timestamp")
-    assignee: str | None = Field(None, description="Assigned user")
-    remediation: str | None = Field(None, description="Remediation guidance")
+    assignee: str | None = Field(None, max_length=255, description="Assigned user")
+    remediation: str | None = Field(None, max_length=4096, description="Remediation guidance")
 
     model_config = {
         "json_schema_extra": {

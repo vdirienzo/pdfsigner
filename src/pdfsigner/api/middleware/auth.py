@@ -36,6 +36,7 @@ class TokenData(BaseModel):
     exp: datetime | None = None
     session_id: str | None = None
     mfa_verified: bool = False  # Whether MFA was verified for this token
+    jti: str | None = None  # JWT ID for revocation
 
 
 # --- JWT Functions ---
@@ -64,8 +65,13 @@ def create_access_token(
         >>> token = create_access_token({"sub": "user123", "user_id": "uuid", "role": "signer"})
         >>> token = create_access_token({"sub": "admin"}, timedelta(hours=1), mfa_verified=True)
     """
+    from pdfsigner.core.auth.jwt_blacklist import generate_jti
+
     settings = get_api_settings()
     to_encode = data.copy()
+
+    # Add unique JWT ID for revocation support
+    to_encode["jti"] = generate_jti()
 
     # Add session_id to claims if provided
     if session_id:
@@ -96,11 +102,13 @@ def verify_token(token: str) -> TokenData:
         token: JWT token string to verify
 
     Returns:
-        TokenData with username, user_id, role, expiration, and optional session_id
+        TokenData with username, user_id, role, expiration, optional session_id, and jti
 
     Raises:
-        HTTPException: 401 if token is invalid or expired
+        HTTPException: 401 if token is invalid, expired, or blacklisted
     """
+    from pdfsigner.core.auth.jwt_blacklist import get_jwt_blacklist
+
     settings = get_api_settings()
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -124,6 +132,18 @@ def verify_token(token: str) -> TokenData:
         exp = datetime.fromtimestamp(exp_timestamp, tz=UTC) if exp_timestamp else None
         session_id: str | None = payload.get("session_id")
         mfa_verified: bool = payload.get("mfa_verified", False)
+        jti: str | None = payload.get("jti")
+
+        # Check if token is blacklisted (revoked)
+        if jti:
+            blacklist = get_jwt_blacklist()
+            if blacklist.is_blacklisted(jti):
+                logger.info(f"Rejected blacklisted token {jti[:8]}... for user {username}")
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Token has been revoked",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
 
         return TokenData(
             username=username,
@@ -132,6 +152,7 @@ def verify_token(token: str) -> TokenData:
             exp=exp,
             session_id=session_id,
             mfa_verified=mfa_verified,
+            jti=jti,
         )
     except JWTError as e:
         raise credentials_exception from e
@@ -185,28 +206,25 @@ async def get_current_user(
     # If healthcare mode is enabled, fetch user from repository
     if settings.healthcare_mode:
         user_repo = UserRepository()
-        try:
-            # Try to fetch by user_id if available in token
-            if token_data.user_id:
-                user = user_repo.get_user(token_data.user_id)
-                if user:
-                    return user
-
-            # Fallback: fetch by username
-            user = user_repo.get_user_by_username(token_data.username)
+        # Try to fetch by user_id if available in token
+        if token_data.user_id:
+            user = user_repo.get_user_by_id(token_data.user_id)
             if user:
                 return user
 
-            # User not found in repository
-            logger.warning(
-                f"User '{token_data.username}' authenticated via JWT but not found in repository"
-            )
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"User '{token_data.username}' not found in system",
-            )
-        finally:
-            user_repo.close()
+        # Fallback: fetch by username
+        user = user_repo.get_user_by_username(token_data.username)
+        if user:
+            return user
+
+        # User not found in repository
+        logger.warning(
+            f"User '{token_data.username}' authenticated via JWT but not found in repository"
+        )
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"User '{token_data.username}' not found in system",
+        )
     else:
         # Healthcare mode disabled: create mock user from token data
         try:
@@ -359,22 +377,84 @@ async def verify_api_key(
             headers={"WWW-Authenticate": "ApiKey"},
         )
 
-    if not settings.api_keys or api_key not in settings.api_keys:
+    # Check legacy config-based API keys first (backward compatibility)
+    if settings.api_keys and api_key in settings.api_keys:
+        # Legacy API key from config - return generic user
+        return User(
+            id=f"apikey_{api_key[:8]}",
+            username=f"apikey_{api_key[:8]}",
+            email=None,
+            role=UserRole.SIGNER,
+            status=UserStatus.ACTIVE,
+        )
+
+    # Check database-backed API keys
+    try:
+        from pdfsigner.core.users.api_key_repository import (
+            APIKeyRepository,
+            get_api_key_repository,
+        )
+
+        api_key_repo = get_api_key_repository()
+        key_hash = APIKeyRepository.hash_api_key(api_key)
+        api_key_obj = api_key_repo.get_by_hash(key_hash)
+
+        if not api_key_obj:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid API key",
+                headers={"WWW-Authenticate": "ApiKey"},
+            )
+
+        # Validate key (check revoked, expiration)
+        if not api_key_obj.is_valid:
+            logger.warning(
+                f"Rejected API key: id={api_key_obj.id}, "
+                f"revoked={api_key_obj.revoked}, "
+                f"expired={api_key_obj.expires_at}"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="API key is revoked or expired",
+                headers={"WWW-Authenticate": "ApiKey"},
+            )
+
+        # Update last_used_at timestamp (fire and forget, don't block on failure)
+        try:
+            api_key_repo.update_last_used(key_hash)
+        except Exception as e:
+            logger.warning(f"Failed to update last_used_at for API key: {e}")
+
+        # Fetch user associated with API key
+        user_repo = UserRepository()
+        user = user_repo.get_user_by_id(api_key_obj.user_id)
+
+        if not user:
+            logger.error(f"User not found for API key: user_id={api_key_obj.user_id}")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="User not found for API key",
+            )
+
+        # Check if user is active
+        if not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="User account is inactive or locked",
+            )
+
+        logger.debug(f"API key authenticated: user={user.username}, key_id={api_key_obj.id}")
+        return user
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"API key verification failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid API key",
             headers={"WWW-Authenticate": "ApiKey"},
-        )
-
-    # In production, fetch user associated with API key from database
-    # For now, return a generic API user
-    return User(
-        id=f"apikey_{api_key[:8]}",
-        username=f"apikey_{api_key[:8]}",
-        email=None,
-        role=UserRole.SIGNER,
-        status=UserStatus.ACTIVE,
-    )
+        ) from e
 
 
 # --- Combined Authentication ---

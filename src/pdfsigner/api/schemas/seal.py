@@ -98,12 +98,12 @@ class SealResponse(BaseModel):
         download_url: URL to download sealed PDF (available when status="completed")
     """
 
-    job_id: str
-    status: str
-    organization: str
-    seal_type: str
-    message: str | None = None
-    download_url: str | None = None
+    job_id: str = Field(..., max_length=64)
+    status: str = Field(..., max_length=64)
+    organization: str = Field(..., max_length=255)
+    seal_type: str = Field(..., max_length=64)
+    message: str | None = Field(None, max_length=4096)
+    download_url: str | None = Field(None, max_length=1024)
 
 
 class SealJobStatus(BaseModel):
@@ -122,16 +122,16 @@ class SealJobStatus(BaseModel):
         signature_id: Signature field identifier in PDF
     """
 
-    job_id: str
-    status: str
-    filename: str | None = None
-    organization: str
-    seal_type: str
-    created_at: str
-    completed_at: str | None = None
-    error: str | None = None
-    download_url: str | None = None
-    signature_id: str | None = None
+    job_id: str = Field(..., max_length=64)
+    status: str = Field(..., max_length=64)
+    filename: str | None = Field(None, max_length=255)
+    organization: str = Field(..., max_length=255)
+    seal_type: str = Field(..., max_length=64)
+    created_at: str = Field(..., max_length=64)
+    completed_at: str | None = Field(None, max_length=64)
+    error: str | None = Field(None, max_length=4096)
+    download_url: str | None = Field(None, max_length=1024)
+    signature_id: str | None = Field(None, max_length=64)
 
 
 class SealValidationResponse(BaseModel):
@@ -149,9 +149,9 @@ class SealValidationResponse(BaseModel):
     """
 
     valid: bool
-    seal_type: str
+    seal_type: str = Field(..., max_length=64)
     organization: OrganizationInfoSchema
-    sealed_at: str
+    sealed_at: str = Field(..., max_length=64)
     certificate_valid: bool
     timestamp_valid: bool
     integrity_intact: bool

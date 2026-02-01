@@ -15,6 +15,7 @@ from pdfsigner.core.eidas import (
     QualificationStatus,
     QualifiedSignatureValidator,
     ServiceType,
+    SignatureValidation,
     TrustedListInfo,
     TSPInfo,
     get_tsp_registry,
@@ -506,15 +507,20 @@ class TestQESValidationResult:
     def test_validation_result_creation(self):
         """Test QESValidationResult creation."""
         result = QESValidationResult(
-            is_qualified=True,
+            overall_status="TOTAL-PASSED",
             qualification_level="QES",
-            certificate_qualified=True,
-            device_qualified=True,
-            tsp_qualified=True,
-            timestamp_qualified=True,
             issues=["test issue"],
             recommendations=["test recommendation"],
         )
+
+        # Add signature validation to make properties work
+        sig_val = SignatureValidation(
+            certificate_qualified=True,
+            qscd_used=True,
+            tsp_granted=True,
+            timestamp_present=True,
+        )
+        result.signature_validations.append(sig_val)
 
         assert result.is_qualified is True
         assert result.qualification_level == "QES"
@@ -525,13 +531,18 @@ class TestQESValidationResult:
     def test_validation_result_default_fields(self):
         """Test QESValidationResult has default empty lists."""
         result = QESValidationResult(
-            is_qualified=False,
+            overall_status="TOTAL-FAILED",
             qualification_level="Basic",
-            certificate_qualified=False,
-            device_qualified=False,
-            tsp_qualified=False,
-            timestamp_qualified=False,
         )
+
+        # Add non-qualified signature validation
+        sig_val = SignatureValidation(
+            certificate_qualified=False,
+            qscd_used=False,
+            tsp_granted=False,
+            timestamp_present=False,
+        )
+        result.signature_validations.append(sig_val)
 
         assert result.issues == []
         assert result.recommendations == []

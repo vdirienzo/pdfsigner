@@ -289,7 +289,7 @@ async def disable_mfa(
 
     Args:
         current_user: Authenticated user
-        request: Disable request (optionally with password)
+        request: Disable request with current password
 
     Returns:
         MFADisableResponse with success status
@@ -299,18 +299,38 @@ async def disable_mfa(
         HTTPException: 401 if password is incorrect
     """
     try:
+        from pdfsigner.core.auth.password_validator import get_password_validator
+        from pdfsigner.core.users.user_repository import UserRepository
+
         mfa_manager = get_mfa_manager()
 
         # Check if MFA is enabled
-        status = mfa_manager.get_status(current_user.id)
-        if not status.enabled:
+        mfa_status = mfa_manager.get_status(current_user.id)
+        if not mfa_status.enabled:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="MFA is not enabled for this user",
             )
 
-        # TODO: Verify password if provided
-        # For now, allow without password (dev mode)
+        # Verify password
+        user_repo = UserRepository()
+        password_hash = user_repo.get_password_hash(current_user.id)
+
+        if not password_hash:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User does not have a password set",
+            )
+
+        password_validator = get_password_validator()
+        if not password_validator.verify_password(request.current_password, password_hash):
+            logger.warning(
+                f"Failed MFA disable attempt for user {current_user.username}: incorrect password"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect password",
+            )
 
         # Disable MFA
         success = mfa_manager.disable(current_user.id)

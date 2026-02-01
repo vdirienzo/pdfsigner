@@ -29,6 +29,11 @@ dependencies = [
     "python-multipart>=0.0.22",
     "pyotp>=2.9.0",
     "argon2-cffi>=25.1.0",
+    # Security dependencies
+    "fastapi-csrf-protect>=0.3.0",
+    "defusedxml>=0.7.1",
+    "werkzeug>=3.0.0",
+    "python-magic>=0.4.27",
 ]
 # Note: PyGObject is used from system (python3-gi) for GTK4 bindings
 
