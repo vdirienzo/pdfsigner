@@ -149,7 +149,8 @@ class ContentAnalyzer:
                         y1=img_rect.y1,
                     )
                     image_blocks.append(bbox)
-            except Exception:
+            except Exception as e:
+                logger.debug(f"Could not extract image bbox: {e}")
                 continue
 
         # Extract drawings (paths)

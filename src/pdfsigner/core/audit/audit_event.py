@@ -23,8 +23,8 @@ class AuditEventType(Enum):
     VALIDATE_SUCCESS = "validate_success"
     VALIDATE_FAILURE = "validate_failure"
     CONFIG_CHANGE = "config_change"
-    TOKEN_LOGIN = "token_login"
-    TOKEN_LOGOUT = "token_logout"
+    TOKEN_LOGIN = "token_login"  # nosec B105 - not a password, event type identifier
+    TOKEN_LOGOUT = "token_logout"  # nosec B105 - not a password, event type identifier
     CERTIFICATE_SELECTED = "certificate_selected"
 
 

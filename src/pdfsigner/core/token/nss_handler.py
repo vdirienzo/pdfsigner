@@ -119,7 +119,8 @@ class NSSHandler:
         if self._lib is None:
             self.initialize()
 
-        assert self._lib is not None  # initialize() sets this
+        if self._lib is None:
+            raise RuntimeError("NSSHandler not initialized. Call initialize() first.")
         tokens = []
         for slot in self._lib.get_slots(token_present=True):
             token = slot.get_token()
@@ -141,7 +142,8 @@ class NSSHandler:
         if self._lib is None:
             self.initialize()
 
-        assert self._lib is not None  # initialize() sets this
+        if self._lib is None:
+            raise RuntimeError("NSSHandler not initialized. Call initialize() first.")
         for slot in self._lib.get_slots(token_present=True):
             token = slot.get_token()
             if token_label is None or token.label.strip() == token_label:

@@ -233,8 +233,8 @@ class CredentialManager:
                 for key in ["tsa_password"]:
                     try:
                         keyring.delete_password(SERVICE_NAME, key)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug(f"Could not delete key '{key}': {e}")
             except Exception as e:
                 logger.error(f"Error clearing keyring: {e}")
 

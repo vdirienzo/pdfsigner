@@ -7,7 +7,7 @@ Creates and initializes NSS database for PKCS#11 token
 communication using certutil.
 """
 
-import subprocess
+import subprocess  # nosec B404 - subprocess used safely with fixed certutil command
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -149,7 +149,7 @@ class NSSSetup:
 
         logger.info(f"Executing: {' '.join(cmd)}")
 
-        return subprocess.run(
+        return subprocess.run(  # nosec B603 - cmd is hardcoded, no user input
             cmd,
             capture_output=True,
             text=True,

@@ -220,11 +220,11 @@ class AuditLogger:
 
         while current <= end:
             year_months.add(current.strftime("%Y-%m"))
-            # Move to next month
+            # Move to first day of next month (avoids "day out of range" errors)
             if current.month == 12:
-                current = current.replace(year=current.year + 1, month=1)
+                current = current.replace(year=current.year + 1, month=1, day=1)
             else:
-                current = current.replace(month=current.month + 1)
+                current = current.replace(month=current.month + 1, day=1)
 
         # Get matching files
         log_files = []

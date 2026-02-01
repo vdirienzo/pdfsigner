@@ -24,6 +24,38 @@ DEFAULT_HEIGHT_PX = 70 * SCALE_FACTOR  # 280px
 QR_SIZE_PX = 60 * SCALE_FACTOR  # 240px
 PADDING_PX = 5 * SCALE_FACTOR  # 20px
 
+# Common system fonts to try
+SYSTEM_FONTS = ["DejaVuSans.ttf", "Arial.ttf", "FreeSans.ttf"]
+
+
+def _load_fonts(
+    font_size: int, small_font_size: int
+) -> tuple[
+    ImageFont.FreeTypeFont | ImageFont.ImageFont, ImageFont.FreeTypeFont | ImageFont.ImageFont
+]:
+    """
+    Load system fonts with fallback to default.
+
+    Args:
+        font_size: Main font size in pixels
+        small_font_size: Small font size in pixels
+
+    Returns:
+        Tuple of (font, small_font)
+    """
+    font: ImageFont.FreeTypeFont | ImageFont.ImageFont = ImageFont.load_default()
+    small_font: ImageFont.FreeTypeFont | ImageFont.ImageFont = font
+
+    for font_name in SYSTEM_FONTS:
+        try:
+            font = ImageFont.truetype(font_name, font_size)
+            small_font = ImageFont.truetype(font_name, small_font_size)
+            break
+        except OSError:
+            continue
+
+    return font, small_font
+
 
 def compose_stamp_with_qr(
     signer_name: str,
@@ -79,23 +111,10 @@ def compose_stamp_with_qr(
     qr_y = (height_px - qr_size) // 2
     stamp.paste(qr_img, (qr_x, qr_y))
 
-    # Try to load a system font, fallback to default
-    # Font sizes scaled for 300 DPI
+    # Load fonts (scaled for 300 DPI)
     font_size = 10 * SCALE_FACTOR  # 40px
     small_font_size = 8 * SCALE_FACTOR  # 32px
-    font: ImageFont.FreeTypeFont | ImageFont.ImageFont = ImageFont.load_default()
-    small_font: ImageFont.FreeTypeFont | ImageFont.ImageFont = font
-    try:
-        # Try common system fonts
-        for font_name in ["DejaVuSans.ttf", "Arial.ttf", "FreeSans.ttf"]:
-            try:
-                font = ImageFont.truetype(font_name, font_size)
-                small_font = ImageFont.truetype(font_name, small_font_size)
-                break
-            except OSError:
-                continue
-    except Exception:
-        pass  # Keep default font
+    font, small_font = _load_fonts(font_size, small_font_size)
 
     # Draw text
     text_y = PADDING_PX + 2 * SCALE_FACTOR
@@ -160,22 +179,10 @@ def compose_stamp_text_only(
         width=1,
     )
 
-    # Try to load a system font, fallback to default
-    # Font sizes scaled for 300 DPI
+    # Load fonts (scaled for 300 DPI)
     font_size = 12 * SCALE_FACTOR  # 48px
     small_font_size = 10 * SCALE_FACTOR  # 40px
-    font: ImageFont.FreeTypeFont | ImageFont.ImageFont = ImageFont.load_default()
-    small_font: ImageFont.FreeTypeFont | ImageFont.ImageFont = font
-    try:
-        for font_name in ["DejaVuSans.ttf", "Arial.ttf", "FreeSans.ttf"]:
-            try:
-                font = ImageFont.truetype(font_name, font_size)
-                small_font = ImageFont.truetype(font_name, small_font_size)
-                break
-            except OSError:
-                continue
-    except Exception:
-        pass  # Keep default font
+    font, small_font = _load_fonts(font_size, small_font_size)
 
     # Center text vertically
     text_x = PADDING_PX + 5 * SCALE_FACTOR

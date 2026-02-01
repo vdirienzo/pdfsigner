@@ -274,8 +274,8 @@ class PDFValidator:
                 valid_from = cert.not_valid_before
                 valid_to = cert.not_valid_after
                 cert_bytes = cert.dump()
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug(f"Could not extract certificate details: {e}")
 
         return SignatureInfo(
             signer_name=signer_name,
@@ -334,8 +334,8 @@ class PDFValidator:
                     for name in ext.value:
                         if hasattr(name, "value") and "@" in str(name.value):
                             return str(name.value)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Could not extract email from certificate: {e}")
         return None
 
     def _extract_page_number(self, reader: PdfFileReader, sig) -> int | None:

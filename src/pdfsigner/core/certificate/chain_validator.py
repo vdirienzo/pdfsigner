@@ -362,7 +362,7 @@ class CertificateChainValidator:
                 cn_value = cn_attrs[0].value
                 # Ensure we return a string
                 return str(cn_value) if not isinstance(cn_value, str) else cn_value
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Could not extract CN from certificate: {e}")
 
         return cert.subject.rfc4514_string()

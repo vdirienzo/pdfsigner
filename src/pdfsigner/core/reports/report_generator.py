@@ -133,7 +133,7 @@ class ValidationReportGenerator:
             bottomMargin=2 * cm,
         )
 
-        story = []
+        story: list[Paragraph | Spacer | Table] = []
 
         # Title
         title = Paragraph(self.options.title, self._styles["ReportTitle"])
@@ -162,7 +162,9 @@ class ValidationReportGenerator:
         buffer.seek(0)
         return buffer.read()
 
-    def _generate_pdf_summary(self, results: list[ValidationResult]) -> list:
+    def _generate_pdf_summary(
+        self, results: list[ValidationResult]
+    ) -> list[Paragraph | Spacer | Table]:
         """Generate summary section for PDF report."""
         elements = []
 
@@ -231,7 +233,9 @@ class ValidationReportGenerator:
 
         return elements
 
-    def _generate_pdf_details(self, results: list[ValidationResult]) -> list:
+    def _generate_pdf_details(
+        self, results: list[ValidationResult]
+    ) -> list[Paragraph | Spacer | Table]:
         """Generate details section for PDF report."""
         elements = []
 
