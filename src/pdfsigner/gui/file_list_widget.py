@@ -14,6 +14,7 @@ import gi
 
 gi.require_version("Gtk", "4.0")
 from gi.repository import GLib, Gtk
+from loguru import logger
 
 from pdfsigner.core.validator.pdf_validator import PDFValidator, ValidationResult
 from pdfsigner.i18n import _
@@ -103,8 +104,8 @@ class FileRow(Gtk.Box):
 
                 # Detailed validation (background thread)
                 Thread(target=self._load_signature_details, daemon=True).start()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Failed to check signature status for {self.file_path}: {e}")
 
     def _load_signature_details(self) -> None:
         """Load full signature details in background thread."""
@@ -112,8 +113,8 @@ class FileRow(Gtk.Box):
             validator = PDFValidator()
             self.validation_result = validator.validate(self.file_path)
             GLib.idle_add(self._update_signature_summary)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Failed to load signature details for {self.file_path}: {e}")
 
     def _update_signature_summary(self) -> bool:
         """Update UI with validation status icon (main thread)."""

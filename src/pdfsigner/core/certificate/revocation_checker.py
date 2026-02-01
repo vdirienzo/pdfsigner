@@ -119,6 +119,7 @@ class OCSPChecker:
         Returns:
             RevocationResult with status and details
         """
+        responder_url: str | None = None
         try:
             # Extract OCSP responder URL
             responder_url = self._get_ocsp_responder_url(cert)
@@ -206,7 +207,7 @@ class OCSPChecker:
             return RevocationResult(
                 status=RevocationStatus.ERROR,
                 method="OCSP",
-                responder_url=responder_url,
+                responder_url=responder_url or "",
                 error_message="OCSP request timeout",
             )
         except requests.exceptions.RequestException as e:
@@ -214,7 +215,7 @@ class OCSPChecker:
             return RevocationResult(
                 status=RevocationStatus.ERROR,
                 method="OCSP",
-                responder_url=responder_url,
+                responder_url=responder_url or "",
                 error_message=f"OCSP request failed: {str(e)}",
             )
         except Exception as e:
@@ -241,7 +242,8 @@ class OCSPChecker:
             )
             aia = aia_ext.value
 
-            for access_description in aia:
+            # Iterate over access descriptions (duck typing for mock compatibility)
+            for access_description in aia:  # type: ignore[attr-defined]
                 if access_description.access_method == AuthorityInformationAccessOID.OCSP:
                     return access_description.access_location.value
 
@@ -393,7 +395,10 @@ class CRLChecker:
                 reason_ext = revoked_cert.extensions.get_extension_for_oid(
                     CRLEntryExtensionOID.CRL_REASON
                 )
-                revocation_reason = str(reason_ext.value.reason.name)
+                reason_value = reason_ext.value
+                # Type assertion: value is CRLReason
+                if isinstance(reason_value, x509.CRLReason):
+                    revocation_reason = str(reason_value.reason.name)
             except x509.ExtensionNotFound:
                 pass
 
@@ -423,14 +428,15 @@ class CRLChecker:
         Returns:
             List of CRL URLs
         """
-        urls = []
+        urls: list[str] = []
         try:
             crl_dist_points_ext = cert.extensions.get_extension_for_oid(
                 ExtensionOID.CRL_DISTRIBUTION_POINTS
             )
             crl_dist_points = crl_dist_points_ext.value
 
-            for dist_point in crl_dist_points:
+            # Iterate over distribution points (duck typing for mock compatibility)
+            for dist_point in crl_dist_points:  # type: ignore[attr-defined]
                 if dist_point.full_name:
                     for general_name in dist_point.full_name:
                         if isinstance(general_name, x509.UniformResourceIdentifier):

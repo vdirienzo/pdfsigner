@@ -925,7 +925,7 @@ requires-dist = [
     { name = "qrcode", extras = ["pil"], specifier = ">=7.4.0" },
     { name = "reportlab", specifier = ">=4.4.9" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.3.0" },
-    { name = "urllib3", specifier = ">=2.6.3" },
+    { name = "urllib3", specifier = ">=2.6.0" },
 ]
 provides-extras = ["dev"]
 

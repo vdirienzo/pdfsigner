@@ -20,6 +20,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
 from reportlab.platypus import (
+    Flowable,
     Paragraph,
     SimpleDocTemplate,
     Spacer,
@@ -133,7 +134,7 @@ class ValidationReportGenerator:
             bottomMargin=2 * cm,
         )
 
-        story: list[Paragraph | Spacer | Table] = []
+        story: list[Flowable] = []
 
         # Title
         title = Paragraph(self.options.title, self._styles["ReportTitle"])
@@ -162,11 +163,9 @@ class ValidationReportGenerator:
         buffer.seek(0)
         return buffer.read()
 
-    def _generate_pdf_summary(
-        self, results: list[ValidationResult]
-    ) -> list[Paragraph | Spacer | Table]:
+    def _generate_pdf_summary(self, results: list[ValidationResult]) -> list[Flowable]:
         """Generate summary section for PDF report."""
-        elements = []
+        elements: list[Flowable] = []
 
         # Section heading
         heading = Paragraph("Validation Summary", self._styles["SectionHeading"])
@@ -233,11 +232,9 @@ class ValidationReportGenerator:
 
         return elements
 
-    def _generate_pdf_details(
-        self, results: list[ValidationResult]
-    ) -> list[Paragraph | Spacer | Table]:
+    def _generate_pdf_details(self, results: list[ValidationResult]) -> list[Flowable]:
         """Generate details section for PDF report."""
-        elements = []
+        elements: list[Flowable] = []
 
         # Section heading
         heading = Paragraph("File Details", self._styles["SectionHeading"])
@@ -307,9 +304,9 @@ class ValidationReportGenerator:
 
         return elements
 
-    def _generate_certificate_details(self, results: list[ValidationResult]) -> list:
+    def _generate_certificate_details(self, results: list[ValidationResult]) -> list[Flowable]:
         """Generate detailed certificate information section."""
-        elements = []
+        elements: list[Flowable] = []
 
         for result in results:
             if not result.signatures:
@@ -433,6 +430,7 @@ class ValidationReportGenerator:
         Returns:
             JSON report as string
         """
+        files_list: list[dict] = []
         report_data = {
             "metadata": {
                 "title": self.options.title,
@@ -440,19 +438,20 @@ class ValidationReportGenerator:
                 "total_files": len(results),
             },
             "summary": self._generate_summary_dict(results),
-            "files": [],
+            "files": files_list,
         }
 
         # Add file details
         for result in results:
-            file_data = {
+            signatures_list: list[dict] = []
+            file_data: dict = {
                 "file_path": str(result.file_path),
                 "filename": result.file_path.name,
                 "is_signed": result.is_signed,
                 "signature_count": result.signature_count,
                 "all_valid": result.all_valid,
                 "error": result.error,
-                "signatures": [],
+                "signatures": signatures_list,
             }
 
             # Add signature details

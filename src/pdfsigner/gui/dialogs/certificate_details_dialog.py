@@ -50,7 +50,8 @@ class CertificateDetailsDialog(Adw.Window):
             raise ValueError("Either cert_bytes or cert_details must be provided")
 
         if cert_details is None:
-            assert cert_bytes is not None  # for type checker
+            if cert_bytes is None:
+                raise RuntimeError("cert_bytes must not be None when cert_details is not provided")
             try:
                 self._details = X509Parser.parse(cert_bytes)
             except Exception as e:

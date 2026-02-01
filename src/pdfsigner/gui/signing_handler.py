@@ -256,7 +256,8 @@ class SigningHandler:
                     raise PDFSignerError(_("Token session not available"))
 
                 # In non-dry-run mode, _nss_handler is always RealNSSHandler
-                assert isinstance(self._nss_handler, RealNSSHandler)
+                if not isinstance(self._nss_handler, RealNSSHandler):
+                    raise RuntimeError("Expected RealNSSHandler in non-dry-run mode")
                 real_batch = BatchManager(self._nss_handler)
 
                 def on_progress_real(progress) -> None:
