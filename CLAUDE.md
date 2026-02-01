@@ -163,6 +163,18 @@ When `dry_run=true`: `MockBatchManager` replaces `BatchManager`, no token/PIN/TS
 - Use `GLib.idle_add()` for thread-safe UI updates from background threads
 - Progress via `ProgressDialog`, results via `Adw.Toast`
 
+### Certificate Health Status (Popover Pattern)
+Header icon button with popover - first popover widget in project:
+```
+MainWindow._load_certificate_health()
+  → CertificateHealth (computes days_remaining, health_level)
+  → CertHealthPopover.set_health()
+  → _update_cert_button() (icon: 🔐/⚠️/🔶/🚨/❌)
+```
+- Widget: `gui/widgets/cert_health_popover.py`
+- Health levels: OK (>60d), WARNING (31-60d), ALERT (8-30d), CRITICAL (1-7d), EXPIRED (≤0d)
+- Toast notifications for WARNING+ levels (once per session)
+
 ### PIN Cache Flow
 ```
 SigningHandler._request_pin_or_use_cache()
@@ -224,11 +236,23 @@ assert self._lib is not None
 
 ## Testing Notes
 
-- **Coverage:** 85% core (excludes `gui/`, `ui/`, `cli/` - see `pyproject.toml`)
+- **Coverage:** 87% core (excludes `gui/`, `ui/`, `cli/` - see `pyproject.toml`)
+- **Tests:** 868 total (unit + integration + E2E)
 - **GUI tests:** Use mocks in `conftest_gui.py`, no display required
 - **Integration tests:** Require internet (TSA servers)
 - **E2E tests:** Dry-run mode (`tests/e2e/`), covers full signing workflow with all variants
 - **Test naming:** `test_<function>_<scenario>_<expected>`
+
+### Duck Typing for Mock Compatibility
+When type checking with `isinstance()` breaks mock tests, use duck typing:
+```python
+# WRONG - isinstance fails with Mock objects
+if not isinstance(aia, x509.AuthorityInformationAccess):
+    return None
+
+# CORRECT - duck typing with type: ignore
+for access_description in aia:  # type: ignore[attr-defined]
+```
 
 ## Configuration
 

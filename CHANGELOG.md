@@ -6,6 +6,29 @@ Format: [SemVer](https://semver.org/) with `Added | Changed | Fixed | Security` 
 
 ---
 
+## [1.0.2] - 2026-02-01
+
+### Changed
+- **Certificate Health UI Redesign** - Banner replaced with header popover
+  - New file: `gui/widgets/cert_health_popover.py`
+  - Header icon button reflects health status (🔐/⚠️/🔶/🚨/❌)
+  - Click opens popover with certificate details
+  - Cleaner main window - no banner taking space
+- **Revocation Checker:** Use duck typing with `# type: ignore[attr-defined]` for mock compatibility
+- **Report Generator:** Use `Flowable` base type and explicit `list[dict]` annotations
+
+### Security
+- **urllib3:** Updated to 2.6.3 (fixes CVE-2025-66418, CVE-2025-66471 - DoS vulnerabilities)
+
+### Fixed
+- **4 assert statements** replaced with explicit `RuntimeError` in:
+  - `gui/dialogs/certificate_details_dialog.py`
+  - `gui/signing_handler.py`
+  - `i18n/__init__.py` (2 locations)
+- **Silent except blocks** - Added logging in `gui/file_list_widget.py`
+
+---
+
 ## [1.0.1] - 2026-01-31
 
 ### Fixed
