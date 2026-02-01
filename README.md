@@ -5,9 +5,9 @@
 <h1 align="center">PDFSigner</h1>
 
 <p align="center">
-  <strong>Enterprise-Grade Digital PDF Signing</strong>
+  <strong>Enterprise-Grade Digital PDF Signing for Government & Healthcare</strong>
   <br>
-  <em>PAdES B-LTA compliant signatures with REST API</em>
+  <em>PAdES B-LTA • HIPAA • NIST 800-53 • FedRAMP • eIDAS • GDPR</em>
 </p>
 
 <p align="center">
@@ -19,21 +19,39 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/PAdES-B--LTA-orange?style=flat-square" alt="PAdES B-LTA">
-  <img src="https://img.shields.io/badge/tests-1240%2B%20passing-success?style=flat-square" alt="Tests">
-  <img src="https://img.shields.io/badge/coverage-87%25%20core-blue?style=flat-square" alt="Coverage">
+  <img src="https://img.shields.io/badge/HIPAA-Compliant-red?style=flat-square" alt="HIPAA">
+  <img src="https://img.shields.io/badge/NIST_800--53-Moderate-blue?style=flat-square" alt="NIST">
+  <img src="https://img.shields.io/badge/eIDAS-QES-green?style=flat-square" alt="eIDAS">
+  <img src="https://img.shields.io/badge/tests-2307%2B%20passing-success?style=flat-square" alt="Tests">
 </p>
 
 ---
 
-## ✨ Highlights
+## ✨ Feature Overview
 
 | Category | Features |
 |----------|----------|
-| **Compliance** | PAdES B-LTA (highest level), eIDAS compliant, DSS embedding, archive timestamps |
-| **Interfaces** | GTK4 GUI, CLI, REST API (FastAPI) |
-| **Security** | PKCS#11 hardware tokens, OCSP/CRL revocation, chain validation, audit trail |
-| **Integration** | JWT + API key auth, async signing jobs, webhook-ready |
-| **UX** | Drag & drop, batch signing, keyboard shortcuts, recent files, accessibility |
+| **Digital Signatures** | PAdES B-LTA (highest level), eIDAS QES/AdES, Electronic Seals, DSS embedding, archive timestamps |
+| **Healthcare (HIPAA)** | PHI/PII detection, AES-256 encryption, audit trails with HMAC integrity, auto-logoff, emergency access |
+| **Government** | NIST 800-53 Moderate, FedRAMP ready, FIPS 140-2 crypto, SOC 2 evidence collection |
+| **European (eIDAS)** | EU Trusted List (TSP) validation, Qualified certificates, QcStatements, Electronic seals |
+| **Security** | RBAC (5 roles), MFA/TOTP, session management, TLS enforcement, key rotation |
+| **Integration** | REST API (60+ endpoints), SIEM export (CEF/LEEF/Syslog), webhooks, batch processing |
+| **Interfaces** | GTK4 GUI, CLI, REST API (FastAPI), OpenAPI/Swagger |
+
+---
+
+## 📋 Table of Contents
+
+- [Quick Start](#-quick-start)
+- [Compliance Standards](#-compliance-standards)
+- [CLI Usage](#-cli-usage)
+- [REST API](#-rest-api)
+- [Healthcare Mode (HIPAA)](#-healthcare-mode-hipaa)
+- [Configuration](#️-configuration)
+- [Architecture](#️-architecture)
+- [Development](#-development)
+- [Security Documentation](#-security-documentation)
 
 ---
 
@@ -80,15 +98,125 @@ uv run pdfsigner-gui
 
 ---
 
-## 📸 Screenshots
+## 🏛️ Compliance Standards
 
-| Main Window | Signature Options |
-|-------------|-------------------|
-| ![Main Window](screenshots/01.png) | ![Options](screenshots/02.png) |
+PDFSigner implements comprehensive compliance controls for government and healthcare environments:
 
-| Settings | Advanced |
-|----------|----------|
-| ![Settings](screenshots/03.png) | ![Advanced](screenshots/04.png) |
+### Supported Standards
+
+| Standard | Coverage | Key Controls |
+|----------|----------|--------------|
+| **HIPAA** | §164.312 Technical Safeguards | Access control, audit controls, integrity, encryption, transmission security |
+| **NIST 800-53** | Moderate Baseline (90%) | AC, AU, CM, IA, IR, SC families |
+| **FedRAMP** | Moderate (Documentation Ready) | SSP, policies, continuous monitoring |
+| **eIDAS** | Full (QES, AdES, Seals) | EU Trusted Lists, QcStatements, PAdES B-LTA |
+| **GDPR** | Articles 17, 20, 32, 33 | Data portability, erasure, security, breach notification |
+| **SOC 2** | Type II Ready | Trust Service Criteria, evidence collection |
+
+### Compliance Checker
+
+```bash
+# CLI compliance check
+uv run pdfsigner compliance check --standard hipaa
+uv run pdfsigner compliance check --standard nist-800-53
+uv run pdfsigner compliance check --standard all
+
+# Generate compliance report
+uv run pdfsigner compliance report --format pdf --output compliance-report.pdf
+```
+
+### API Compliance Endpoints
+
+```bash
+# Check HIPAA compliance
+curl -X GET http://localhost:8000/api/v1/compliance/hipaa \
+  -H "Authorization: Bearer $TOKEN"
+
+# Get SOC 2 evidence
+curl -X GET http://localhost:8000/api/v1/evidence/soc2 \
+  -H "Authorization: Bearer $TOKEN"
+```
+
+---
+
+## 💻 CLI Usage
+
+### Core Commands
+
+```bash
+# Sign PDF with visible stamp
+uv run pdfsigner sign document.pdf --visible --page last --qr-code
+
+# Sign with metadata
+uv run pdfsigner sign document.pdf --visible \
+    --reason "Approved for release" \
+    --location "Buenos Aires, Argentina" \
+    --contact "signer@company.com"
+
+# Batch signing (recursive)
+uv run pdfsigner sign *.pdf
+uv run pdfsigner sign ./documents/ -r
+
+# Validate signatures (shows PAdES level)
+uv run pdfsigner validate document_signed.pdf
+# Output: ✓ Valid signature (PAdES B-LTA) - Signer: John Doe
+
+# Add archive timestamp to existing signed PDF
+uv run pdfsigner archive-ts signed.pdf
+uv run pdfsigner archive-ts signed.pdf -t https://freetsa.org/tsr
+
+# List certificates from token
+uv run pdfsigner list-certs
+```
+
+### Encryption Commands (HIPAA)
+
+```bash
+# Encrypt PDF with AES-256
+uv run pdfsigner encrypt document.pdf --password "SecurePass123!"
+uv run pdfsigner encrypt document.pdf --hipaa  # Enforces HIPAA settings
+
+# Decrypt PDF
+uv run pdfsigner decrypt encrypted.pdf --password "SecurePass123!"
+
+# Encrypt with keyring storage
+uv run pdfsigner encrypt document.pdf --store-password
+```
+
+### PHI/PII Detection & Redaction
+
+```bash
+# Scan for PHI/PII
+uv run pdfsigner scan-pii document.pdf
+# Output:
+#   Found 3 potential PHI matches:
+#   - SSN: 123-45-6789 (page 1, confidence: 95%)
+#   - Phone: (555) 123-4567 (page 2, confidence: 90%)
+#   - Email: patient@example.com (page 3, confidence: 85%)
+
+# Redact detected PHI
+uv run pdfsigner redact document.pdf --output redacted.pdf
+uv run pdfsigner redact document.pdf --pattern ssn --pattern phone
+```
+
+### CLI Options Reference
+
+| Command | Option | Description |
+|---------|--------|-------------|
+| `sign` | `--visible` | Add visible signature stamp |
+| `sign` | `--page last/first/N` | Page for stamp placement |
+| `sign` | `--qr-code` | Include QR verification code |
+| `sign` | `--reason "text"` | Signature reason |
+| `sign` | `--location "text"` | Signing location |
+| `sign` | `--cert N` | Certificate number to use |
+| `sign` | `-r, --recursive` | Process subfolders |
+| `sign` | `--dry-run` | Simulation mode (no token) |
+| `encrypt` | `--password` | Encryption password |
+| `encrypt` | `--hipaa` | Enforce HIPAA settings |
+| `encrypt` | `--store-password` | Save in keyring |
+| `scan-pii` | `--types` | PHI types to scan (ssn, phone, email, mrn) |
+| `redact` | `--pattern` | Specific pattern to redact |
+| `archive-ts` | `-t, --tsa-url` | Custom TSA URL |
 
 ---
 
@@ -101,112 +229,190 @@ uv run pdfsigner-api
 # ReDoc: http://localhost:8000/redoc
 ```
 
-### Endpoints
+### API Endpoints (60+)
+
+#### Authentication & Users
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | `POST` | `/auth/token` | Get JWT access token |
 | `POST` | `/auth/refresh` | Refresh token |
+| `POST` | `/api/v1/mfa/setup` | Setup TOTP MFA |
+| `POST` | `/api/v1/mfa/verify` | Verify MFA code |
+| `GET` | `/api/v1/users/` | List users (Admin) |
+| `POST` | `/api/v1/users/` | Create user (Admin) |
+| `GET` | `/api/v1/sessions/` | List active sessions |
+| `DELETE` | `/api/v1/sessions/{id}` | Terminate session |
+
+#### Document Operations
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
 | `POST` | `/api/v1/sign/` | Sign PDF (async job) |
 | `GET` | `/api/v1/sign/{id}/status` | Check job status |
 | `GET` | `/api/v1/sign/{id}/download` | Download signed PDF |
 | `POST` | `/api/v1/validate/` | Validate signatures |
 | `POST` | `/api/v1/validate/batch` | Batch validation |
+| `POST` | `/api/v1/phi/scan` | Scan for PHI/PII |
+| `POST` | `/api/v1/redact/` | Redact PHI from PDF |
+
+#### Certificates & Encryption
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
 | `GET` | `/api/v1/certificates/` | List certificates |
 | `GET` | `/api/v1/certificates/{id}/chain` | Get certificate chain |
+| `POST` | `/api/v1/encrypt/` | Encrypt PDF |
+| `POST` | `/api/v1/decrypt/` | Decrypt PDF |
 
-### Authentication
+#### Compliance & Audit
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/v1/compliance/hipaa` | HIPAA compliance status |
+| `GET` | `/api/v1/compliance/nist` | NIST 800-53 status |
+| `GET` | `/api/v1/compliance/report` | Generate compliance report |
+| `GET` | `/api/v1/evidence/soc2` | SOC 2 evidence collection |
+| `GET` | `/api/v1/audit/` | View audit logs |
+| `GET` | `/api/v1/audit/export` | Export to SIEM format |
+
+#### GDPR & Data Management
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/api/v1/gdpr/export/{user_id}` | Data portability (Art. 20) |
+| `DELETE` | `/api/v1/gdpr/erase/{user_id}` | Right to erasure (Art. 17) |
+| `GET` | `/api/v1/retention/policy` | Get retention policy |
+| `POST` | `/api/v1/retention/apply` | Apply retention rules |
+| `POST` | `/api/v1/breach/notify` | Breach notification (Art. 33) |
+
+#### Emergency Access (HIPAA)
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `POST` | `/api/v1/emergency/request` | Request emergency access |
+| `POST` | `/api/v1/emergency/approve/{id}` | Approve request (Admin) |
+| `GET` | `/api/v1/emergency/active` | List active emergency sessions |
+
+### Authentication Examples
 
 ```bash
-# Get token
+# Get JWT token
 curl -X POST http://localhost:8000/auth/token \
   -H "Content-Type: application/json" \
   -d '{"username": "user", "password": "pass"}'
 
-# Use token
+# Use Bearer token
 curl -X POST http://localhost:8000/api/v1/validate/ \
   -H "Authorization: Bearer YOUR_TOKEN" \
   -F "file=@document.pdf"
 
-# Or use API key
+# Use API key
 curl -X POST http://localhost:8000/api/v1/validate/ \
   -H "X-API-Key: your-api-key" \
   -F "file=@document.pdf"
+
+# Sign with visible stamp
+curl -X POST http://localhost:8000/api/v1/sign/ \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -F "file=@document.pdf" \
+  -F "visible=true" \
+  -F "page=last" \
+  -F "reason=Approved"
 ```
 
----
-
-## 💻 CLI Usage
+### MFA Setup Example
 
 ```bash
-# Sign with visible stamp
-uv run pdfsigner sign document.pdf --visible --page last --qr-code
+# Setup TOTP
+curl -X POST http://localhost:8000/api/v1/mfa/setup \
+  -H "Authorization: Bearer YOUR_TOKEN"
+# Returns: { "secret": "BASE32SECRET", "qr_code": "data:image/png;base64,..." }
 
-# Sign with metadata
-uv run pdfsigner sign document.pdf --visible \
-    --reason "Approved" \
-    --location "Buenos Aires" \
-    --contact "signer@company.com"
-
-# Batch signing
-uv run pdfsigner sign *.pdf
-uv run pdfsigner sign ./documents/ -r  # recursive
-
-# Validate signatures (shows PAdES level)
-uv run pdfsigner validate document_signed.pdf
-# Output: ✓ Valid signature (PAdES B-LTA) - Signer: John Doe
-
-# Add archive timestamp to existing signed PDF
-uv run pdfsigner archive-ts signed.pdf
-uv run pdfsigner archive-ts signed.pdf -t https://freetsa.org/tsr
-
-# List certificates from token
-uv run pdfsigner list-certs
-
-# Dry-run mode
-uv run pdfsigner --dry-run sign document.pdf --visible
+# Verify code
+curl -X POST http://localhost:8000/api/v1/mfa/verify \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{"code": "123456"}'
 ```
-
-### CLI Options
-
-| Option | Description |
-|--------|-------------|
-| `--visible` | Add visible signature stamp |
-| `--page last/first/N` | Page for stamp placement |
-| `--qr-code` | Include QR verification code |
-| `--reason "text"` | Signature reason |
-| `--location "text"` | Signing location |
-| `--contact "text"` | Contact information |
-| `--cert N` | Certificate number to use |
-| `-r, --recursive` | Process subfolders |
-| `--dry-run` | Simulation mode (no token) |
-| `-t, --tsa-url` | Custom TSA URL |
 
 ---
 
-## 📋 PAdES Compliance Levels
+## 🏥 Healthcare Mode (HIPAA)
 
-PDFSigner supports all PAdES baseline profiles:
+PDFSigner includes comprehensive HIPAA compliance features:
 
-| Level | Description | Support |
-|-------|-------------|---------|
-| **B-B** | Basic signature | ✅ |
-| **B-T** | Signature with timestamp | ✅ |
-| **B-LT** | Long-term validation (DSS) | ✅ |
-| **B-LTA** | Long-term archival (archive TS) | ✅ |
+### Enable Healthcare Mode
 
-Enable automatic B-LTA in config:
 ```toml
-ltv_enabled = true        # Embed DSS (B-LT)
-archive_ts_enabled = true # Enable archive timestamps
-archive_ts_auto = true    # Auto-add after signing (B-LTA)
+# ~/.config/pdfsigner/config.toml
+healthcare_mode = true
+healthcare_session_timeout_minutes = 15
+healthcare_max_sessions = 3
+healthcare_emergency_duration_hours = 4
+healthcare_emergency_require_approval = true
 ```
+
+### HIPAA Technical Safeguards
+
+| Requirement | PDFSigner Implementation |
+|-------------|-------------------------|
+| §164.312(a)(1) Access Control | RBAC with 5 roles (Viewer, Signer, Auditor, Admin, Emergency) |
+| §164.312(a)(2)(i) Unique User ID | Certificate-bound user accounts |
+| §164.312(a)(2)(ii) Emergency Access | Break-glass procedure with 4-hour limit |
+| §164.312(a)(2)(iii) Auto Logoff | Configurable session timeout (5-60 min) |
+| §164.312(a)(2)(iv) Encryption | AES-256 encryption with FIPS 140-2 |
+| §164.312(b) Audit Controls | HMAC-signed audit trail with chain verification |
+| §164.312(c)(1) Integrity | Digital signatures with timestamp |
+| §164.312(d) Authentication | PKCS#11 hardware tokens, MFA/TOTP |
+| §164.312(e)(1) Transmission Security | TLS 1.2+ enforcement |
+
+### Role-Based Access Control (RBAC)
+
+| Role | Permissions |
+|------|-------------|
+| **Viewer** | VIEW, VALIDATE |
+| **Signer** | VIEW, SIGN, VALIDATE, ENCRYPT, EXPORT |
+| **Auditor** | VIEW, VALIDATE, AUDIT_VIEW |
+| **Admin** | All except EMERGENCY_ACCESS |
+| **Emergency** | VIEW, DECRYPT, EMERGENCY_ACCESS (time-limited) |
+
+### Emergency Access Procedure
+
+```bash
+# Request emergency access
+curl -X POST http://localhost:8000/api/v1/emergency/request \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -d '{
+    "reason": "Critical patient care - immediate access required",
+    "documents": ["doc1.pdf", "doc2.pdf"],
+    "duration_hours": 4
+  }'
+
+# Admin approval (if required)
+curl -X POST http://localhost:8000/api/v1/emergency/approve/REQUEST_ID \
+  -H "Authorization: Bearer ADMIN_TOKEN"
+```
+
+### PHI Detection Patterns
+
+PDFSigner detects the following PHI/PII types:
+
+| Type | Pattern | Confidence |
+|------|---------|------------|
+| SSN | `XXX-XX-XXXX` | 95% (Luhn validated) |
+| Phone | `(XXX) XXX-XXXX` | 90% |
+| Email | `user@domain.com` | 85% |
+| MRN | Medical Record Numbers | 80% (contextual) |
+| DOB | Date of Birth patterns | 75% |
+| Credit Card | 16-digit (Luhn validated) | 95% |
 
 ---
 
 ## ⚙️ Configuration
 
 Config file: `~/.config/pdfsigner/config.toml`
+
+### Core Settings
 
 ```toml
 # NSS Database
@@ -220,34 +426,67 @@ default_visible = true
 default_page = "last"
 signature_template = "with_qr"
 output_suffix = "_signed"
+```
 
-# Long-Term Validation (PAdES B-LT)
+### PAdES Long-Term Validation
+
+```toml
+# PAdES B-LT (DSS embedding)
 ltv_enabled = true
 ltv_fail_open = true
 ltv_ocsp_timeout = 10
 ltv_crl_timeout = 30
 ltv_prefer_ocsp = true
 
-# Archive Timestamps (PAdES B-LTA)
-archive_ts_enabled = false
-archive_ts_auto = false
-archive_ts_tsa_urls = []  # Fallback TSAs
+# PAdES B-LTA (Archive timestamps)
+archive_ts_enabled = true
+archive_ts_auto = true
+archive_ts_tsa_urls = ["https://freetsa.org/tsr", "http://timestamp.digicert.com"]
+```
 
-# PIN Cache
-pin_cache_enabled = true
-pin_cache_timeout_seconds = 300
+### Healthcare Mode (HIPAA)
 
-# Audit Trail
+```toml
+healthcare_mode = true
+healthcare_session_timeout_minutes = 15
+healthcare_max_sessions = 3
+healthcare_emergency_duration_hours = 4
+healthcare_emergency_require_approval = true
+```
+
+### Encryption (HIPAA §164.312(a)(2)(iv))
+
+```toml
+encryption_enabled = true
+encryption_strength = "aes256"      # FIPS 140-2 compliant
+encryption_method = "password"
+encryption_store_password = false
+encryption_hipaa_mode = true        # Enforces restrictions
+encryption_allow_print = false      # Must be false for HIPAA
+```
+
+### Audit Trail (HIPAA §164.312(b))
+
+```toml
 audit_enabled = true
-audit_retention_days = 90
+audit_retention_days = 2190         # 6 years for HIPAA
+audit_integrity_enabled = true      # HMAC chain verification
+audit_siem_enabled = false
+audit_siem_format = "cef"           # cef, leef, json, syslog
+audit_siem_host = "siem.company.com"
+audit_siem_port = 514
+```
 
-# Revocation Checking
-revocation_check_enabled = false
-revocation_check_timeout = 10
-revocation_prefer_ocsp = true
+### SIEM Integration
 
-# Appearance
-theme = "system"  # system, light, dark
+```toml
+# SIEM Export Configuration
+siem_enabled = true
+siem_format = "cef"                 # CEF (Splunk/ArcSight), LEEF (QRadar), JSON
+siem_protocol = "tls"               # udp, tcp, tls
+siem_host = "siem.company.com"
+siem_port = 6514
+siem_tls_verify = true
 ```
 
 ### TSA Servers
@@ -257,6 +496,134 @@ theme = "system"  # system, light, dark
 | FreeTSA | `https://freetsa.org/tsr` | Free, reliable |
 | DigiCert | `http://timestamp.digicert.com` | Fast |
 | Sectigo | `http://timestamp.sectigo.com` | Enterprise |
+| GlobalSign | `http://timestamp.globalsign.com/tsa/r6advanced1` | Advanced |
+
+---
+
+## 🏗️ Architecture
+
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                          PDFSigner v2.0                                       │
+├──────────────────────────────────────────────────────────────────────────────┤
+│   GUI (GTK4/Adwaita)  │   CLI (argparse)   │   REST API (FastAPI 60+ endpoints)│
+├──────────────────────────────────────────────────────────────────────────────┤
+│                            SECURITY LAYER                                     │
+│  RBAC (5 roles) │ MFA/TOTP │ Session Manager │ TLS Enforcer │ Key Manager    │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                             CORE LAYER                                        │
+│  PDFSigner (6 phases) │ PDFEncryptor │ PDFValidator │ PHI/PII Scanner        │
+│         │                    │              │                                 │
+│  DSSManager │ ArchiveTSManager │ SealManager │ RedactionEngine              │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                           COMPLIANCE LAYER                                    │
+│  ComplianceChecker │ EvidenceCollector │ ReportGenerator │ SIEMExporter     │
+│  (HIPAA, NIST, FedRAMP, eIDAS, GDPR, SOC2)                                  │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                             DATA LAYER                                        │
+│  UserRepository │ AuditLogger (HMAC) │ SessionStore │ CredentialStore       │
+├──────────────────────────────────────────────────────────────────────────────┤
+│  PKCS#11 Token │ NSS Database │ TSA Server │ EU Trusted Lists │ SQLite     │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
+
+### Key Modules
+
+| Module | Purpose |
+|--------|---------|
+| `core/signer/pdf_signer.py` | Main signing engine (6 phases) |
+| `core/signer/dss_manager.py` | DSS embedding for PAdES B-LT |
+| `core/signer/archive_ts_manager.py` | Archive timestamps (B-LTA) |
+| `core/encryption/pdf_encryptor.py` | AES-256 encryption (HIPAA) |
+| `core/validator/pdf_validator.py` | Signature verification + PAdES detection |
+| `core/compliance/checker.py` | Multi-standard compliance verification |
+| `core/compliance/formatters.py` | PDF/JSON/CSV/CEF report generation |
+| `core/audit/audit_logger.py` | HMAC-signed audit trail |
+| `core/audit/siem_exporter.py` | SIEM integration (CEF/LEEF/Syslog) |
+| `core/users/user_repository.py` | SQLite user management |
+| `core/rbac/authorization.py` | Role-based access control |
+| `core/eidas/tsp_registry.py` | EU Trusted List management |
+| `core/eidas/seal_manager.py` | Electronic seals for organizations |
+| `api/` | REST API (FastAPI + JWT/API Key) |
+
+### Signing Phases
+
+1. **Prepare** - Signing context and certificate chain
+2. **Fields** - Create signature fields
+3. **Stamps** - Visual signature stamps (multi-page)
+4. **Sign** - Cryptographic signature with pyHanko
+5. **DSS** - Embed OCSP/CRL for LTV (B-LT)
+6. **Archive TS** - Add archive timestamp (B-LTA)
+
+### PAdES Compliance Levels
+
+| Level | Description | Support |
+|-------|-------------|---------|
+| **B-B** | Basic signature | ✅ |
+| **B-T** | Signature with timestamp | ✅ |
+| **B-LT** | Long-term validation (DSS) | ✅ |
+| **B-LTA** | Long-term archival (archive TS) | ✅ |
+
+---
+
+## 🧪 Development
+
+```bash
+# Setup
+git clone https://github.com/vdirienzo/pdfsigner.git
+cd pdfsigner
+uv sync --all-extras
+echo "/usr/lib/python3/dist-packages" > .venv/lib/python3.*/site-packages/system-packages.pth
+
+# Run tests (2307+ tests)
+uv run pytest -v
+uv run pytest --cov=src --cov-report=term-missing
+
+# Run specific test suites
+uv run pytest tests/unit/                    # Unit tests
+uv run pytest tests/integration/test_api.py  # API tests
+uv run pytest tests/unit/test_rbac.py        # RBAC tests
+uv run pytest tests/unit/test_audit*.py      # Audit tests
+
+# Code quality
+uv run ruff check --fix . && uv run ruff format .
+uv run mypy src/
+uv run pre-commit run --all-files
+```
+
+### Test Coverage
+
+| Module | Tests | Description |
+|--------|-------|-------------|
+| Core (signer, validator) | ~600 | Signing and validation |
+| Archive TS | 71 | B-LTA timestamps |
+| DSS Manager | 35 | B-LT validation data |
+| Encryption | 45 | AES-256, HIPAA validation |
+| Audit | 52 | HMAC integrity, SIEM export |
+| RBAC | 38 | Permissions, authorization |
+| Users | 41 | Repository, certificate binding |
+| Compliance | 146 | Checker, reports, evidence |
+| eIDAS | 78 | TSP registry, electronic seals |
+| API | 120+ | REST endpoints |
+| GUI | ~200 | Mocked GTK widgets |
+| **Total** | **2307+** | **87% core coverage** |
+
+---
+
+## 📚 Security Documentation
+
+PDFSigner includes comprehensive security documentation for audits:
+
+| Document | Size | Purpose |
+|----------|------|---------|
+| `docs/security/SSP.md` | 39 KB | System Security Plan (FedRAMP/NIST) |
+| `docs/security/access-control-policy.md` | 20 KB | RBAC, sessions, user lifecycle |
+| `docs/security/audit-policy.md` | 45 KB | Audit events, SIEM, retention |
+| `docs/security/encryption-policy.md` | 47 KB | FIPS 140-2, key management |
+| `docs/security/incident-response-plan.md` | 34 KB | IR procedures, escalation |
+| `docs/security/change-management.md` | 42 KB | Change control, CAB process |
+
+**Total: ~236 KB of professional security documentation**
 
 ---
 
@@ -272,83 +639,6 @@ theme = "system"  # system, light, dark
 | SoftHSM | `libsofthsm2.so` | ✅ Tested |
 
 > **Add new tokens:** Edit `PKCS11_LIB_PATHS` in `src/pdfsigner/core/token/pkcs11_libs.py`
-
----
-
-## 🏗️ Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                         PDFSigner v1.3                          │
-├─────────────────────────────────────────────────────────────────┤
-│   GUI (GTK4)   │   CLI (argparse)   │   REST API (FastAPI)     │
-├─────────────────────────────────────────────────────────────────┤
-│                         CORE LAYER                               │
-│  BatchManager → PDFSigner (6 phases) → DSSManager → ArchiveTS   │
-│       ↓              ↓                      ↓                    │
-│  NSSHandler    PositionFinder         PDFValidator              │
-│  (PKCS#11)      (PyMuPDF)          (PAdES level detection)      │
-├─────────────────────────────────────────────────────────────────┤
-│  USB Token  │  NSS Database  │  TSA Server  │  Archive TS DB    │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Signing Phases
-
-1. **Prepare** - Signing context and certificate chain
-2. **Fields** - Create signature fields
-3. **Stamps** - Visual signature stamps (multi-page)
-4. **Sign** - Cryptographic signature with pyHanko
-5. **DSS** - Embed OCSP/CRL for LTV (B-LT)
-6. **Archive TS** - Add archive timestamp (B-LTA)
-
-### Key Modules
-
-| Module | Purpose |
-|--------|---------|
-| `core/signer/pdf_signer.py` | Main signing engine (6 phases) |
-| `core/signer/dss_manager.py` | DSS embedding for PAdES B-LT |
-| `core/signer/archive_ts_manager.py` | Archive timestamps (B-LTA) |
-| `core/signer/archive_ts_scheduler.py` | Long-term PDF monitoring |
-| `core/validator/pdf_validator.py` | Signature verification + PAdES detection |
-| `core/token/nss_handler.py` | PKCS#11 token communication |
-| `api/` | REST API (FastAPI + JWT) |
-
----
-
-## 🧪 Development
-
-```bash
-# Setup
-git clone https://github.com/vdirienzo/pdfsigner.git
-cd pdfsigner
-uv sync --all-extras
-echo "/usr/lib/python3/dist-packages" > .venv/lib/python3.*/site-packages/system-packages.pth
-
-# Run tests (1240+ tests)
-uv run pytest -v
-uv run pytest --cov=src --cov-report=term-missing
-
-# Run specific test suites
-uv run pytest tests/unit/                    # Unit tests
-uv run pytest tests/integration/test_api.py  # API tests (39)
-uv run pytest tests/e2e/                     # E2E tests
-
-# Code quality
-uv run ruff check --fix . && uv run ruff format .
-uv run mypy src/
-uv run pre-commit run --all-files
-```
-
-### Test Coverage
-
-| Module | Tests | Coverage |
-|--------|-------|----------|
-| Core (signer, validator) | ~600 | 87% |
-| Archive TS | 71 | 96% |
-| DSS Manager | 35 | 95% |
-| API | 39 | 65% |
-| GUI | ~200 | mocked |
 
 ---
 
@@ -389,6 +679,7 @@ sudo pacman -S python-gobject gtk4 libadwaita nss opensc
 | `Ctrl+O` | Open files |
 | `Ctrl+S` | Sign files |
 | `Ctrl+Shift+V` | Validate signatures |
+| `Ctrl+E` | Encrypt PDF |
 | `Ctrl+L` / `Delete` | Clear file list |
 | `Ctrl+?` | Shortcuts help |
 | `Ctrl+,` | Settings |
@@ -405,7 +696,20 @@ sudo pacman -S python-gobject gtk4 libadwaita nss opensc
 | Token not detected | Check: `lsusb`, `modutil -list -dbdir sql:$HOME/.nss` |
 | TSA timeout | Try alternative: `tsa_url = "http://timestamp.digicert.com"` |
 | API auth error | Set `PDFSIGNER_API_JWT_SECRET_KEY` env var |
+| FIPS mode error | Ensure OpenSSL FIPS provider is configured |
 | AppImage libfuse | `./PDFSigner-*.AppImage --appimage-extract && ./squashfs-root/AppRun` |
+
+---
+
+## 📸 Screenshots
+
+| Main Window | Signature Options |
+|-------------|-------------------|
+| ![Main Window](screenshots/01.png) | ![Options](screenshots/02.png) |
+
+| Settings | Healthcare Mode |
+|----------|-----------------|
+| ![Settings](screenshots/03.png) | ![Healthcare](screenshots/04.png) |
 
 ---
 
@@ -418,5 +722,9 @@ MIT License - See [LICENSE](LICENSE) for details.
 <p align="center">
   <strong>Built with Python, GTK4, FastAPI, and pyHanko</strong>
   <br>
-  <sub>PAdES B-LTA compliant • eIDAS ready • Enterprise-grade</sub>
+  <sub>PAdES B-LTA • HIPAA Compliant • NIST 800-53 • FedRAMP Ready • eIDAS QES • GDPR Ready</sub>
+  <br><br>
+  <a href="docs/security/README.md">Security Documentation</a> •
+  <a href="http://localhost:8000/docs">API Documentation</a> •
+  <a href="GOV_COMPLIANCE_PLAN.md">Compliance Plan</a>
 </p>
