@@ -1,3 +1,14 @@
+pdfsigner (1.0.1-1) unstable; urgency=medium
+
+  * Fix: audit_logger date iteration bug on month boundaries
+  * Improved: explicit RuntimeError instead of assert in nss_handler
+  * Improved: debug logging in silent exception handlers
+  * Refactor: extract _load_fonts() helper in stamp_composer
+  * Security: add nosec comments for bandit false positives
+  * Types: fix annotations in report_generator
+
+ -- Homero Thompson del Lago del Terror <noreply@example.com>  Fri, 31 Jan 2026 22:30:00 +0000
+
 pdfsigner (1.0.0-1) unstable; urgency=medium
 
   * First stable release with enterprise features

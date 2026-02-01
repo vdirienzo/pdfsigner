@@ -6,6 +6,22 @@ Format: [SemVer](https://semver.org/) with `Added | Changed | Fixed | Security` 
 
 ---
 
+## [1.0.1] - 2026-01-31
+
+### Fixed
+- **Audit Logger:** Date iteration bug when querying events across month boundaries (e.g., Jan 31 → Feb). Now uses `day=1` when incrementing months to avoid "day is out of range" errors.
+
+### Changed
+- **NSSHandler:** Replace `assert` statements with explicit `RuntimeError` for better error messages in production/optimized mode.
+- **Exception Handling:** Add debug logging to 7 silent `except` blocks across `chain_validator.py`, `credential_manager.py`, `content_analyzer.py`, `pdf_validator.py` for improved observability.
+- **Stamp Composer:** Extract duplicated font loading logic into `_load_fonts()` helper function (DRY principle).
+- **Report Generator:** Fix type annotations to use `list[Paragraph | Spacer | Table]` for proper mypy validation.
+
+### Security
+- Add `# nosec` comments with explanations for Bandit false positives in `audit_event.py` and `nss_setup.py`.
+
+---
+
 ## [1.0.0] - 2026-01-27
 
 ### Added - Major Security & Compliance Features
