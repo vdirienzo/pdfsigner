@@ -83,6 +83,10 @@ pythonpath = ["src"]
 markers = [
     "security: marks tests as security-related (cryptography, authentication, etc.)",
     "compliance: marks tests as compliance-related (GDPR, HIPAA, eIDAS)",
+    "slow: marks tests as slow-running (> 30s)",
+    "pkcs11: marks tests requiring SoftHSM or real PKCS#11 tokens",
+    "integration: marks tests as integration tests (require external services)",
+    "gui: marks tests as GUI tests (GTK4/libadwaita with mocked display)",
 ]
 
 [tool.coverage.run]
@@ -121,6 +125,7 @@ ignore_errors = true
 dev = [
     "bandit>=1.9.2",
     "pytest-cov>=7.0.0",
+    "responses>=0.25.8",
     "ruff>=0.14.11",
     "safety>=3.7.0",
 ]

@@ -433,9 +433,9 @@ NSS_DB_PATH = "~/.nss"
 | **Phase 1:** Bug Fixes | 7 regression tests | ✅ Done |
 | **Phase 2:** MFA & Auth | 62 tests (MFA, logout, CSRF) | ✅ Done |
 | **Phase 3:** Real Integration | 104 tests (PKCS#11, signing, DSS, archive TS) | ✅ Done |
-| **Phase 4:** E2E User Flows | 141 tests (GUI, settings, CLI, validation) | ✅ Done |
+| **Phase 4:** E2E User Flows | 120 tests (GUI, settings, CLI, validation) | ✅ Done |
 | **Phase 5:** Error Handling | 67 tests (exceptions, edge cases) | ✅ Done |
-| **TOTAL** | **381 new tests** | ✅ **100%** |
+| **TOTAL** | **360 new tests** | ✅ **100%** |
 
 ### Test Files Created
 
@@ -450,7 +450,7 @@ tests/
 ├── e2e/
 │   ├── test_signing_real.py     # 27 tests - PDF signing
 │   ├── test_archive_ts_e2e.py   # 31 tests - PAdES-LTA flow
-│   ├── test_gui_sign_flow.py    # 43 tests - GTK4 GUI
+│   ├── test_gui_sign_flow.py    # 22 tests - GTK4 GUI structure
 │   ├── test_settings_persistence.py # 21 tests - TOML config
 │   ├── test_cli_workflows.py    # 41 tests - CLI commands
 │   └── test_validate_complete.py # 36 tests - Validation E2E

@@ -321,7 +321,9 @@ class TestSessionManagerConcurrency:
     def test_concurrent_session_creation_respects_max_limit_enforces_correctly(
         self, manager: SessionManager
     ):
-        """Test max sessions enforced under load."""
+        """Test max sessions enforced under load by raising exceptions."""
+        from pdfsigner.exceptions import MaxSessionsExceededError
+
         with patch("pdfsigner.core.session.session_manager.get_settings") as mock_settings:
             max_sessions = 3
             mock_settings.return_value = MagicMock(
@@ -333,30 +335,45 @@ class TestSessionManagerConcurrency:
             num_attempts = 20
             user_id = "limited_user"
 
-            def create_session_task(index: int) -> Session:
+            def create_session_task(index: int) -> Session | None:
                 # Add small delay to reduce race window
                 time.sleep(0.01 * (index % 3))
-                return manager.create_session(
-                    user_id=user_id,
-                    ip_address=f"10.0.0.{index}",
-                )
+                try:
+                    return manager.create_session(
+                        user_id=user_id,
+                        ip_address=f"10.0.0.{index}",
+                    )
+                except MaxSessionsExceededError:
+                    # Expected when max sessions reached
+                    return None
 
             # Use fewer workers to reduce concurrent pressure
+            successful_sessions = []
+            failed_count = 0
+
             with ThreadPoolExecutor(max_workers=3) as executor:
                 futures = [executor.submit(create_session_task, i) for i in range(num_attempts)]
                 for future in as_completed(futures):
-                    future.result()
+                    result = future.result()
+                    if result is not None:
+                        successful_sessions.append(result)
+                    else:
+                        failed_count += 1
 
-            # After all concurrent attempts, verify limit is enforced
-            # Due to race conditions in concurrent access, we allow some tolerance
-            # but verify the mechanism works to keep sessions close to max
+            # Verify that we created exactly max_sessions (some may fail due to concurrency)
             user_sessions = manager.get_user_sessions(user_id)
             active_sessions = [s for s in user_sessions if s.is_active]
 
-            # Should be at or near max (allow small race window tolerance)
-            assert len(active_sessions) <= max_sessions * 2, (
-                f"Too many sessions created: {len(active_sessions)} > {max_sessions * 2}"
+            # Should be exactly max_sessions (or close due to race conditions)
+            assert len(active_sessions) <= max_sessions, (
+                f"Too many sessions created: {len(active_sessions)} > {max_sessions}"
             )
+            # At least max_sessions should succeed (first 3 concurrent calls)
+            assert len(successful_sessions) >= max_sessions, (
+                f"Too few sessions created: {len(successful_sessions)} < {max_sessions}"
+            )
+            # Most attempts should fail with MaxSessionsExceededError
+            assert failed_count > 0, "Expected some session creation attempts to fail"
 
             # After cleanup enforcement, should be at max
             manager.enforce_max_sessions(user_id)

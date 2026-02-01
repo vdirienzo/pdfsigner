@@ -14,7 +14,7 @@ from pdfsigner.core.encryption.encryption_config import (
     EncryptionMethod,
     EncryptionStrength,
 )
-from pdfsigner.exceptions import PDFCorruptedError
+from pdfsigner.exceptions import HIPAAComplianceError, PDFCorruptedError
 
 
 @dataclass
@@ -157,6 +157,44 @@ class EncryptionValidator:
         except Exception as e:
             logger.error(f"Cannot check modify permissions for {pdf_path}: {e}")
             return False
+
+    def validate_hipaa_settings(
+        self,
+        encryption_strength: str,
+        allow_print: bool,
+        encryption_enabled: bool = True,
+    ) -> None:
+        """
+        Validate encryption settings meet HIPAA requirements.
+
+        HIPAA §164.312(a)(2)(iv) requires:
+        - AES-256 encryption (AES-128 minimum)
+        - No print permissions on PHI documents
+        - Encryption enabled for ePHI at rest
+
+        Args:
+            encryption_strength: Encryption strength ("aes128" or "aes256")
+            allow_print: Whether printing is allowed
+            encryption_enabled: Whether encryption is enabled
+
+        Raises:
+            HIPAAComplianceError: If settings don't meet HIPAA requirements
+        """
+        errors = []
+
+        if not encryption_enabled:
+            errors.append("Encryption must be enabled for ePHI at rest")
+
+        if encryption_strength != "aes256":
+            errors.append(
+                "HIPAA requires AES-256 encryption (AES-128 minimum met but not recommended)"
+            )
+
+        if allow_print:
+            errors.append("Print permissions must be disabled for PHI documents")
+
+        if errors:
+            raise HIPAAComplianceError("; ".join(errors))
 
     def _detect_strength(self, doc: fitz.Document) -> EncryptionStrength | None:
         """Detect encryption strength from PDF metadata."""

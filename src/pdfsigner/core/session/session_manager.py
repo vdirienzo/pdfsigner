@@ -16,7 +16,7 @@ from pathlib import Path
 from loguru import logger
 
 from pdfsigner.config.settings import get_settings
-from pdfsigner.exceptions import SessionExpiredError
+from pdfsigner.exceptions import MaxSessionsExceededError, SessionExpiredError
 
 
 @dataclass
@@ -164,6 +164,21 @@ class SessionManager:
         timeout_minutes = self._get_timeout_minutes()
         expires_at = now + timedelta(minutes=timeout_minutes)
 
+        # Check session limit BEFORE creating new session
+        if self._is_healthcare_mode():
+            active_count = self.get_active_session_count(user_id)
+            max_sessions = self._get_max_sessions()
+
+            if active_count >= max_sessions:
+                raise MaxSessionsExceededError(
+                    max_sessions=max_sessions,
+                    message=(
+                        f"User {user_id} has {active_count} active sessions. "
+                        f"Maximum allowed: {max_sessions}. "
+                        "Please terminate an existing session first."
+                    ),
+                )
+
         session = Session(
             id=str(uuid.uuid4()),
             user_id=user_id,
@@ -173,10 +188,6 @@ class SessionManager:
             ip_address=ip_address,
             user_agent=user_agent,
         )
-
-        # Enforce max sessions if healthcare mode is enabled
-        if self._is_healthcare_mode():
-            self.enforce_max_sessions(user_id)
 
         with self._get_connection() as conn:
             conn.execute(
@@ -405,6 +416,20 @@ class SessionManager:
                 "SELECT * FROM sessions WHERE user_id = ? ORDER BY created_at DESC", (user_id,)
             ).fetchall()
             return [self._row_to_session(row) for row in rows]
+
+    def get_active_session_count(self, user_id: str) -> int:
+        """
+        Get count of active (non-expired) sessions for a user.
+
+        Args:
+            user_id: User ID
+
+        Returns:
+            Number of active sessions
+        """
+        sessions = self.get_user_sessions(user_id)
+        active_sessions = [s for s in sessions if s.is_active]
+        return len(active_sessions)
 
     def cleanup_expired(self) -> int:
         """

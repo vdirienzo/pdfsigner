@@ -158,8 +158,11 @@ class SessionExpiredError(SessionError):
 class MaxSessionsExceededError(SessionError):
     """User has exceeded maximum concurrent sessions."""
 
-    def __init__(self, max_sessions: int):
-        super().__init__(f"Maximum concurrent sessions ({max_sessions}) exceeded")
+    def __init__(self, max_sessions: int, message: str | None = None):
+        if message:
+            super().__init__(message)
+        else:
+            super().__init__(f"Maximum concurrent sessions ({max_sessions}) exceeded")
 
 
 # --- Emergency Access Errors ---

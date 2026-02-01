@@ -73,8 +73,8 @@ async def enroll_mfa(
         mfa_manager = get_mfa_manager()
 
         # Check if already enrolled
-        status = mfa_manager.get_status(current_user.id)
-        if status.enabled:
+        mfa_status = mfa_manager.get_status(current_user.id)
+        if mfa_status.enabled:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
                 detail="MFA is already enabled for this user",
@@ -95,6 +95,8 @@ async def enroll_mfa(
             backup_codes=enrollment.backup_codes,
         )
 
+    except HTTPException:
+        raise
     except ValueError as e:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -197,8 +199,8 @@ async def verify_backup_code(
         mfa_manager = get_mfa_manager()
 
         # Check if MFA is enabled
-        status = mfa_manager.get_status(current_user.id)
-        if not status.enabled:
+        mfa_status = mfa_manager.get_status(current_user.id)
+        if not mfa_status.enabled:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="MFA is not enabled for this user",
@@ -219,7 +221,7 @@ async def verify_backup_code(
             return MFABackupCodeResponse(
                 success=False,
                 message="Invalid or already used backup code",
-                remaining_codes=status.backup_codes_remaining,
+                remaining_codes=mfa_status.backup_codes_remaining,
             )
 
     except HTTPException:
@@ -252,13 +254,13 @@ async def get_mfa_status(
     """
     try:
         mfa_manager = get_mfa_manager()
-        status = mfa_manager.get_status(current_user.id)
+        mfa_status = mfa_manager.get_status(current_user.id)
 
         return MFAStatusResponse(
-            enabled=status.enabled,
-            enrolled_at=status.enrolled_at,
-            last_used_at=status.last_used_at,
-            backup_codes_remaining=status.backup_codes_remaining,
+            enabled=mfa_status.enabled,
+            enrolled_at=mfa_status.enrolled_at,
+            last_used_at=mfa_status.last_used_at,
+            backup_codes_remaining=mfa_status.backup_codes_remaining,
         )
 
     except Exception as e:
@@ -385,8 +387,8 @@ async def regenerate_backup_codes(
         mfa_manager = get_mfa_manager()
 
         # Check if MFA is enabled
-        status = mfa_manager.get_status(current_user.id)
-        if not status.enabled:
+        mfa_status = mfa_manager.get_status(current_user.id)
+        if not mfa_status.enabled:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="MFA is not enabled for this user",
