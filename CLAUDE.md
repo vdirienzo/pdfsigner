@@ -17,7 +17,7 @@ uv run pdfsigner sign file.pdf          # CLI
 uv run pdfsigner --dry-run sign file.pdf  # Without real token
 
 # Tests
-uv run pytest -v                        # All tests (764)
+uv run pytest -v                        # All tests (868)
 uv run pytest tests/unit/ -v            # Unit only
 uv run pytest -k "test_health" -v       # Pattern match
 uv run pytest tests/unit/test_position_finder.py::test_find_position_avoids_content -v  # Single test
@@ -201,9 +201,30 @@ HTTPTimeStamper(url=tsa_url, https_timeout=30)  # Will fail!
 ### Output Convention
 - Suffix: `_signed` (e.g., `document.pdf` → `document_signed.pdf`)
 
+### Date Iteration in audit_logger
+When iterating months in `_get_log_files_in_range()`, always use `day=1`:
+```python
+# CORRECT - avoids "day out of range" errors (e.g., Jan 31 → Feb)
+current = current.replace(month=current.month + 1, day=1)
+
+# WRONG - fails when current day doesn't exist in next month
+current = current.replace(month=current.month + 1)  # Crashes on Jan 31!
+```
+
+### Production Code: Avoid assert
+Use explicit exceptions instead of `assert` (removed in `-O` mode):
+```python
+# CORRECT - works in optimized mode
+if self._lib is None:
+    raise RuntimeError("NSSHandler not initialized")
+
+# WRONG - silently skipped with python -O
+assert self._lib is not None
+```
+
 ## Testing Notes
 
-- **Coverage:** 87% core (excludes `gui/`, `ui/`, `cli/` - see `pyproject.toml`)
+- **Coverage:** 85% core (excludes `gui/`, `ui/`, `cli/` - see `pyproject.toml`)
 - **GUI tests:** Use mocks in `conftest_gui.py`, no display required
 - **Integration tests:** Require internet (TSA servers)
 - **E2E tests:** Dry-run mode (`tests/e2e/`), covers full signing workflow with all variants
