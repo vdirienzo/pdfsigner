@@ -349,7 +349,9 @@ class Settings(BaseSettings):
     )
     phi_detection_block_unencrypted: bool = Field(
         default=False,
-        description="Block signing if PHI detected without encryption (requires phi_detection_enabled)",
+        description=(
+            "Block signing if PHI detected without encryption (requires phi_detection_enabled)"
+        ),
     )
 
     # --- Encryption Policy Settings (HIPAA §164.312(a)(2)(iv)) ---
@@ -383,8 +385,11 @@ class Settings(BaseSettings):
     # --- FIPS 140-2 Compliance ---
     fips_mode_enabled: bool = Field(
         default=False,
-        description="Enable FIPS 140-2 compliant cryptography mode. "
-        "When enabled, only FIPS-validated algorithms are allowed (SHA-256/384/512, AES-128/256, RSA-2048+).",
+        description=(
+            "Enable FIPS 140-2 compliant cryptography mode. "
+            "When enabled, only FIPS-validated algorithms are allowed "
+            "(SHA-256/384/512, AES-128/256, RSA-2048+)."
+        ),
     )
     fips_strict_mode: bool = Field(
         default=True,
@@ -426,7 +431,10 @@ class Settings(BaseSettings):
     )
     key_storage_master_password: str = Field(
         default="",
-        description="Master password for key encryption (should be set via PDFSIGNER_KEY_STORAGE_MASTER_PASSWORD env var)",
+        description=(
+            "Master password for key encryption "
+            "(should be set via PDFSIGNER_KEY_STORAGE_MASTER_PASSWORD env var)"
+        ),
     )
     key_default_expiry_days: int = Field(
         default=365,
@@ -552,7 +560,9 @@ class Settings(BaseSettings):
     )
     seal_appearance: Literal["invisible", "stamp", "banner", "logo"] = Field(
         default="stamp",
-        description="Default seal appearance: invisible, stamp (circular), banner (rectangular), logo",
+        description=(
+            "Default seal appearance: invisible, stamp (circular), banner (rectangular), logo"
+        ),
     )
     seal_include_timestamp: bool = Field(
         default=True,
@@ -584,11 +594,24 @@ class Settings(BaseSettings):
         default=7,
         ge=1,
         le=30,
-        description="Days to cache EU Trusted Service Provider List (1-30, eIDAS requires weekly updates)",
+        description=(
+            "Days to cache EU Trusted Service Provider List (1-30, eIDAS requires weekly updates)"
+        ),
     )
     eidas_auto_update: bool = Field(
         default=True,
         description="Automatically update TSL when cache expires",
+    )
+
+    # --- Argentina Compliance (Ley 25.506) ---
+    argentine_compliance_enabled: bool = Field(
+        default=False,
+        description="Enable Argentine digital signature law compliance validation (Ley 25.506)",
+    )
+    argentine_strict_mode: bool = Field(
+        default=False,
+        description="Only accept certificates from licensed Argentine certifiers "
+        "(AFIP, RENAPER, FDR, etc. - requires argentine_compliance_enabled)",
     )
 
     @field_validator("nss_db_path")

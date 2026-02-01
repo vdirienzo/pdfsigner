@@ -268,3 +268,151 @@ msgstr "El PDF está protegido con contraseña"
 
 msgid "TSA connection failed"
 msgstr "Conexión TSA fallida"
+
+# Argentina Compliance Page
+msgid "Argentina"
+msgstr "Argentina"
+
+msgid "Ley 25.506 Compliance"
+msgstr "Cumplimiento Ley 25.506"
+
+msgid "Settings for Argentine digital signature law compliance. Enables validation of certificates from licensed certifiers."
+msgstr "Configuración para el cumplimiento de la ley de firma digital argentina. Permite validar certificados de certificadores licenciados."
+
+msgid "Enable Argentine compliance"
+msgstr "Habilitar cumplimiento argentino"
+
+msgid "Validate certificates against licensed certifiers (AFIP, RENAPER, etc.)"
+msgstr "Validar certificados contra certificadores licenciados (AFIP, RENAPER, etc.)"
+
+msgid "Activate validation for Argentine licensed certifiers"
+msgstr "Activar validación para certificadores licenciados argentinos"
+
+msgid "Strict mode"
+msgstr "Modo estricto"
+
+msgid "Only accept certificates from licensed Argentine certifiers"
+msgstr "Aceptar solo certificados de certificadores argentinos licenciados"
+
+msgid "Reject certificates not issued by licensed Argentine certifiers"
+msgstr "Rechazar certificados no emitidos por certificadores argentinos licenciados"
+
+msgid "Governmental Certifiers (Free)"
+msgstr "Certificadores Gubernamentales (Gratuitos)"
+
+msgid "Licensed certifiers that provide free certificates to citizens and taxpayers"
+msgstr "Certificadores licenciados que proporcionan certificados gratuitos a ciudadanos y contribuyentes"
+
+msgid "For taxpayers with CUIT - Token/Software - Free"
+msgstr "Para contribuyentes con CUIT - Token/Software - Gratuito"
+
+msgid "Website"
+msgstr "Sitio web"
+
+msgid "AFIP website"
+msgstr "Sitio web de AFIP"
+
+msgid "Visit AFIP Clave Fiscal website for certificate information"
+msgstr "Visite el sitio web de Clave Fiscal de AFIP para información sobre certificados"
+
+msgid "Digital DNI - Remote signature - Free for citizens"
+msgstr "DNI Digital - Firma remota - Gratuito para ciudadanos"
+
+msgid "RENAPER website"
+msgstr "Sitio web de RENAPER"
+
+msgid "Visit RENAPER website for Digital DNI information"
+msgstr "Visite el sitio web de RENAPER para información sobre el DNI Digital"
+
+msgid "Remote signature with HSM - Free for citizens"
+msgstr "Firma remota con HSM - Gratuito para ciudadanos"
+
+msgid "FDR website"
+msgstr "Sitio web de FDR"
+
+msgid "Visit FDR website for remote signature service"
+msgstr "Visite el sitio web de FDR para el servicio de firma remota"
+
+msgid "Social security works - Token - Free"
+msgstr "Obras sociales - Token - Gratuito"
+
+msgid "Private Certifiers"
+msgstr "Certificadores Privados"
+
+msgid "Licensed certifiers with annual subscription fees"
+msgstr "Certificadores licenciados con tarifas de suscripción anual"
+
+msgid "Token - USD 80-200/year"
+msgstr "Token - USD 80-200/año"
+
+msgid "Andreani website"
+msgstr "Sitio web de Andreani"
+
+msgid "Visit Andreani website for certificate information"
+msgstr "Visite el sitio web de Andreani para información sobre certificados"
+
+msgid "Token/Software - USD 100-300/year"
+msgstr "Token/Software - USD 100-300/año"
+
+msgid "E-CERT website"
+msgstr "Sitio web de E-CERT"
+
+msgid "Visit E-CERT website for certificate information"
+msgstr "Visite el sitio web de E-CERT para información sobre certificados"
+
+msgid "Token - USD 100-250/year"
+msgstr "Token - USD 100-250/año"
+
+msgid "Certant website"
+msgstr "Sitio web de Certant"
+
+msgid "Visit Certant website for certificate information"
+msgstr "Visite el sitio web de Certant para información sobre certificados"
+
+msgid "College of Notaries CABA"
+msgstr "Colegio de Escribanos CABA"
+
+msgid "For notaries - Token - Annual fee"
+msgstr "Para escribanos - Token - Tarifa anual"
+
+msgid "Legal Information"
+msgstr "Información Legal"
+
+msgid "Important Notice"
+msgstr "Aviso Importante"
+
+msgid "PDFSigner does NOT issue digital certificates. For full legal validity under Ley 25.506, you must use a certificate from a licensed certifier (AFIP, RENAPER, FDR, or any private certifier)."
+msgstr "PDFSigner NO emite certificados digitales. Para validez legal completa bajo la Ley 25.506, debe usar un certificado de un certificador licenciado (AFIP, RENAPER, FDR, o cualquier certificador privado)."
+
+msgid "Legal disclaimer"
+msgstr "Aviso legal"
+
+msgid "Important notice about certificate requirements for legal validity"
+msgstr "Aviso importante sobre requisitos de certificados para validez legal"
+
+msgid "Official Certifier List"
+msgstr "Lista Oficial de Certificadores"
+
+msgid "AAIP - National Agency for Access to Public Information (Supervisory Authority)"
+msgstr "AAIP - Agencia Nacional de Acceso a la Información Pública (Autoridad de Supervisión)"
+
+msgid "View"
+msgstr "Ver"
+
+msgid "AAIP website"
+msgstr "Sitio web de AAIP"
+
+msgid "Visit AAIP website for official list of licensed certifiers"
+msgstr "Visite el sitio web de AAIP para la lista oficial de certificadores licenciados"
+
+msgid "Digital Signature Law"
+msgstr "Ley de Firma Digital"
+
+msgid "Ley 25.506 - Full legal text"
+msgstr "Ley 25.506 - Texto legal completo"
+
+msgid "Ley 25.506 text"
+msgstr "Texto Ley 25.506"
+
+msgid "View full text of Argentine Digital Signature Law"
+msgstr "Ver texto completo de la Ley Argentina de Firma Digital"

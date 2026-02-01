@@ -13,6 +13,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk
 
+from pdfsigner.core.presets import get_preset_manager
 from pdfsigner.gui.a11y import set_accessible
 from pdfsigner.i18n import _
 
@@ -70,7 +71,41 @@ def create_argentina_page(settings, dialog) -> Adw.PreferencesPage:
 
     page.add(compliance_group)
 
-    # --- Group 2: Governmental Certifiers (Free) ---
+    # --- Group 2: Configuration Preset ---
+    preset_group = Adw.PreferencesGroup()
+    preset_group.set_title(_("Quick Configuration"))
+    preset_group.set_description(
+        _(
+            "Apply recommended settings for Argentine compliance with one click. "
+            "Enables PAdES B-LT/LTA, FIPS mode, and audit trail."
+        )
+    )
+
+    # Button: Apply Argentina preset
+    preset_row = Adw.ActionRow()
+    preset_row.set_title(_("Apply Argentina preset"))
+    preset_row.set_subtitle(
+        _(
+            "LTV + Archive TS + FIPS mode + Audit trail. "
+            "Recommended for legal documents under Ley 25.506."
+        )
+    )
+    preset_button = Gtk.Button()
+    preset_button.set_label(_("Apply"))
+    preset_button.add_css_class("suggested-action")
+    preset_button.connect("clicked", _on_apply_preset_clicked, settings, dialog)
+    set_accessible(
+        preset_button,
+        _("Apply Argentina preset"),
+        _("Apply recommended configuration for Argentine digital signature compliance"),
+    )
+    preset_row.add_suffix(preset_button)
+    preset_row.set_activatable_widget(preset_button)
+    preset_group.add(preset_row)
+
+    page.add(preset_group)
+
+    # --- Group 3: Governmental Certifiers (Free) ---
     gov_group = Adw.PreferencesGroup()
     gov_group.set_title(_("Governmental Certifiers (Free)"))
     gov_group.set_description(
@@ -81,6 +116,13 @@ def create_argentina_page(settings, dialog) -> Adw.PreferencesPage:
     afip_row = Adw.ActionRow()
     afip_row.set_title("AFIP")
     afip_row.set_subtitle(_("For taxpayers with CUIT - Token/Software - Free"))
+    afip_row.set_tooltip_text(
+        "AFIP - Administración Federal de Ingresos Públicos\n"
+        "Certificados gratuitos para contribuyentes con CUIT.\n"
+        "Requiere Clave Fiscal nivel 3 o superior.\n"
+        "Modalidad: Token USB (SafeNet eToken) o Software.\n"
+        "Renovación anual gratuita."
+    )
     afip_link = Gtk.LinkButton(uri="https://www.afip.gob.ar/cl_fiscal/")
     afip_link.set_label(_("Website"))
     set_accessible(
@@ -95,6 +137,13 @@ def create_argentina_page(settings, dialog) -> Adw.PreferencesPage:
     renaper_row = Adw.ActionRow()
     renaper_row.set_title("RENAPER")
     renaper_row.set_subtitle(_("Digital DNI - Remote signature - Free for citizens"))
+    renaper_row.set_tooltip_text(
+        "RENAPER - Registro Nacional de las Personas\n"
+        "Certificado digital integrado en el DNI argentino.\n"
+        "Disponible para todos los ciudadanos argentinos.\n"
+        "Modalidad: Token USB integrado en el DNI.\n"
+        "Gratuito, requiere DNI actualizado (emitido después de 2019)."
+    )
     renaper_link = Gtk.LinkButton(uri="https://www.argentina.gob.ar/interior/renaper")
     renaper_link.set_label(_("Website"))
     set_accessible(
@@ -109,6 +158,13 @@ def create_argentina_page(settings, dialog) -> Adw.PreferencesPage:
     fdr_row = Adw.ActionRow()
     fdr_row.set_title("FDR (Firma Digital Remota)")
     fdr_row.set_subtitle(_("Remote signature with HSM - Free for citizens"))
+    fdr_row.set_tooltip_text(
+        "FDR - Firma Digital Remota (Secretaría de Innovación Pública)\n"
+        "Firma remota con módulo de seguridad hardware (HSM).\n"
+        "No requiere token físico - 100% online.\n"
+        "Autenticación mediante DNI y video-selfie.\n"
+        "Ideal para usuarios sin token USB."
+    )
     fdr_link = Gtk.LinkButton(uri="https://fdr.psi.gob.ar/")
     fdr_link.set_label(_("Website"))
     set_accessible(
@@ -123,11 +179,17 @@ def create_argentina_page(settings, dialog) -> Adw.PreferencesPage:
     iosfa_row = Adw.ActionRow()
     iosfa_row.set_title("IOSFA")
     iosfa_row.set_subtitle(_("Social security works - Token - Free"))
+    iosfa_row.set_tooltip_text(
+        "IOSFA - Instituto de Obra Social de las Fuerzas Armadas\n"
+        "Certificados digitales para personal de las fuerzas armadas.\n"
+        "Gratuito para afiliados a IOSFA.\n"
+        "Modalidad: Token USB (PKCS#11 compatible)."
+    )
     gov_group.add(iosfa_row)
 
     page.add(gov_group)
 
-    # --- Group 3: Private Certifiers ---
+    # --- Group 4: Private Certifiers ---
     private_group = Adw.PreferencesGroup()
     private_group.set_title(_("Private Certifiers"))
     private_group.set_description(_("Licensed certifiers with annual subscription fees"))
@@ -136,6 +198,13 @@ def create_argentina_page(settings, dialog) -> Adw.PreferencesPage:
     andreani_row = Adw.ActionRow()
     andreani_row.set_title("Andreani")
     andreani_row.set_subtitle(_("Token - USD 80-200/year"))
+    andreani_row.set_tooltip_text(
+        "Andreani - Certificadora Digital Privada\n"
+        "Token SafeNet eToken certificado por ONTI.\n"
+        "Compatible con PDFSigner y Linux/GNOME.\n"
+        "Costo: USD 80-200/año según nivel de certificación.\n"
+        "Renovación anual con soporte técnico incluido."
+    )
     andreani_link = Gtk.LinkButton(uri="https://www.andreani.com/")
     andreani_link.set_label(_("Website"))
     set_accessible(
@@ -150,6 +219,13 @@ def create_argentina_page(settings, dialog) -> Adw.PreferencesPage:
     ecert_row = Adw.ActionRow()
     ecert_row.set_title("E-CERT")
     ecert_row.set_subtitle(_("Token/Software - USD 100-300/year"))
+    ecert_row.set_tooltip_text(
+        "E-CERT - NIC Argentina\n"
+        "Múltiples niveles de certificación disponibles.\n"
+        "Modalidad: Token USB o Certificado Software.\n"
+        "Costo: USD 100-300/año según nivel.\n"
+        "Certificados con validación de identidad presencial o remota."
+    )
     ecert_link = Gtk.LinkButton(uri="https://www.e-cert.com.ar/")
     ecert_link.set_label(_("Website"))
     set_accessible(
@@ -164,6 +240,13 @@ def create_argentina_page(settings, dialog) -> Adw.PreferencesPage:
     certant_row = Adw.ActionRow()
     certant_row.set_title("Certant")
     certant_row.set_subtitle(_("Token - USD 100-250/year"))
+    certant_row.set_tooltip_text(
+        "Certant - Certificadora Digital Privada\n"
+        "Tokens PKCS#11 compatibles con Linux.\n"
+        "Costo: USD 100-250/año.\n"
+        "Validación presencial de identidad.\n"
+        "Soporte técnico especializado."
+    )
     certant_link = Gtk.LinkButton(uri="https://www.certant.com/")
     certant_link.set_label(_("Website"))
     set_accessible(
@@ -178,11 +261,18 @@ def create_argentina_page(settings, dialog) -> Adw.PreferencesPage:
     escribanos_row = Adw.ActionRow()
     escribanos_row.set_title(_("College of Notaries CABA"))
     escribanos_row.set_subtitle(_("For notaries - Token - Annual fee"))
+    escribanos_row.set_tooltip_text(
+        "Colegio de Escribanos de la Ciudad de Buenos Aires\n"
+        "Exclusivo para escribanos matriculados en CABA.\n"
+        "Token USB PKCS#11 compatible.\n"
+        "Costo: USD 150/año aproximadamente.\n"
+        "Incluye cobertura legal y soporte especializado."
+    )
     private_group.add(escribanos_row)
 
     page.add(private_group)
 
-    # --- Group 4: Legal Information ---
+    # --- Group 5: Legal Information ---
     legal_group = Adw.PreferencesGroup()
     legal_group.set_title(_("Legal Information"))
 
@@ -241,5 +331,49 @@ def create_argentina_page(settings, dialog) -> Adw.PreferencesPage:
     # Store widget references for auto-save
     dialog.argentine_enabled = argentine_enabled
     dialog.argentine_strict_mode = strict_mode
+    dialog.argentina_preset_button = preset_button
 
     return page
+
+
+def _on_apply_preset_clicked(button: Gtk.Button, settings, dialog) -> None:
+    """
+    Handle Argentina preset button click.
+
+    Applies the Argentina preset configuration to current settings and
+    updates UI widgets to reflect the changes.
+
+    Args:
+        button: Button that triggered the action
+        settings: Settings object to modify
+        dialog: Parent dialog with widget references
+    """
+    from loguru import logger
+
+    preset_manager = get_preset_manager()
+
+    # Apply preset to settings object
+    success = preset_manager.apply_preset("argentina", settings)
+
+    if not success:
+        logger.error("Failed to apply Argentina preset")
+        return
+
+    # Update UI widgets to reflect preset values
+    if hasattr(dialog, "argentine_enabled"):
+        dialog.argentine_enabled.set_active(settings.argentine_compliance_enabled)
+
+    if hasattr(dialog, "argentine_strict_mode"):
+        dialog.argentine_strict_mode.set_active(settings.argentine_strict_mode)
+
+    if hasattr(dialog, "ltv_switch"):
+        dialog.ltv_switch.set_active(settings.ltv_enabled)
+
+    if hasattr(dialog, "ltv_fail_open_switch"):
+        dialog.ltv_fail_open_switch.set_active(settings.ltv_fail_open)
+
+    # Trigger auto-save to persist changes
+    if hasattr(dialog, "_on_setting_changed"):
+        dialog._on_setting_changed()
+
+    logger.info("Argentina preset applied successfully")

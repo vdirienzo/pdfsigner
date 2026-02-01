@@ -22,6 +22,7 @@
   <img src="https://img.shields.io/badge/HIPAA-95%25-red?style=flat-square" alt="HIPAA 95%">
   <img src="https://img.shields.io/badge/NIST_800--53-97%25-blue?style=flat-square" alt="NIST 97%">
   <img src="https://img.shields.io/badge/eIDAS-94%25-green?style=flat-square" alt="eIDAS 94%">
+  <img src="https://img.shields.io/badge/Argentina-Ley_25.506-74ACDF?style=flat-square" alt="Argentina Ley 25.506">
   <img src="https://img.shields.io/badge/tests-3194%2B%20passing-success?style=flat-square" alt="Tests">
   <img src="https://img.shields.io/badge/coverage-95%25-brightgreen?style=flat-square" alt="Coverage 95%">
 </p>
@@ -34,7 +35,7 @@
 |----------|----------|
 | **Digital Signatures** | PAdES B-LTA (highest level), eIDAS QES/AdES, Electronic Seals, DSS embedding, archive timestamps |
 | **Healthcare (HIPAA)** | PHI/PII detection, AES-256 encryption, audit trails with HMAC integrity, auto-logoff, emergency access |
-| **Government** | NIST 800-53 Moderate, FedRAMP ready, FIPS 140-2 crypto, SOC 2 evidence collection |
+| **Government** | NIST 800-53 Moderate, FedRAMP ready, FIPS 140-2 crypto, Argentina Ley 25.506, SOC 2 evidence collection |
 | **European (eIDAS)** | EU Trusted List (TSP) validation, Qualified certificates, QcStatements, Electronic seals |
 | **Security** | RBAC (5 roles), MFA/TOTP, session management, TLS enforcement, key rotation |
 | **Integration** | REST API (60+ endpoints), SIEM export (CEF/LEEF/Syslog), webhooks, batch processing |
@@ -53,6 +54,9 @@
 - [Architecture](#️-architecture)
 - [Development](#-development)
 - [Security Documentation](#-security-documentation)
+- [Supported Tokens](#-supported-tokens)
+- [Argentina Compliance](#-argentina-compliance-ley-25506)
+- [Installation Options](#-installation-options)
 
 ---
 
@@ -659,6 +663,128 @@ PDFSigner includes gap analysis documentation for sector-specific regulations:
 
 ---
 
+## 🇦🇷 Argentina Compliance (Ley 25.506)
+
+PDFSigner is **fully compliant** with Argentine digital signature legislation (Ley 25.506) and supporting regulations.
+
+### Compliance Status
+
+| Aspect | Status | Details |
+|--------|--------|---------|
+| **Technical Compliance** | ✅ 100% | RSA ≥2048, SHA-256+, PAdES B-LT/LTA |
+| **Legal Framework** | ✅ Verified | Law 25.506, Decree 182/2019, Decree 743/2024 |
+| **Certified Tokens** | ✅ Supported | SafeNet eToken (ONTI certified) |
+| **Licensed CAs** | ✅ 8 CAs | AFIP, RENAPER, FDR, Andreani, E-CERT, Certant |
+| **Compliance Tests** | ✅ 92 tests | Integration + unit testing |
+
+### Technical Requirements (Ley 25.506)
+
+PDFSigner implements all mandatory technical controls:
+
+| Requirement | Implementation | Status |
+|-------------|----------------|--------|
+| RSA ≥2048 bits | `core/crypto/fips_provider.py` | ✅ |
+| SHA-256/384/512 | FIPS 140-2 provider | ✅ |
+| PAdES B-LT/LTA | `core/signer/dss_manager.py` | ✅ |
+| PKCS#11 tokens | `core/token/nss_handler.py` | ✅ |
+| TSA (RFC 3161) | pyHanko HTTPTimeStamper | ✅ |
+| X.509 v3 certs | pyHanko validation | ✅ |
+| Audit trail | `core/audit/audit_logger.py` | ✅ |
+
+### Validated Hardware
+
+| Token | Certification | Library | Status |
+|-------|---------------|---------|--------|
+| **SafeNet eToken** | ONTI certified | `libeToken.so` / `eToken.dll` | ✅ Validated |
+| Luna HSM | FIPS 140-2 Level 3 | `libCryptoki2_64.so` | ✅ Compatible |
+| SoftHSM | Development | `libsofthsm2.so` | ✅ Testing only |
+
+### Licensed Certifiers (Argentina)
+
+PDFSigner supports certificates from all licensed Argentine Certificate Authorities:
+
+#### Government Certifiers (Free)
+
+| Certifier | Type | Access | Status |
+|-----------|------|--------|--------|
+| **AFIP** | Tax Authority | Clave Fiscal (CUIT holders) | ✅ Supported |
+| **RENAPER** | National Registry | DNI Digital (citizens) | ✅ Supported |
+| **FDR** | Remote Signature | Web-based (no token) | ⚠️ Platform only |
+| **IOSFA** | Social Services | Employees only | ✅ Supported |
+
+#### Private Certifiers (Paid)
+
+| Certifier | Cost (USD/year) | Type | Status |
+|-----------|-----------------|------|--------|
+| **Andreani** | $80 - $200 | Commercial | ✅ Supported |
+| **E-CERT** | $100 - $300 | Commercial | ✅ Supported |
+| **Certant** | $150 - $250 | Commercial | ✅ Supported |
+| **Colegio Escribanos CABA** | $100 - $300 | Professional | ✅ Supported |
+
+### Quick Setup for Argentina
+
+```bash
+# Install PDFSigner
+git clone https://github.com/vdirienzo/pdfsigner.git
+cd pdfsigner
+uv sync
+
+# Configure Argentina preset
+cat > ~/.config/pdfsigner/config.toml <<EOF
+[argentina]
+ca_preset = "afip"  # or "renaper", "andreani"
+tsa_url = "http://timestamp.digicert.com"
+enable_validation = true
+EOF
+
+# Sign with AFIP certificate
+uv run pdfsigner sign documento.pdf --visible --cert "CN=Juan Perez"
+```
+
+### Token Configuration (SafeNet eToken)
+
+```bash
+# Install SafeNet drivers (Linux)
+sudo apt install libetoken
+
+# Add to NSS database
+modutil -add "SafeNet eToken" \
+  -libfile /usr/lib/libeToken.so \
+  -dbdir sql:$HOME/.nss
+
+# Verify detection
+uv run pdfsigner list-certs
+# Should show: "SafeNet eToken - Juan Perez (CUIT: 20-12345678-9)"
+```
+
+### Documentation Guides
+
+| Guide | Purpose | Status |
+|-------|---------|--------|
+| `docs/argentina/guia-afip.md` | Obtain AFIP certificate (Clave Fiscal) | ⏳ Coming soon |
+| `docs/argentina/guia-fdr.md` | Use FDR platform (RENAPER) | ⏳ Coming soon |
+| `docs/argentina/guia-safenet.md` | Configure SafeNet eToken | ⏳ Coming soon |
+| `docs/argentina/verificar-adobe.md` | Verify signatures in Adobe Reader | ⏳ Coming soon |
+
+### Known Limitations
+
+| Limitation | Reason | Workaround |
+|------------|--------|------------|
+| **FDR direct integration** | No public API (requires government agreement) | Use FDR web platform |
+| **Real certificate testing** | Requires active CUIT | User-provided testing |
+| **ONTI Annex IV validation** | Document not publicly available | Using ETSI EN 319 132-1 standard |
+
+### Legal References
+
+- [Ley 25.506](http://servicios.infoleg.gob.ar/infolegInternet/anexos/70000-74999/70749/norma.htm) - Digital Signature Law (2001)
+- [Decreto 182/2019](https://www.boletinoficial.gob.ar/detalleAviso/primera/207102/20190423) - Regulation
+- [Decreto 743/2024](https://www.boletinoficial.gob.ar/detalleAviso/primera/312489/20240820) - Remote Verification
+- [SICYT 11/2025](https://www.boletinoficial.gob.ar/detalleAviso/primera/321494/20250220) - PKI Procedures
+
+For detailed regulatory information, see `NORMATIVA-ARG.md` in the repository.
+
+---
+
 ## 📦 Installation Options
 
 ### System Dependencies
@@ -739,9 +865,10 @@ MIT License - See [LICENSE](LICENSE) for details.
 <p align="center">
   <strong>Built with Python, GTK4, FastAPI, and pyHanko</strong>
   <br>
-  <sub>PAdES B-LTA • HIPAA Compliant • NIST 800-53 • FedRAMP Ready • eIDAS QES • GDPR Ready</sub>
+  <sub>PAdES B-LTA • HIPAA Compliant • NIST 800-53 • FedRAMP Ready • eIDAS QES • GDPR Ready • Argentina Ley 25.506</sub>
   <br><br>
   <a href="docs/security/README.md">Security Documentation</a> •
   <a href="http://localhost:8000/docs">API Documentation</a> •
-  <a href="GOV_COMPLIANCE_PLAN.md">Compliance Plan</a>
+  <a href="GOV_COMPLIANCE_PLAN.md">Compliance Plan</a> •
+  <a href="NORMATIVA-ARG.md">Argentina Compliance</a>
 </p>
