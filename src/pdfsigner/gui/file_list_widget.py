@@ -17,6 +17,7 @@ from gi.repository import GLib, Gtk
 from loguru import logger
 
 from pdfsigner.core.validator.pdf_validator import PDFValidator, ValidationResult
+from pdfsigner.gui.a11y import set_accessible
 from pdfsigner.i18n import _
 
 
@@ -37,8 +38,7 @@ class FileRow(Gtk.Box):
         self.validation_result: ValidationResult | None = None
 
         # Set accessibility attributes
-        self.set_accessible_name(file_path.name)
-        self.set_accessible_description(_("PDF file: {}").format(str(file_path)))
+        set_accessible(self, file_path.name, _("PDF file: {}").format(str(file_path)))
 
         self.set_margin_top(8)
         self.set_margin_bottom(8)
@@ -80,8 +80,11 @@ class FileRow(Gtk.Box):
         self.info_button = Gtk.Button(icon_name="dialog-information-symbolic")
         self.info_button.add_css_class("flat")
         self.info_button.set_tooltip_text(_("View signature details"))
-        self.info_button.set_accessible_name(_("View details"))
-        self.info_button.set_accessible_description(_("View signature validation details"))
+        set_accessible(
+            self.info_button,
+            _("View details"),
+            _("View signature validation details"),
+        )
         self.info_button.connect("clicked", self._on_info_clicked)
         self.info_button.set_visible(False)
         self.append(self.info_button)
@@ -90,8 +93,7 @@ class FileRow(Gtk.Box):
         remove_button = Gtk.Button(icon_name="user-trash-symbolic")
         remove_button.add_css_class("flat")
         remove_button.set_tooltip_text(_("Remove from list"))
-        remove_button.set_accessible_name(_("Remove"))
-        remove_button.set_accessible_description(_("Remove this file from the list"))
+        set_accessible(remove_button, _("Remove"), _("Remove this file from the list"))
         remove_button.connect("clicked", self._on_remove_clicked)
         self.append(remove_button)
 
@@ -234,8 +236,11 @@ class FileListWidget(Gtk.ScrolledWindow):
         self.listbox.set_selection_mode(Gtk.SelectionMode.NONE)
         self.listbox.add_css_class("boxed-list")
         self.listbox.set_placeholder(self._create_placeholder())
-        self.listbox.set_accessible_name(_("PDF files list"))
-        self.listbox.set_accessible_description(_("List of PDF files to sign or validate"))
+        set_accessible(
+            self.listbox,
+            _("PDF files list"),
+            _("List of PDF files to sign or validate"),
+        )
 
         # Frame
         frame = Gtk.Frame()

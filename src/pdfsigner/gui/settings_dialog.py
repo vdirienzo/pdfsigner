@@ -20,8 +20,10 @@ from pdfsigner.config.settings import get_settings, reload_settings
 from pdfsigner.gui.settings_pages import (
     create_advanced_page,
     create_appearance_page,
+    create_behavior_page,
     create_general_page,
     create_signature_page,
+    create_validation_page,
     get_selected_language,
     get_selected_theme,
 )
@@ -58,6 +60,12 @@ class SettingsDialog(Adw.PreferencesWindow):
 
         signature_page = create_signature_page(self.settings, self)
         self.add(signature_page)
+
+        validation_page = create_validation_page(self.settings, self)
+        self.add(validation_page)
+
+        behavior_page = create_behavior_page(self.settings, self)
+        self.add(behavior_page)
 
         appearance_page = create_appearance_page(self.settings, self)
         self.add(appearance_page)
@@ -101,6 +109,24 @@ class SettingsDialog(Adw.PreferencesWindow):
             self.pin_timeout_spin.connect("notify::value", self._on_setting_changed)
         if hasattr(self, "log_level_combo"):
             self.log_level_combo.connect("notify::selected", self._on_setting_changed)
+
+        # Validation page
+        if hasattr(self, "revocation_switch"):
+            self.revocation_switch.connect("notify::active", self._on_setting_changed)
+        if hasattr(self, "revocation_timeout_spin"):
+            self.revocation_timeout_spin.connect("notify::value", self._on_setting_changed)
+        if hasattr(self, "revocation_cache_ttl_spin"):
+            self.revocation_cache_ttl_spin.connect("notify::value", self._on_setting_changed)
+        if hasattr(self, "revocation_prefer_ocsp_switch"):
+            self.revocation_prefer_ocsp_switch.connect("notify::active", self._on_setting_changed)
+
+        # Behavior page
+        if hasattr(self, "recent_files_switch"):
+            self.recent_files_switch.connect("notify::active", self._on_setting_changed)
+        if hasattr(self, "recent_files_limit_spin"):
+            self.recent_files_limit_spin.connect("notify::value", self._on_setting_changed)
+        if hasattr(self, "notifications_switch"):
+            self.notifications_switch.connect("notify::active", self._on_setting_changed)
 
     def _on_setting_changed(self, *args) -> None:
         """Handle any setting change with debounced auto-save."""
@@ -170,6 +196,42 @@ class SettingsDialog(Adw.PreferencesWindow):
         lines.append("# Appearance")
         lines.append(f'theme = "{get_selected_theme(self)}"')
         lines.append(f'language = "{get_selected_language(self)}"')
+
+        # Validation settings
+        lines.append("")
+        lines.append("# Validation")
+        if hasattr(self, "revocation_switch"):
+            lines.append(
+                f"revocation_check_enabled = {str(self.revocation_switch.get_active()).lower()}"
+            )
+        if hasattr(self, "revocation_timeout_spin"):
+            lines.append(
+                f"revocation_check_timeout = {int(self.revocation_timeout_spin.get_value())}"
+            )
+        if hasattr(self, "revocation_cache_ttl_spin"):
+            lines.append(
+                f"revocation_cache_ttl = {int(self.revocation_cache_ttl_spin.get_value())}"
+            )
+        if hasattr(self, "revocation_prefer_ocsp_switch"):
+            lines.append(
+                f"revocation_prefer_ocsp = "
+                f"{str(self.revocation_prefer_ocsp_switch.get_active()).lower()}"
+            )
+
+        # Behavior settings
+        lines.append("")
+        lines.append("# Behavior")
+        if hasattr(self, "recent_files_switch"):
+            lines.append(
+                f"recent_files_enabled = {str(self.recent_files_switch.get_active()).lower()}"
+            )
+        if hasattr(self, "recent_files_limit_spin"):
+            lines.append(f"recent_files_limit = {int(self.recent_files_limit_spin.get_value())}")
+        if hasattr(self, "notifications_switch"):
+            lines.append(
+                f"system_notifications_enabled = "
+                f"{str(self.notifications_switch.get_active()).lower()}"
+            )
 
         config_path.write_text("\n".join(lines))
 

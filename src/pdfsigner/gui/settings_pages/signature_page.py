@@ -17,6 +17,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
+from pdfsigner.gui.a11y import set_accessible
 from pdfsigner.i18n import _
 
 
@@ -142,8 +143,7 @@ def create_signature_page(settings, dialog) -> Adw.PreferencesPage:
     # Template dropdown with create button
     template_combo = Adw.ComboRow()
     template_combo.set_title(_("Template"))
-    template_combo.set_accessible_name(_("Signature template"))
-    template_combo.set_accessible_description(_("Select signature stamp template"))
+    set_accessible(template_combo, _("Signature template"), _("Select signature stamp template"))
 
     choices = _get_template_choices()
     template_model = Gtk.StringList.new([c[1] for c in choices])
@@ -165,8 +165,7 @@ def create_signature_page(settings, dialog) -> Adw.PreferencesPage:
     create_btn = Gtk.Button()
     create_btn.set_icon_name("list-add-symbolic")
     create_btn.set_tooltip_text(_("Create custom template"))
-    create_btn.set_accessible_name(_("Create template"))
-    create_btn.set_accessible_description(_("Create custom signature template"))
+    set_accessible(create_btn, _("Create template"), _("Create custom signature template"))
     create_btn.set_valign(Gtk.Align.CENTER)
     create_btn.add_css_class("flat")
 
@@ -204,8 +203,7 @@ def create_signature_page(settings, dialog) -> Adw.PreferencesPage:
     import_btn = Gtk.Button()
     import_btn.set_icon_name("document-open-symbolic")
     import_btn.set_tooltip_text(_("Import template from file"))
-    import_btn.set_accessible_name(_("Import template"))
-    import_btn.set_accessible_description(_("Import template from JSON file"))
+    set_accessible(import_btn, _("Import template"), _("Import template from JSON file"))
     import_btn.set_valign(Gtk.Align.CENTER)
     import_btn.add_css_class("flat")
 
@@ -303,8 +301,7 @@ def create_signature_page(settings, dialog) -> Adw.PreferencesPage:
     edit_btn = Gtk.Button()
     edit_btn.set_icon_name("document-edit-symbolic")
     edit_btn.set_tooltip_text(_("Edit template"))
-    edit_btn.set_accessible_name(_("Edit template"))
-    edit_btn.set_accessible_description(_("Edit custom template"))
+    set_accessible(edit_btn, _("Edit template"), _("Edit custom template"))
     edit_btn.set_valign(Gtk.Align.CENTER)
     edit_btn.add_css_class("flat")
     edit_btn.set_visible(False)  # Initially hidden
@@ -344,8 +341,7 @@ def create_signature_page(settings, dialog) -> Adw.PreferencesPage:
     delete_btn = Gtk.Button()
     delete_btn.set_icon_name("user-trash-symbolic")
     delete_btn.set_tooltip_text(_("Delete template"))
-    delete_btn.set_accessible_name(_("Delete template"))
-    delete_btn.set_accessible_description(_("Delete custom template"))
+    set_accessible(delete_btn, _("Delete template"), _("Delete custom template"))
     delete_btn.set_valign(Gtk.Align.CENTER)
     delete_btn.add_css_class("flat")
     delete_btn.set_visible(False)  # Initially hidden
@@ -481,8 +477,7 @@ def create_signature_page(settings, dialog) -> Adw.PreferencesPage:
     page_combo = Adw.ComboRow()
     page_combo.set_title(_("Default page"))
     page_combo.set_subtitle(_("Page where visible signature appears"))
-    page_combo.set_accessible_name(_("Default page"))
-    page_combo.set_accessible_description(_("Select default page for signature"))
+    set_accessible(page_combo, _("Default page"), _("Select default page for signature"))
     pages = Gtk.StringList.new([_("Last page"), _("First page")])
     page_combo.set_model(pages)
     page_combo.set_selected(0 if settings.default_page == "last" else 1)
@@ -499,8 +494,7 @@ def create_signature_page(settings, dialog) -> Adw.PreferencesPage:
     suffix_row.set_title(_("Suffix for signed files"))
     suffix_row.set_text(settings.output_suffix)
     suffix_row.set_show_apply_button(True)
-    suffix_row.set_accessible_name(_("Output file suffix"))
-    suffix_row.set_accessible_description(_("Suffix added to signed file names"))
+    set_accessible(suffix_row, _("Output file suffix"), _("Suffix added to signed file names"))
     output_group.add(suffix_row)
 
     page.add(output_group)

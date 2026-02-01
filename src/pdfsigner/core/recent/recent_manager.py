@@ -31,7 +31,11 @@ class RecentFilesManager:
     APP_NAME = "pdfsigner"
 
     def __init__(self, limit: int = 10):
-        self._manager = Gtk.RecentManager.get_default()
+        try:
+            self._manager = Gtk.RecentManager.get_default()
+        except Exception:
+            # May fail without a display (tests, CLI)
+            self._manager = None
         self._limit = limit
 
     def add_file(self, path: Path, operation: str = "signed") -> bool:
@@ -47,19 +51,16 @@ class RecentFilesManager:
         if not path.exists():
             return False
 
-        uri = path.as_uri()
+        if self._manager is None:
+            return False
 
-        # Create recent data with groups
-        recent_data = Gtk.RecentData()
-        recent_data.display_name = path.name
-        recent_data.description = f"PDF {operation}"
-        recent_data.mime_type = self.MIME_TYPE
-        recent_data.app_name = self.APP_NAME
-        recent_data.app_exec = "pdfsigner-gui %u"
-        recent_data.groups = ["pdfsigner", operation]
-        recent_data.is_private = False
-
-        return self._manager.add_full(uri, recent_data)
+        try:
+            uri = path.as_uri()
+            # Use simple add_item (add_full with RecentData causes SIGABRT in tests)
+            return self._manager.add_item(uri)
+        except Exception:
+            # GTK operations may fail without a display
+            return False
 
     def get_recent_pdfs(self) -> list[RecentFileInfo]:
         """Get list of recent PDF files.
@@ -71,6 +72,9 @@ class RecentFilesManager:
 
         settings = get_settings()
         if not settings.recent_files_enabled:
+            return []
+
+        if self._manager is None:
             return []
 
         items = self._manager.get_items()
@@ -112,6 +116,9 @@ class RecentFilesManager:
         Returns:
             Number of items removed
         """
+        if self._manager is None:
+            return 0
+
         items = self._manager.get_items()
         removed = 0
 

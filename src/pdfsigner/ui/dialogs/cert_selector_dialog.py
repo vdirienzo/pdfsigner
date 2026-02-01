@@ -13,6 +13,7 @@ gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk
 
 from pdfsigner.core.token.cert_selector import ValidCertificate
+from pdfsigner.gui.a11y import set_accessible
 from pdfsigner.i18n import _
 
 
@@ -49,12 +50,15 @@ class CertificateSelectorDialog(Gtk.Dialog):
 
         # Botones
         cancel_button = self.add_button(_("Cancel"), Gtk.ResponseType.CANCEL)
-        cancel_button.set_accessible_name(_("Cancel"))
+        set_accessible(cancel_button, _("Cancel"))
         self._ok_button = self.add_button(_("Use Certificate"), Gtk.ResponseType.OK)
         self._ok_button.add_css_class("suggested-action")
         self._ok_button.set_sensitive(False)
-        self._ok_button.set_accessible_name(_("Use certificate"))
-        self._ok_button.set_accessible_description(_("Sign with selected certificate"))
+        set_accessible(
+            self._ok_button,
+            _("Use certificate"),
+            _("Sign with selected certificate"),
+        )
 
         # Contenido
         content = self.get_content_area()
@@ -77,8 +81,11 @@ class CertificateSelectorDialog(Gtk.Dialog):
         self.listbox = Gtk.ListBox()
         self.listbox.set_selection_mode(Gtk.SelectionMode.SINGLE)
         self.listbox.add_css_class("boxed-list")
-        self.listbox.set_accessible_name(_("Certificates list"))
-        self.listbox.set_accessible_description(_("Select a certificate for signing"))
+        set_accessible(
+            self.listbox,
+            _("Certificates list"),
+            _("Select a certificate for signing"),
+        )
         self.listbox.connect("row-selected", self._on_row_selected)
 
         # Agregar certificados
@@ -112,11 +119,12 @@ class CertificateSelectorDialog(Gtk.Dialog):
         """Creates a row for a certificate."""
         row = Gtk.ListBoxRow()
         row.cert = cert  # Guardar referencia
-        row.set_accessible_name(cert.display_name)
-        row.set_accessible_description(
+        set_accessible(
+            row,
+            cert.display_name,
             _("Certificate: {} - Expires in {} days").format(
                 cert.display_name, cert.days_until_expiry
-            )
+            ),
         )
 
         box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=12)

@@ -15,6 +15,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk
 
+from pdfsigner.gui.a11y import set_accessible
 from pdfsigner.i18n import SUPPORTED_LANGUAGES, _
 
 # Theme options (display names need translation at runtime)
@@ -102,8 +103,7 @@ def create_appearance_page(settings, dialog) -> Adw.PreferencesPage:
     theme_row = Adw.ComboRow()
     theme_row.set_title(_("Color scheme"))
     theme_row.set_subtitle(_("Choose light, dark, or follow system"))
-    theme_row.set_accessible_name(_("Color scheme"))
-    theme_row.set_accessible_description(_("Application theme"))
+    set_accessible(theme_row, _("Color scheme"), _("Application theme"))
 
     theme_options = [_("System default"), _("Light"), _("Dark")]
     theme_list = Gtk.StringList.new(theme_options)
@@ -128,8 +128,7 @@ def create_appearance_page(settings, dialog) -> Adw.PreferencesPage:
     lang_row = Adw.ComboRow()
     lang_row.set_title(_("Language"))
     lang_row.set_subtitle(_("Requires application restart"))
-    lang_row.set_accessible_name(_("Language"))
-    lang_row.set_accessible_description(_("Application language"))
+    set_accessible(lang_row, _("Language"), _("Application language"))
 
     # Build language list
     lang_names = [_("System default")] + list(SUPPORTED_LANGUAGES.values())

@@ -12,6 +12,7 @@ import gi
 gi.require_version("Gtk", "4.0")
 from gi.repository import Gtk
 
+from pdfsigner.gui.a11y import set_accessible
 from pdfsigner.i18n import _
 
 
@@ -51,10 +52,10 @@ class PinDialog(Gtk.Dialog):
 
         # Configurar botones
         cancel_button = self.add_button(_("Cancel"), Gtk.ResponseType.CANCEL)
-        cancel_button.set_accessible_name(_("Cancel"))
+        set_accessible(cancel_button, _("Cancel"))
         ok_button = self.add_button(_("Accept"), Gtk.ResponseType.OK)
         ok_button.add_css_class("suggested-action")
-        ok_button.set_accessible_name(_("Confirm PIN"))
+        set_accessible(ok_button, _("Confirm PIN"))
 
         # Área de contenido
         content = self.get_content_area()
@@ -84,8 +85,7 @@ class PinDialog(Gtk.Dialog):
         self.pin_entry = Gtk.PasswordEntry()
         self.pin_entry.set_hexpand(True)
         self.pin_entry.set_show_peek_icon(True)
-        self.pin_entry.set_accessible_name(_("PIN entry"))
-        self.pin_entry.set_accessible_description(_("Enter your token PIN to sign documents"))
+        set_accessible(self.pin_entry, _("PIN entry"), _("Enter your token PIN to sign documents"))
         self.pin_entry.connect("activate", self._on_entry_activate)
         self.pin_entry.connect("changed", self._on_entry_changed)
         entry_box.append(self.pin_entry)
@@ -97,7 +97,7 @@ class PinDialog(Gtk.Dialog):
         self.error_label.add_css_class("error")
         self.error_label.set_visible(False)
         self.error_label.set_xalign(0)
-        self.error_label.set_accessible_name(_("Error message"))
+        set_accessible(self.error_label, _("Error message"))
         content.append(self.error_label)
 
         # Deshabilitar OK hasta que haya PIN

@@ -8,7 +8,27 @@ Format: [SemVer](https://semver.org/) with `Added | Changed | Fixed | Security` 
 
 ## [1.1.0] - 2026-02-01
 
+### Added (Tests - 183 new, 1091 total)
+- **Unit tests for v1.1 features** - Complete test coverage for all new modules
+  - `test_a11y.py` - 34 tests for accessibility helpers
+  - `test_shortcuts_window.py` - 39 tests for keyboard shortcuts dialog
+  - `test_settings_pages.py` - 34 tests for validation/behavior pages
+  - `test_keyboard_shortcuts.py` - 36 tests for action registration
+  - `test_pdf_validator_revocation_integration.py` - 14 tests for OCSP/CRL integration
+- **E2E tests for v1.1 workflows** - `test_features_v11_e2e.py` with 26 tests
+  - Recent files flow, notification flow, settings persistence, accessibility flows
+
 ### Added
+- **Settings UI for New Features** - Complete preferences integration
+  - `gui/settings_pages/validation_page.py` - Revocation checking config (enable, timeout, cache TTL, prefer OCSP)
+  - `gui/settings_pages/behavior_page.py` - Recent files + notifications config
+  - Auto-save with debounce pattern for all new widgets
+
+- **ShortcutsWindow** - GTK4 native keyboard shortcuts help
+  - New file: `gui/dialogs/shortcuts_window.py`
+  - Access via `Ctrl+?` (action: `app.shortcuts`)
+  - Grouped by Files and Application sections
+
 - **RevocationChecker Integration** - OCSP/CRL validation during signature verification
   - New settings: `revocation_check_enabled`, `revocation_check_timeout`, `revocation_cache_ttl`, `revocation_prefer_ocsp`
   - Integrated in `pdf_validator.py` with `_check_revocation_status()` method
@@ -25,6 +45,7 @@ Format: [SemVer](https://semver.org/) with `Added | Changed | Fixed | Security` 
   - `Ctrl+S` → Sign files
   - `Ctrl+Shift+V` → Validate signatures
   - `Ctrl+L` / `Delete` → Clear file list
+  - `Ctrl+?` → Shortcuts window
   - `F1` → About dialog
 
 - **Accessibility (a11y)** - WCAG 2.1 Level A compliance
@@ -41,7 +62,12 @@ Format: [SemVer](https://semver.org/) with `Added | Changed | Fixed | Security` 
 ### Changed
 - **SignatureInfo dataclass** - Added `revocation_status` and `revocation_message` fields
 - **MainWindow** - Added recent files button, keyboard actions, validation handler
-- **Tests:** 800 total (consolidated from previous count)
+- **Tests:** 1091 total (was 908)
+
+### Fixed
+- **RecentFilesManager SIGABRT** - Use `add_item()` instead of `add_full()` with `Gtk.RecentData`
+  - `Gtk.RecentData.groups = [...]` causes SIGABRT (signal, not Python exception) in tests
+  - Added graceful fallback when `_manager is None` (CLI/tests without display)
 
 ---
 

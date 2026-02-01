@@ -14,6 +14,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gio, GLib, Gtk
 
+from pdfsigner.gui.a11y import set_accessible
 from pdfsigner.i18n import _
 
 from .tsa_presets import TSA_PRESET_NAMES, TSA_PRESETS
@@ -49,8 +50,7 @@ def create_general_page(settings, dialog) -> Adw.PreferencesPage:
     nss_path_entry.set_text(str(settings.nss_db_path))
     nss_path_entry.set_hexpand(True)
     nss_path_entry.set_valign(Gtk.Align.CENTER)
-    nss_path_entry.set_accessible_name(_("NSS database path"))
-    nss_path_entry.set_accessible_description(_("Path to NSS database directory"))
+    set_accessible(nss_path_entry, _("NSS database path"), _("Path to NSS database directory"))
     nss_path_row.add_suffix(nss_path_entry)
 
     # Browse button
@@ -58,8 +58,7 @@ def create_general_page(settings, dialog) -> Adw.PreferencesPage:
     browse_button.set_icon_name("folder-open-symbolic")
     browse_button.set_valign(Gtk.Align.CENTER)
     browse_button.set_tooltip_text(_("Browse for NSS database folder"))
-    browse_button.set_accessible_name(_("Browse"))
-    browse_button.set_accessible_description(_("Browse for NSS database folder"))
+    set_accessible(browse_button, _("Browse"), _("Browse for NSS database folder"))
     browse_button.connect(
         "clicked", lambda btn: _on_browse_nss_clicked(btn, nss_path_entry, dialog)
     )
@@ -77,8 +76,7 @@ def create_general_page(settings, dialog) -> Adw.PreferencesPage:
     presets_row = Adw.ComboRow()
     presets_row.set_title(_("Timestamp source"))
     presets_row.set_subtitle(_("Local time or external TSA server"))
-    presets_row.set_accessible_name(_("Timestamp source"))
-    presets_row.set_accessible_description(_("Select timestamp server"))
+    set_accessible(presets_row, _("Timestamp source"), _("Select timestamp server"))
 
     presets = Gtk.StringList.new(TSA_PRESET_NAMES)
     presets_row.set_model(presets)
@@ -102,8 +100,7 @@ def create_general_page(settings, dialog) -> Adw.PreferencesPage:
     tsa_url_row.set_title(_("TSA URL"))
     tsa_url_row.set_text(settings.tsa_url or "")
     tsa_url_row.set_show_apply_button(True)
-    tsa_url_row.set_accessible_name(_("TSA URL"))
-    tsa_url_row.set_accessible_description(_("Timestamp server URL"))
+    set_accessible(tsa_url_row, _("TSA URL"), _("Timestamp server URL"))
     tsa_url_row.connect("apply", lambda row: None)  # Saved on "Save" button
 
     presets_row.connect(
@@ -117,16 +114,14 @@ def create_general_page(settings, dialog) -> Adw.PreferencesPage:
     tsa_user_row.set_title(_("TSA Username (optional)"))
     tsa_user_row.set_text(settings.tsa_username or "")
     tsa_user_row.set_show_apply_button(True)
-    tsa_user_row.set_accessible_name(_("TSA username"))
-    tsa_user_row.set_accessible_description(_("Username for TSA authentication"))
+    set_accessible(tsa_user_row, _("TSA username"), _("Username for TSA authentication"))
     tsa_group.add(tsa_user_row)
 
     tsa_pass_row = Adw.PasswordEntryRow()
     tsa_pass_row.set_title(_("TSA Password (optional)"))
     tsa_pass_row.set_text(settings.tsa_password or "")
     tsa_pass_row.set_show_apply_button(True)
-    tsa_pass_row.set_accessible_name(_("TSA password"))
-    tsa_pass_row.set_accessible_description(_("Password for TSA authentication"))
+    set_accessible(tsa_pass_row, _("TSA password"), _("Password for TSA authentication"))
     tsa_group.add(tsa_pass_row)
 
     page.add(tsa_group)

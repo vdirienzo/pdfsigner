@@ -31,6 +31,11 @@ def _create_gtk_mock():
         def __init_subclass__(cls, **kwargs):
             pass
 
+        @staticmethod
+        def new(*args, **kwargs):
+            """Factory method that returns a MagicMock instance."""
+            return MagicMock()
+
     # Create mock module structure
     mock_gtk = MagicMock()
     mock_adw = MagicMock()
@@ -80,6 +85,10 @@ def _create_gtk_mock():
         "DropTarget",
         "DragSource",
         "EventControllerKey",
+        "ShortcutsWindow",
+        "ShortcutsSection",
+        "ShortcutsGroup",
+        "ShortcutsShortcut",
     ]:
         setattr(mock_gtk, widget_name, GtkBase)
 
@@ -138,6 +147,12 @@ def install_gui_mocks():
     mock_gi = MagicMock()
     mock_gi.require_version = MagicMock()
 
+    # Create Gio mock with SimpleAction support
+    mock_gio = MagicMock()
+    mock_simple_action = MagicMock()
+    mock_simple_action.new = MagicMock(return_value=MagicMock())
+    mock_gio.SimpleAction = mock_simple_action
+
     # Repository mock
     mock_repository = MagicMock()
     mock_repository.Gtk = mock_gtk
@@ -145,7 +160,7 @@ def install_gui_mocks():
     mock_repository.GLib = mock_glib
     mock_repository.Gdk = MagicMock()
     mock_repository.GdkPixbuf = MagicMock()
-    mock_repository.Gio = MagicMock()
+    mock_repository.Gio = mock_gio
     mock_repository.Pango = MagicMock()
 
     mock_gi.repository = mock_repository
@@ -161,8 +176,8 @@ def install_gui_mocks():
     sys.modules["gi.repository.Gio"] = mock_repository.Gio
     sys.modules["gi.repository.Pango"] = mock_repository.Pango
 
-    return mock_gtk, mock_adw, mock_glib
+    return mock_gtk, mock_adw, mock_glib, mock_gio
 
 
 # Install mocks immediately when this module is imported
-_gtk, _adw, _glib = install_gui_mocks()
+_gtk, _adw, _glib, _gio = install_gui_mocks()

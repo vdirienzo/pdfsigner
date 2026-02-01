@@ -12,6 +12,7 @@ gi.require_version("Gtk", "4.0")
 gi.require_version("Adw", "1")
 from gi.repository import Adw, Gtk
 
+from pdfsigner.gui.a11y import set_accessible
 from pdfsigner.i18n import _
 
 
@@ -40,16 +41,18 @@ def create_advanced_page(settings, dialog) -> Adw.PreferencesPage:
     pin_cache_switch.set_title(_("Enable PIN cache"))
     pin_cache_switch.set_subtitle(_("More convenient but less secure"))
     pin_cache_switch.set_active(settings.pin_cache_enabled)
-    pin_cache_switch.set_accessible_name(_("Enable PIN cache"))
-    pin_cache_switch.set_accessible_description(_("Cache PIN during batch signing"))
+    set_accessible(pin_cache_switch, _("Enable PIN cache"), _("Cache PIN during batch signing"))
     pin_group.add(pin_cache_switch)
 
     # Timeout
     pin_timeout_spin = Adw.SpinRow.new_with_range(60, 3600, 60)
     pin_timeout_spin.set_title(_("Timeout (seconds)"))
     pin_timeout_spin.set_value(settings.pin_cache_timeout_seconds)
-    pin_timeout_spin.set_accessible_name(_("PIN cache timeout"))
-    pin_timeout_spin.set_accessible_description(_("Seconds before cached PIN expires"))
+    set_accessible(
+        pin_timeout_spin,
+        _("PIN cache timeout"),
+        _("Seconds before cached PIN expires"),
+    )
     pin_group.add(pin_timeout_spin)
 
     page.add(pin_group)
@@ -61,8 +64,7 @@ def create_advanced_page(settings, dialog) -> Adw.PreferencesPage:
     # Nivel de log
     log_level_combo = Adw.ComboRow()
     log_level_combo.set_title(_("Log level"))
-    log_level_combo.set_accessible_name(_("Log level"))
-    log_level_combo.set_accessible_description(_("Verbosity of application logs"))
+    set_accessible(log_level_combo, _("Log level"), _("Verbosity of application logs"))
     levels = Gtk.StringList.new([_("DEBUG"), _("INFO"), _("WARNING"), _("ERROR")])
     log_level_combo.set_model(levels)
 

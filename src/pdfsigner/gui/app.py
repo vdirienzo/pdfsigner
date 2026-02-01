@@ -59,6 +59,11 @@ class PDFSignerApp(Adw.Application):
         action_preferences.connect("activate", self.on_preferences_action)
         self.add_action(action_preferences)
 
+        # Action: Shortcuts
+        action_shortcuts = Gio.SimpleAction.new("shortcuts", None)
+        action_shortcuts.connect("activate", self.on_shortcuts_action)
+        self.add_action(action_shortcuts)
+
         # Action: About
         action_about = Gio.SimpleAction.new("about", None)
         action_about.connect("activate", self.on_about_action)
@@ -72,6 +77,7 @@ class PDFSignerApp(Adw.Application):
         # Keyboard shortcuts - Application actions
         self.set_accels_for_action("app.open", ["<Control>o"])
         self.set_accels_for_action("app.preferences", ["<Control>comma"])
+        self.set_accels_for_action("app.shortcuts", ["<Control>question"])
         self.set_accels_for_action("app.quit", ["<Control>q"])
         self.set_accels_for_action("app.about", ["F1"])
 
@@ -187,6 +193,13 @@ class PDFSignerApp(Adw.Application):
         if self.window:
             self.window.show_settings()
 
+    def on_shortcuts_action(self, action, param) -> None:
+        """Action: Show keyboard shortcuts window."""
+        from pdfsigner.gui.dialogs import ShortcutsWindow
+
+        shortcuts = ShortcutsWindow(transient_for=self.window)
+        shortcuts.present()
+
     def on_about_action(self, action, param) -> None:
         """Action: Show About dialog."""
         about = Adw.AboutWindow(
@@ -194,7 +207,7 @@ class PDFSignerApp(Adw.Application):
             application_name="PDFSigner",
             application_icon=APP_ID,
             developer_name="Homero Thompson del Lago del Terror",
-            version="0.6.0",
+            version="1.1.0",
             comments=_("Digital signature of PDFs with USB cryptographic tokens"),
             website="https://github.com/vdirienzo/pdfsigner",
             license_type=Gtk.License.MIT_X11,

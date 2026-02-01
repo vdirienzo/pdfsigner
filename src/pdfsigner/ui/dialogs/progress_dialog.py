@@ -16,6 +16,7 @@ gi.require_version("Gio", "2.0")
 from gi.repository import Gio, Gtk
 
 from pdfsigner.core.signer.batch_manager import BatchProgress, BatchResult
+from pdfsigner.gui.a11y import set_accessible
 from pdfsigner.i18n import _
 
 
@@ -63,7 +64,7 @@ class ProgressDialog(Gtk.Dialog):
 
         # Botón cancelar
         cancel_button = self.add_button(_("Cancel"), Gtk.ResponseType.CANCEL)
-        cancel_button.set_accessible_name(_("Cancel signing"))
+        set_accessible(cancel_button, _("Cancel signing"))
         cancel_button.connect("clicked", self._on_cancel_clicked)
 
         # Contenido
@@ -83,8 +84,11 @@ class ProgressDialog(Gtk.Dialog):
         # Barra de progreso
         self.progress_bar = Gtk.ProgressBar()
         self.progress_bar.set_show_text(True)
-        self.progress_bar.set_accessible_name(_("Signing progress"))
-        self.progress_bar.set_accessible_description(_("Shows progress of batch signing operation"))
+        set_accessible(
+            self.progress_bar,
+            _("Signing progress"),
+            _("Shows progress of batch signing operation"),
+        )
         content.append(self.progress_bar)
 
         # Lista de archivos
@@ -96,7 +100,7 @@ class ProgressDialog(Gtk.Dialog):
         self.file_list = Gtk.ListBox()
         self.file_list.set_selection_mode(Gtk.SelectionMode.NONE)
         self.file_list.add_css_class("boxed-list")
-        self.file_list.set_accessible_name(_("Signed files"))
+        set_accessible(self.file_list, _("Signed files"))
 
         # Agregar filas para cada archivo
         self._file_rows: dict[str, Gtk.Box] = {}
@@ -148,8 +152,11 @@ class ProgressDialog(Gtk.Dialog):
         folder_button = Gtk.Button.new_from_icon_name("folder-open-symbolic")
         folder_button.set_name("folder_button")
         folder_button.set_tooltip_text(_("Open containing folder"))
-        folder_button.set_accessible_name(_("Open folder"))
-        folder_button.set_accessible_description(_("Open containing folder in file manager"))
+        set_accessible(
+            folder_button,
+            _("Open folder"),
+            _("Open containing folder in file manager"),
+        )
         folder_button.set_valign(Gtk.Align.CENTER)
         folder_button.add_css_class("flat")
         folder_button.set_visible(False)
@@ -292,7 +299,7 @@ class ProgressDialog(Gtk.Dialog):
         # Cambiar botón a "Close"
         close_button = self.get_widget_for_response(Gtk.ResponseType.CANCEL)
         close_button.set_label(_("Close"))
-        close_button.set_accessible_name(_("Close"))
+        set_accessible(close_button, _("Close"))
         close_button.set_sensitive(True)
         close_button.add_css_class("suggested-action")
 

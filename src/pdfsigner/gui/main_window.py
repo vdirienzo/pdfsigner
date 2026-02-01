@@ -16,6 +16,7 @@ gi.require_version("Adw", "1")
 
 from gi.repository import Adw, Gdk, Gio, GLib, Gtk
 
+from pdfsigner.gui.a11y import set_accessible
 from pdfsigner.gui.file_list_widget import FileListWidget
 from pdfsigner.gui.settings_dialog import SettingsDialog
 from pdfsigner.gui.signing_handler import SigningHandler
@@ -57,31 +58,31 @@ class MainWindow(Adw.ApplicationWindow):
         menu_button = Gtk.MenuButton()
         menu_button.set_icon_name("open-menu-symbolic")
         menu_button.set_menu_model(self._create_menu())
-        menu_button.set_accessible_name(_("Main menu"))
-        menu_button.set_accessible_description(_("Open main application menu"))
+        set_accessible(menu_button, _("Main menu"), _("Open main application menu"))
         header.pack_end(menu_button)
 
         # Quick settings button
         settings_button = Gtk.Button(icon_name="emblem-system-symbolic")
         settings_button.set_tooltip_text(_("Settings"))
-        settings_button.set_accessible_name(_("Settings"))
-        settings_button.set_accessible_description(_("Open application settings"))
+        set_accessible(settings_button, _("Settings"), _("Open application settings"))
         settings_button.connect("clicked", lambda b: self.show_settings())
         header.pack_end(settings_button)
 
         # Add files button
         add_button = Gtk.Button(icon_name="list-add-symbolic")
         add_button.set_tooltip_text(_("Add files"))
-        add_button.set_accessible_name(_("Add files"))
-        add_button.set_accessible_description(_("Open file chooser to add PDF documents"))
+        set_accessible(add_button, _("Add files"), _("Open file chooser to add PDF documents"))
         add_button.connect("clicked", lambda b: self.show_file_chooser())
         header.pack_start(add_button)
 
         # Recent files button
         self.recent_button = Gtk.MenuButton(icon_name="document-open-recent-symbolic")
         self.recent_button.set_tooltip_text(_("Recent files"))
-        self.recent_button.set_accessible_name(_("Recent files"))
-        self.recent_button.set_accessible_description(_("View recently opened or signed PDF files"))
+        set_accessible(
+            self.recent_button,
+            _("Recent files"),
+            _("View recently opened or signed PDF files"),
+        )
         self._setup_recent_popover()
         header.pack_start(self.recent_button)
 
@@ -135,21 +136,19 @@ class MainWindow(Adw.ApplicationWindow):
         self.info_label.set_hexpand(True)
         self.info_label.set_xalign(0)
         self.info_label.add_css_class("dim-label")
-        self.info_label.set_accessible_name(_("File count"))
+        set_accessible(self.info_label, _("File count"))
         bar.append(self.info_label)
 
         # Clear button
         clear_button = Gtk.Button(label=_("Clear"))
-        clear_button.set_accessible_name(_("Clear list"))
-        clear_button.set_accessible_description(_("Remove all files from the list"))
+        set_accessible(clear_button, _("Clear list"), _("Remove all files from the list"))
         clear_button.connect("clicked", self._on_clear_clicked)
         bar.append(clear_button)
 
         # Sign button
         self.sign_button = Gtk.Button(label=_("Sign"))
         self.sign_button.add_css_class("suggested-action")
-        self.sign_button.set_accessible_name(_("Sign files"))
-        self.sign_button.set_accessible_description(_("Sign all PDF files in the list"))
+        set_accessible(self.sign_button, _("Sign files"), _("Sign all PDF files in the list"))
         self.sign_button.connect("clicked", self._on_sign_clicked)
         bar.append(self.sign_button)
 
