@@ -20,6 +20,8 @@ from pyhanko.sign.fields import SigSeedSubFilter, append_signature_field
 from pdfsigner.config.settings import get_settings
 from pdfsigner.core.audit import log_signing_event
 from pdfsigner.core.pdf_analyzer.position_finder import PositionPreference
+from pdfsigner.core.signer.archive_ts_manager import ArchiveTimestampManager
+from pdfsigner.core.signer.dss_manager import DSSManager
 from pdfsigner.core.signer.lta_handler import LTAHandler
 from pdfsigner.core.token.nss_handler import NSSHandler
 from pdfsigner.core.validator.pdf_validator import PDFValidator
@@ -95,7 +97,7 @@ class PDFSigner:
         """Validates that the PDF can be signed."""
         try:
             with open(pdf_path, "rb") as f:
-                reader = PdfFileReader(f)
+                reader = PdfFileReader(f, strict=False)
 
                 # Verify it's not corrupted
                 if reader.root is None:
@@ -557,6 +559,93 @@ class PDFSigner:
             with open(output_path, "wb") as out:
                 pdf_signer.sign_pdf(writer, output=out)
 
+    def _extract_cert_chain(self, signer: signers.Signer) -> list:
+        """
+        Extract certificate chain from signer in cryptography format.
+
+        Converts the signing certificate and any intermediate certificates
+        from asn1crypto (pyHanko format) to cryptography format for use
+        with DSSManager.
+
+        Args:
+            signer: pyHanko signer with certificate info
+
+        Returns:
+            List of cryptography certificates from signing cert to root
+        """
+        from cryptography import x509
+        from cryptography.hazmat.backends import default_backend
+
+        cert_chain = []
+
+        # Add signing certificate
+        if signer.signing_cert:
+            try:
+                cert_der = signer.signing_cert.dump()
+                cert = x509.load_der_x509_certificate(cert_der, default_backend())
+                cert_chain.append(cert)
+                logger.debug("Extracted signing certificate for LTV")
+            except Exception as e:
+                logger.warning(f"Could not extract signing certificate: {e}")
+
+        # Add intermediate certificates from cert_registry
+        if hasattr(signer, "cert_registry") and signer.cert_registry:
+            try:
+                # The cert_registry is a SimpleCertificateStore
+                # Iterate through all certificates
+                for cert_ref in signer.cert_registry:
+                    try:
+                        cert_der = cert_ref.dump()
+                        cert = x509.load_der_x509_certificate(cert_der, default_backend())
+                        # Avoid duplicates
+                        if cert not in cert_chain:
+                            cert_chain.append(cert)
+                            logger.debug("Extracted intermediate certificate for LTV")
+                    except Exception as e:
+                        logger.warning(f"Could not load certificate from registry: {e}")
+            except Exception as e:
+                logger.warning(f"Could not iterate cert_registry: {e}")
+
+        logger.info(f"Extracted {len(cert_chain)} certificate(s) for LTV")
+        return cert_chain
+
+    def _embed_ltv_info(self, pdf_path: Path, cert_chain: list) -> None:
+        """
+        Embed DSS with OCSP/CRL for LTV validation.
+
+        Collects validation information (OCSP responses, CRLs) for the
+        certificate chain and embeds them into the signed PDF as a
+        Document Security Store (DSS).
+
+        Args:
+            pdf_path: Path to the signed PDF
+            cert_chain: List of certificates (cryptography format)
+
+        Raises:
+            Exception: If DSS embedding fails and ltv_fail_open is False
+        """
+        settings = get_settings()
+
+        dss_manager = DSSManager(
+            ocsp_timeout=settings.ltv_ocsp_timeout,
+            crl_timeout=settings.ltv_crl_timeout,
+            prefer_ocsp=settings.ltv_prefer_ocsp,
+        )
+
+        logger.info("Collecting validation info for LTV")
+        validation_info = dss_manager.collect_validation_info(cert_chain)
+
+        if not validation_info.is_empty():
+            logger.info("Embedding DSS into signed PDF")
+            dss_manager.embed_dss(pdf_path, validation_info)
+            logger.debug(
+                f"DSS embedded: {len(validation_info.ocsp_responses)} OCSP, "
+                f"{len(validation_info.crls)} CRLs, "
+                f"{len(validation_info.certificates)} certs"
+            )
+        else:
+            logger.warning("No validation info collected for LTV")
+
     def sign_pdf(
         self,
         input_path: Path,
@@ -567,6 +656,7 @@ class PDFSigner:
         reason: str | None = None,
         location: str | None = None,
         contact_info: str | None = None,
+        embed_ltv: bool | None = None,
     ) -> SigningResult:
         """
         Signs a PDF.
@@ -580,6 +670,7 @@ class PDFSigner:
             reason: Signature reason (e.g., "I approve this document")
             location: Signature location (e.g., "Buenos Aires, Argentina")
             contact_info: Contact information (e.g., "email@company.com")
+            embed_ltv: Enable LTV (None = use settings.ltv_enabled)
 
         Returns:
             Signing operation result
@@ -640,6 +731,47 @@ class PDFSigner:
             finally:
                 if temp_pdf_path and temp_pdf_path.exists():
                     temp_pdf_path.unlink()
+
+            # Phase 5: Embed LTV validation info (DSS)
+            settings = get_settings()
+            should_embed_ltv = embed_ltv if embed_ltv is not None else settings.ltv_enabled
+            if should_embed_ltv:
+                try:
+                    cert_chain = self._extract_cert_chain(signer)
+                    if cert_chain:
+                        self._embed_ltv_info(output_path, cert_chain)
+                        logger.info("LTV validation info embedded successfully")
+                    else:
+                        logger.warning("No certificate chain available for LTV")
+                except Exception as e:
+                    if settings.ltv_fail_open:
+                        logger.warning(f"LTV embedding failed (continuing): {e}")
+                    else:
+                        raise
+
+            # Phase 6: Add archive timestamp (PAdES B-LTA)
+            if settings.archive_ts_enabled and settings.archive_ts_auto:
+                try:
+                    # Build TSA URL list (primary first, then fallbacks)
+                    tsa_urls = []
+                    if settings.tsa_url:
+                        tsa_urls.append(settings.tsa_url)
+                    tsa_urls.extend(settings.archive_ts_tsa_urls)
+
+                    if tsa_urls:
+                        archive_manager = ArchiveTimestampManager(
+                            tsa_urls=tsa_urls,
+                            timeout=settings.ltv_ocsp_timeout,  # reuse timeout
+                        )
+                        archive_manager.add_archive_timestamp(output_path)
+                        logger.info("Archive timestamp added successfully (PAdES B-LTA)")
+                    else:
+                        logger.warning("Archive timestamp skipped: no TSA URL configured")
+                except Exception as e:
+                    if settings.ltv_fail_open:
+                        logger.warning(f"Archive timestamp failed (continuing): {e}")
+                    else:
+                        raise
 
             logger.info(f"PDF signed successfully: {output_path.name}")
 

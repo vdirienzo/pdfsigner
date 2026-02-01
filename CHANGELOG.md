@@ -6,6 +6,28 @@ Format: [SemVer](https://semver.org/) with `Added | Changed | Fixed | Security` 
 
 ---
 
+## [1.3.0] - 2026-02-01
+
+### Added
+- **REST API** - FastAPI-based API server (`pdfsigner-api` command)
+  - JWT + API key authentication in `api/middleware/auth.py`
+  - Sign endpoints: POST /api/v1/sign/, GET status, GET download
+  - Validate endpoints: POST /api/v1/validate/, batch
+  - Certificates endpoints: list, details, chain
+  - 39 integration tests in `tests/integration/test_api.py`
+
+- **Archive Timestamps (PAdES B-LTA)** - Complete long-term validation
+  - CLI command `pdfsigner archive-ts` in `cli/archive_ts.py`
+  - Phase 6 integration in `pdf_signer.py`
+  - `ArchiveTSScheduler` for monitoring in `archive_ts_scheduler.py` (40 tests)
+  - Settings: `archive_ts_enabled`, `archive_ts_auto`, `archive_ts_tsa_urls`
+
+### Changed
+- GUI validation now shows PAdES level (B-B/T/LT/LTA) in `validation_handler.py`
+- Updated `ROADMAP_STATE_OF_ART.md` - EPIC 1 and EPIC 2 completed
+
+---
+
 ## [1.1.0] - 2026-02-01
 
 ### Added (Tests - 183 new, 1091 total)

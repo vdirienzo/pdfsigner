@@ -202,6 +202,45 @@ class Settings(BaseSettings):
         description="Prefer OCSP over CRL for revocation checks",
     )
 
+    # --- LTV (Long Term Validation) ---
+    ltv_enabled: bool = Field(
+        default=True,
+        description="Enable PAdES-LTV signature with embedded validation info (DSS)",
+    )
+    ltv_ocsp_timeout: int = Field(
+        default=10,
+        ge=5,
+        le=60,
+        description="Timeout for OCSP requests during LTV embedding in seconds",
+    )
+    ltv_crl_timeout: int = Field(
+        default=30,
+        ge=10,
+        le=120,
+        description="Timeout for CRL downloads during LTV embedding in seconds",
+    )
+    ltv_prefer_ocsp: bool = Field(
+        default=True,
+        description="Prefer OCSP over CRL for LTV validation info",
+    )
+    ltv_fail_open: bool = Field(
+        default=True,
+        description="Continue signing if LTV embedding fails (signature still valid, just not LTV)",
+    )
+
+    # --- Archive Timestamp settings (for PAdES B-LTA) ---
+    archive_ts_enabled: bool = Field(
+        default=False, description="Enable archive timestamp embedding for long-term validation"
+    )
+    archive_ts_auto: bool = Field(
+        default=False,
+        description="Auto-add archive timestamp after DSS (requires archive_ts_enabled)",
+    )
+    archive_ts_tsa_urls: list[str] = Field(
+        default_factory=list,
+        description="Additional TSA URLs for archive timestamps (fallback order)",
+    )
+
     # --- Appearance ---
     theme: Literal["system", "light", "dark"] = Field(
         default="system",

@@ -97,7 +97,7 @@ class MultiSignatureHandler:
         """
         try:
             with open(pdf_path, "rb") as f:
-                reader = PdfFileReader(f)
+                reader = PdfFileReader(f, strict=False)
 
                 # Check if PDF is encrypted
                 if reader.security_handler is not None:

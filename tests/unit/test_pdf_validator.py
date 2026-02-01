@@ -329,7 +329,7 @@ class TestPDFValidatorWithMockedSignatures:
         mock_reader = MagicMock()
         mock_reader.embedded_signatures = []
 
-        info = validator._validate_signature(mock_reader, "NonExistent")
+        info = validator._validate_signature(mock_reader, "NonExistent", Path("/tmp/test.pdf"))
 
         assert info.status == SignatureStatus.UNKNOWN
         assert "not found" in info.status_message.lower()
@@ -750,7 +750,7 @@ class TestValidateSignatureWithTimestamp:
             "pdfsigner.core.validator.pdf_validator.validate_pdf_signature",
             return_value=mock_status,
         ):
-            info = validator._validate_signature(mock_reader, "Signature1")
+            info = validator._validate_signature(mock_reader, "Signature1", Path("/tmp/test.pdf"))
 
             assert info.status == SignatureStatus.VALID
             assert info.is_timestamp_valid is True
@@ -791,7 +791,7 @@ class TestValidateSignatureWithTimestamp:
             "pdfsigner.core.validator.pdf_validator.validate_pdf_signature",
             return_value=mock_status,
         ):
-            info = validator._validate_signature(mock_reader, "Signature1")
+            info = validator._validate_signature(mock_reader, "Signature1", Path("/tmp/test.pdf"))
 
             assert info.is_timestamp_valid is False
             assert info.signing_time == datetime(2024, 6, 15, 10, 30, 0)
@@ -829,7 +829,7 @@ class TestValidateSignatureWithTimestamp:
             "pdfsigner.core.validator.pdf_validator.validate_pdf_signature",
             return_value=mock_status,
         ):
-            info = validator._validate_signature(mock_reader, "Signature1")
+            info = validator._validate_signature(mock_reader, "Signature1", Path("/tmp/test.pdf"))
 
             assert info.status == SignatureStatus.INDETERMINATE
             assert "couldn't verify chain" in info.status_message.lower()

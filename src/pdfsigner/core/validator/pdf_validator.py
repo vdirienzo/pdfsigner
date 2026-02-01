@@ -7,10 +7,13 @@ Verifies existing signatures in PDF documents and extracts
 information about signers.
 """
 
-from dataclasses import dataclass
+from __future__ import annotations
+
+from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from cryptography import x509
 from loguru import logger
@@ -29,6 +32,9 @@ from pdfsigner.core.certificate.revocation_checker import (
     RevocationStatus,
 )
 
+if TYPE_CHECKING:
+    from pdfsigner.core.signer.archive_ts_manager import ArchiveTimestampInfo
+
 
 class SignatureStatus(Enum):
     """Signature validation status."""
@@ -37,6 +43,28 @@ class SignatureStatus(Enum):
     INVALID = "invalid"
     UNKNOWN = "unknown"
     INDETERMINATE = "indeterminate"
+
+
+class PAdESLevel(str, Enum):
+    """PAdES compliance level."""
+
+    B_B = "B-B"  # Basic signature
+    B_T = "B-T"  # With timestamp
+    B_LT = "B-LT"  # With LTV info (DSS)
+    B_LTA = "B-LTA"  # With archive timestamp
+    UNKNOWN = "unknown"
+
+
+@dataclass
+class LTVInfo:
+    """LTV validation information for a signature."""
+
+    has_dss: bool = False
+    has_ocsp_in_dss: bool = False
+    has_crl_in_dss: bool = False
+    has_archive_timestamp: bool = False
+    pades_level: PAdESLevel = PAdESLevel.UNKNOWN
+    archive_timestamps: list[ArchiveTimestampInfo] = field(default_factory=list)
 
 
 @dataclass
@@ -61,6 +89,7 @@ class SignatureInfo:
     chain_validation_result: ChainValidationResult | None = None
     revocation_status: str | None = None  # "valid", "revoked", "unknown", "error"
     revocation_message: str | None = None  # Human-readable message
+    ltv_info: LTVInfo | None = None  # PAdES-LTV information
 
 
 @dataclass
@@ -169,7 +198,7 @@ class PDFValidator:
                 # Validate each signature
                 all_valid = True
                 for field_name in sig_fields:
-                    sig_info = self._validate_signature(reader, field_name)
+                    sig_info = self._validate_signature(reader, field_name, pdf_path)
                     signatures.append(sig_info)
 
                     if sig_info.status != SignatureStatus.VALID:
@@ -210,7 +239,9 @@ class PDFValidator:
             logger.warning(f"Error getting signature fields: {e}")
         return sig_fields
 
-    def _validate_signature(self, reader: PdfFileReader, field_name: str) -> SignatureInfo:
+    def _validate_signature(
+        self, reader: PdfFileReader, field_name: str, pdf_path: Path
+    ) -> SignatureInfo:
         """Validate a specific signature."""
         try:
             # Find signature
@@ -278,6 +309,12 @@ class PDFValidator:
             # Extract page number from signature annotation
             page_number = self._extract_page_number(reader, sig)
 
+            # Detect PAdES compliance level
+            has_timestamp = (
+                status.timestamp_validity is not None and status.timestamp_validity.valid
+            )
+            ltv_info = self._detect_pades_level(pdf_path, reader, has_timestamp)
+
             return SignatureInfo(
                 signer_name=signer_name,
                 signer_email=signer_email,
@@ -300,6 +337,7 @@ class PDFValidator:
                 chain_validation_result=chain_result,
                 revocation_status=revocation_status,
                 revocation_message=revocation_message,
+                ltv_info=ltv_info,
             )
 
         except Exception as e:
@@ -360,6 +398,7 @@ class PDFValidator:
             chain_validation_result=None,
             revocation_status=None,
             revocation_message=None,
+            ltv_info=None,
         )
 
     def _create_error_info(self, field_name: str, error: str) -> SignatureInfo:
@@ -383,6 +422,7 @@ class PDFValidator:
             chain_validation_result=None,
             revocation_status=None,
             revocation_message=None,
+            ltv_info=None,
         )
 
     def _extract_cn(self, subject: str) -> str:
@@ -482,3 +522,100 @@ class PDFValidator:
             True if it has at least one signature
         """
         return self.get_signature_count(pdf_path) > 0
+
+    def _check_dss_present(self, reader: PdfFileReader) -> tuple[bool, bool, bool]:
+        """
+        Check if PDF has Document Security Store (DSS).
+
+        Args:
+            reader: PDF reader
+
+        Returns:
+            Tuple of (has_dss, has_ocsp_in_dss, has_crl_in_dss)
+        """
+        try:
+            dss_dict = reader.root.get("/DSS")
+            if dss_dict is None:
+                return False, False, False
+
+            # Get DSS object
+            dss_obj = dss_dict.get_object() if hasattr(dss_dict, "get_object") else dss_dict
+
+            # Check for OCSP responses
+            has_ocsp = "/OCSPs" in dss_obj and len(dss_obj.get("/OCSPs", [])) > 0
+
+            # Check for CRLs
+            has_crl = "/CRLs" in dss_obj and len(dss_obj.get("/CRLs", [])) > 0
+
+            logger.debug(f"DSS found: OCSP={has_ocsp}, CRL={has_crl}")
+            return True, has_ocsp, has_crl
+
+        except Exception as e:
+            logger.debug(f"Error checking DSS: {e}")
+            return False, False, False
+
+    def _get_archive_timestamps(self, pdf_path: Path) -> list[ArchiveTimestampInfo]:
+        """
+        Get archive timestamps from PDF.
+
+        Args:
+            pdf_path: Path to PDF
+
+        Returns:
+            List of archive timestamps
+        """
+        try:
+            # Lazy import to avoid circular dependency
+            from pdfsigner.core.signer.archive_ts_manager import ArchiveTimestampManager
+
+            # Use ArchiveTimestampManager to get timestamps
+            # Create manager with empty TSA URLs (we only need to read, not add timestamps)
+            ts_manager = ArchiveTimestampManager(tsa_urls=[])
+            timestamps = ts_manager.get_archive_timestamps(pdf_path)
+            return timestamps
+        except Exception as e:
+            logger.debug(f"Error getting archive timestamps: {e}")
+            return []
+
+    def _detect_pades_level(
+        self,
+        pdf_path: Path,
+        reader: PdfFileReader,
+        has_timestamp: bool,
+    ) -> LTVInfo:
+        """
+        Detect PAdES compliance level of a signature.
+
+        Args:
+            pdf_path: Path to PDF
+            reader: PDF reader
+            has_timestamp: Whether signature has a timestamp
+
+        Returns:
+            LTVInfo with detected level and details
+        """
+        ltv_info = LTVInfo()
+
+        # Check for DSS
+        has_dss, has_ocsp, has_crl = self._check_dss_present(reader)
+        ltv_info.has_dss = has_dss
+        ltv_info.has_ocsp_in_dss = has_ocsp
+        ltv_info.has_crl_in_dss = has_crl
+
+        # Check for archive timestamps
+        archive_timestamps = self._get_archive_timestamps(pdf_path)
+        ltv_info.archive_timestamps = archive_timestamps
+        ltv_info.has_archive_timestamp = len(archive_timestamps) > 0
+
+        # Determine PAdES level based on features
+        if ltv_info.has_archive_timestamp:
+            ltv_info.pades_level = PAdESLevel.B_LTA
+        elif has_dss:
+            ltv_info.pades_level = PAdESLevel.B_LT
+        elif has_timestamp:
+            ltv_info.pades_level = PAdESLevel.B_T
+        else:
+            ltv_info.pades_level = PAdESLevel.B_B
+
+        logger.debug(f"Detected PAdES level: {ltv_info.pades_level.value}")
+        return ltv_info

@@ -22,6 +22,7 @@ from pdfsigner.gui.settings_pages import (
     create_appearance_page,
     create_behavior_page,
     create_general_page,
+    create_ltv_page,
     create_signature_page,
     create_validation_page,
     get_selected_language,
@@ -63,6 +64,9 @@ class SettingsDialog(Adw.PreferencesWindow):
 
         validation_page = create_validation_page(self.settings, self)
         self.add(validation_page)
+
+        ltv_page = create_ltv_page(self.settings, self)
+        self.add(ltv_page)
 
         behavior_page = create_behavior_page(self.settings, self)
         self.add(behavior_page)
@@ -119,6 +123,18 @@ class SettingsDialog(Adw.PreferencesWindow):
             self.revocation_cache_ttl_spin.connect("notify::value", self._on_setting_changed)
         if hasattr(self, "revocation_prefer_ocsp_switch"):
             self.revocation_prefer_ocsp_switch.connect("notify::active", self._on_setting_changed)
+
+        # LTV page
+        if hasattr(self, "ltv_switch"):
+            self.ltv_switch.connect("notify::active", self._on_setting_changed)
+        if hasattr(self, "ltv_fail_open_switch"):
+            self.ltv_fail_open_switch.connect("notify::active", self._on_setting_changed)
+        if hasattr(self, "ltv_ocsp_timeout_spin"):
+            self.ltv_ocsp_timeout_spin.connect("notify::value", self._on_setting_changed)
+        if hasattr(self, "ltv_crl_timeout_spin"):
+            self.ltv_crl_timeout_spin.connect("notify::value", self._on_setting_changed)
+        if hasattr(self, "ltv_prefer_ocsp_switch"):
+            self.ltv_prefer_ocsp_switch.connect("notify::active", self._on_setting_changed)
 
         # Behavior page
         if hasattr(self, "recent_files_switch"):
@@ -216,6 +232,22 @@ class SettingsDialog(Adw.PreferencesWindow):
             lines.append(
                 f"revocation_prefer_ocsp = "
                 f"{str(self.revocation_prefer_ocsp_switch.get_active()).lower()}"
+            )
+
+        # LTV settings
+        lines.append("")
+        lines.append("# LTV")
+        if hasattr(self, "ltv_switch"):
+            lines.append(f"ltv_enabled = {str(self.ltv_switch.get_active()).lower()}")
+        if hasattr(self, "ltv_fail_open_switch"):
+            lines.append(f"ltv_fail_open = {str(self.ltv_fail_open_switch.get_active()).lower()}")
+        if hasattr(self, "ltv_ocsp_timeout_spin"):
+            lines.append(f"ltv_ocsp_timeout = {int(self.ltv_ocsp_timeout_spin.get_value())}")
+        if hasattr(self, "ltv_crl_timeout_spin"):
+            lines.append(f"ltv_crl_timeout = {int(self.ltv_crl_timeout_spin.get_value())}")
+        if hasattr(self, "ltv_prefer_ocsp_switch"):
+            lines.append(
+                f"ltv_prefer_ocsp = {str(self.ltv_prefer_ocsp_switch.get_active()).lower()}"
             )
 
         # Behavior settings

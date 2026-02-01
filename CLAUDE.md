@@ -4,7 +4,7 @@
 
 **PDFSigner** - Digital PDF signing for Linux/GNOME with PKCS#11/NSS token support.
 
-**Stack:** Python 3.12+, uv, GTK4/libadwaita, pyHanko (PAdES-LTV), PyMuPDF, NSS/python-pkcs11
+**Stack:** Python 3.12+, uv, GTK4/libadwaita, pyHanko (PAdES-LTA), PyMuPDF, NSS/python-pkcs11, FastAPI
 
 ## Commands
 
@@ -12,9 +12,11 @@
 # Run
 uv run pdfsigner-gui                    # GUI
 uv run pdfsigner --dry-run sign f.pdf   # CLI dry-run
+uv run pdfsigner archive-ts signed.pdf  # Add archive timestamp
+uv run pdfsigner-api                    # REST API server
 
 # Test
-uv run pytest -v                        # 1091 tests
+uv run pytest -v                        # ~1240 tests
 uv run pytest --cov=src                 # Coverage (87% core)
 
 # Quality
@@ -34,13 +36,15 @@ MainWindow → SigningHandler → BatchManager → PDFSigner → pyHanko
 
 | Module | Purpose |
 |--------|---------|
-| `core/signer/pdf_signer.py` | Main signing (4 phases) |
+| `core/signer/pdf_signer.py` | Main signing (6 phases: prep → fields → stamps → sign → DSS → archive TS) |
 | `core/signer/batch_manager.py` | Batch orchestration |
+| `core/signer/dss_manager.py` | DSS embedding for PAdES B-LT |
+| `core/signer/archive_ts_manager.py` | Archive timestamps for PAdES B-LTA |
+| `core/signer/archive_ts_scheduler.py` | Long-term PDF monitoring (SQLite) |
 | `core/token/nss_handler.py` | PKCS#11 communication |
-| `core/signature/` | Template system |
-| `core/audit/` | Audit trail (JSON Lines) |
+| `core/validator/pdf_validator.py` | Signature validation + PAdES level detection |
+| `api/` | REST API (FastAPI) |
 | `gui/handlers/` | GUI ↔ Core bridge |
-| `gui/settings_pages/` | Settings pages (factory pattern) |
 
 ### Patterns
 
@@ -89,11 +93,28 @@ for item in aia:  # type: ignore[attr-defined]  # ✓ duck typing
 if not isinstance(aia, SomeType): return None  # ✗ fails with Mock
 ```
 
+## REST API
+
+Run: `uv run pdfsigner-api` → http://localhost:8000/docs
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| POST | `/auth/token` | Get JWT token |
+| POST | `/api/v1/sign/` | Sign PDF (async job) |
+| GET | `/api/v1/sign/{id}/status` | Job status |
+| GET | `/api/v1/sign/{id}/download` | Download signed PDF |
+| POST | `/api/v1/validate/` | Validate signatures |
+| POST | `/api/v1/validate/batch` | Batch validation |
+| GET | `/api/v1/certificates/` | List certificates |
+
+**Auth:** JWT Bearer token OR `X-API-Key` header
+
 ## Testing
 
-- **1091 tests** (unit + integration + E2E)
+- **~1240 tests** (unit + integration + E2E + API)
 - **87% coverage** on core (excludes gui/)
 - **GUI tests:** mocks in `conftest_gui.py`, no display
+- **API tests:** `tests/integration/test_api.py` (39 tests)
 - **Naming:** `test_<func>_<scenario>_<expected>`
 
 ### GTK Mock Testing Patterns
@@ -130,12 +151,12 @@ Location: `~/.config/pdfsigner/config.toml`
 | `tsa_url` | `""` | Timestamp server |
 | `dry_run` | `false` | Simulation mode |
 | `output_suffix` | `"_signed"` | Output suffix |
-| `pin_cache_enabled` | `false` | Cache PIN |
-| `audit_enabled` | `true` | Audit logging |
-| `signature_template` | `""` | Template (empty=invisible) |
+| `ltv_enabled` | `true` | Embed DSS (PAdES B-LT) |
+| `ltv_fail_open` | `true` | Continue if LTV fails |
+| `archive_ts_enabled` | `false` | Enable archive timestamps |
+| `archive_ts_auto` | `false` | Auto-add after DSS (B-LTA) |
 | `revocation_check_enabled` | `false` | OCSP/CRL check |
 | `recent_files_enabled` | `true` | Track recent PDFs |
-| `system_notifications_enabled` | `true` | Desktop notifications |
 
 ## Adding Token Support
 

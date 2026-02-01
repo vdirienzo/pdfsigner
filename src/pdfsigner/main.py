@@ -13,7 +13,7 @@ from pathlib import Path
 
 from loguru import logger
 
-from pdfsigner.cli import cmd_list_certs, cmd_sign, cmd_validate
+from pdfsigner.cli import cmd_archive_ts, cmd_list_certs, cmd_sign, cmd_validate
 from pdfsigner.cli.sign import set_dry_run_mode
 from pdfsigner.config.settings import get_settings
 
@@ -71,6 +71,24 @@ def main() -> int:
     # Command: list-certs
     subparsers.add_parser("list-certs", help="List certificates from token")
 
+    # Command: archive-ts
+    archive_ts_parser = subparsers.add_parser(
+        "archive-ts", help="Add archive timestamp to signed PDFs"
+    )
+    archive_ts_parser.add_argument("files", nargs="+", type=Path, help="Files or folders")
+    archive_ts_parser.add_argument(
+        "-o", "--output", type=Path, help="Output path (only for single file)"
+    )
+    archive_ts_parser.add_argument(
+        "-t",
+        "--tsa-url",
+        action="append",
+        help="TSA URL (can be repeated for fallback). If not specified, uses config.toml setting",
+    )
+    archive_ts_parser.add_argument(
+        "-r", "--recursive", action="store_true", help="Search in subfolders"
+    )
+
     args = parser.parse_args()
     setup_logging(args.verbose)
 
@@ -87,6 +105,7 @@ def main() -> int:
         print("  pdfsigner --dry-run sign document.pdf    # Simulate without token")
         print("  pdfsigner validate signed_document.pdf")
         print("  pdfsigner list-certs")
+        print("  pdfsigner archive-ts signed_document.pdf")
         return 0
 
     # Execute command
@@ -94,6 +113,7 @@ def main() -> int:
         "sign": cmd_sign,
         "validate": cmd_validate,
         "list-certs": cmd_list_certs,
+        "archive-ts": cmd_archive_ts,
     }
 
     if args.command in commands:

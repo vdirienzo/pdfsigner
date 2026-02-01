@@ -67,7 +67,19 @@ class ValidationHandler:
 
                 if sig_count > 0:
                     status = "signed" if validation.all_valid else "error"
-                    message = _("{}signature(s)").format(sig_count)
+
+                    # Extract PAdES level from first signature
+                    pades_level_str = ""
+                    if (
+                        validation.signatures
+                        and validation.signatures[0].ltv_info
+                        and validation.signatures[0].ltv_info.pades_level
+                    ):
+                        level = validation.signatures[0].ltv_info.pades_level
+                        # Convert enum to display string (B_LT -> "B-LT")
+                        pades_level_str = f" • {level.name.replace('_', '-')}"
+
+                    message = _("{}signature(s){}").format(sig_count, pades_level_str)
                     if not validation.all_valid:
                         all_valid = False
                 else:
