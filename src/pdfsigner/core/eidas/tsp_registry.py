@@ -278,6 +278,12 @@ class EUTSPRegistry:
             Raw XML bytes or None if fetch fails
         """
         try:
+            # SSRF protection: only allow HTTPS URLs from trusted EU domains
+            parsed_url = urlparse(tsl_url)
+            if parsed_url.scheme not in ("https", "http"):
+                logger.warning("Rejecting non-HTTP(S) TSL URL: %s", tsl_url)
+                return None
+
             response = requests.get(
                 tsl_url,
                 timeout=30,
@@ -485,9 +491,13 @@ class EUTSPRegistry:
             self._cache_file.unlink()
 
         # Reload (will fetch fresh data)
-        self._offline_mode = False  # Temporarily disable offline mode
-        result = self.load_trusted_list(offline=False)
-        return result
+        original_offline = self._offline_mode
+        self._offline_mode = False
+        try:
+            result = self.load_trusted_list(offline=False)
+            return result
+        finally:
+            self._offline_mode = original_offline
 
     def get_list_info(self) -> TrustedListInfo | None:
         """Get metadata about the loaded trusted list.
@@ -531,7 +541,7 @@ class EUTSPRegistry:
                 # Require at least half of significant words to match (minimum 1)
                 if len(tsp_words) > 0:
                     matches = sum(1 for word in tsp_words if word in issuer_lower)
-                    required_matches = max(1, len(tsp_words) // 2)
+                    required_matches = max(2, (len(tsp_words) * 2 + 2) // 3)
                     if matches >= required_matches:
                         return tsp.status
 

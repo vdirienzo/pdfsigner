@@ -15,12 +15,13 @@ References:
 - ETSI EN 319 411-1/2 (Trust Service Providers)
 """
 
+import logging
 from dataclasses import dataclass, field
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
 
-from loguru import logger
+logger = logging.getLogger(__name__)
 from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
 from pyhanko.pdf_utils.reader import PdfFileReader
 from pyhanko.sign import fields
@@ -256,9 +257,10 @@ class SealManager:
                         with open(output_path, "wb") as f_out:
                             pdf_signer_obj.sign_pdf(writer, output=f_out)
 
+                        seal_signed = True
                         logger.info("Seal created with PKCS#11 certificate")
                     else:
-                        # Fallback: write unsigned field (no token available)
+                        seal_signed = False
                         logger.warning(
                             "No PKCS#11 seal certificate available. "
                             "Writing unsigned seal field "
@@ -268,17 +270,17 @@ class SealManager:
                             writer.write(f_out)
                 except Exception as sign_err:
                     logger.error("PKCS#11 seal signing failed: %s", sign_err)
-                    # Fallback: write unsigned field
+                    seal_signed = False
                     with open(output_path, "wb") as f_out:
                         writer.write(f_out)
 
-            # Log audit event (seal creation as a special type of signing event)
+            # Log audit event
             log_signing_event(
                 document_path=str(pdf_path),
-                certificate_serial=None,  # Would come from PKCS#11 in production
+                certificate_serial=None,
                 certificate_issuer=None,
                 user_cn=config.organization.name,
-                success=True,
+                success=seal_signed,
                 details={
                     "seal_type": config.seal_type.value,
                     "organization": config.organization.name,
@@ -563,7 +565,7 @@ class SealManager:
             if not qc.has_qc_statements or qc.qc_type != "eseal":
                 return SealQualificationLevel.BASIC
 
-            registry = get_tsp_registry(use_mock_data=True)
+            registry = get_tsp_registry(use_mock_data=False)
             from cryptography import x509 as crypto_x509
             from cryptography.hazmat.backends import default_backend
 
@@ -636,7 +638,7 @@ def generate_circular_seal(
     <text x="{width / 2}" y="{height / 4}"
           font-family="Arial, sans-serif" font-size="16" font-weight="bold"
           fill="{text_color}" text-anchor="middle">
-        ★ {organization[:20]} ★
+        ★ {__import__("html").escape(organization[:20])} ★
     </text>
 
     <!-- Country and date (bottom) -->

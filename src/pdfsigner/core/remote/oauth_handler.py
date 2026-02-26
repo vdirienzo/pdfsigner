@@ -59,6 +59,7 @@ class OAuthHandler:
         self.scope = scope
         self._token: OAuthToken | None = None
         self._code_verifier: str = ""
+        self._state: str = ""
 
     def generate_auth_url(self) -> str:
         """Generate authorization URL with PKCE challenge.
@@ -83,18 +84,26 @@ class OAuthHandler:
             "code_challenge_method": "S256",
             "state": secrets.token_urlsafe(32),
         }
+        self._state = params["state"]
 
         return f"{self.authorize_url}?{urlencode(params)}"
 
-    def exchange_code(self, authorization_code: str) -> OAuthToken:
+    def exchange_code(self, authorization_code: str, state: str = "") -> OAuthToken:
         """Exchange authorization code for access token.
 
         Args:
             authorization_code: Code received from authorization callback
+            state: State parameter from callback (verified against stored state)
 
         Returns:
             OAuthToken with access and refresh tokens
+
+        Raises:
+            ValueError: If state parameter doesn't match (CSRF protection)
         """
+        if state and self._state and state != self._state:
+            raise ValueError("OAuth state mismatch — possible CSRF attack")
+
         data = {
             "grant_type": "authorization_code",
             "code": authorization_code,
@@ -167,8 +176,8 @@ class OAuthHandler:
         if self._token.is_expired and self._token.refresh_token:
             try:
                 return self.refresh_token()
-            except Exception as e:
-                logger.warning("Token refresh failed: %s", e)
+            except Exception:
+                logger.warning("Token refresh failed, re-authentication may be required")
                 return None
 
         return self._token if not self._token.is_expired else None

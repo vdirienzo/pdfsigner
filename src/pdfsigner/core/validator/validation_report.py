@@ -166,11 +166,14 @@ def _determine_signature_quality(sig: SignatureInfo) -> str:
     return QualificationLevel.BASIC.value
 
 
-def _extract_certificate_info(sig: SignatureInfo) -> dict[str, Any]:
+def _extract_certificate_info(
+    sig: SignatureInfo, cert: x509.Certificate | None = None
+) -> dict[str, Any]:
     """Extract structured certificate information.
 
     Args:
         sig: Signature info with certificate fields
+        cert: Pre-parsed x509 certificate (avoids duplicate parsing)
 
     Returns:
         Dictionary with certificate details
@@ -187,10 +190,16 @@ def _extract_certificate_info(sig: SignatureInfo) -> dict[str, Any]:
         "key_size": 0,
     }
 
-    # Try to extract algorithm details from certificate bytes
-    if sig.certificate_bytes:
+    # Parse cert from bytes if not provided
+    if cert is None and sig.certificate_bytes:
         try:
             cert = x509.load_der_x509_certificate(sig.certificate_bytes)
+        except Exception as e:
+            logger.debug("Failed to extract certificate algorithm info: %s", e)
+
+    # Extract algorithm details from certificate
+    if cert is not None:
+        try:
             pub_key = cert.public_key()
 
             if isinstance(pub_key, rsa.RSAPublicKey):
@@ -208,20 +217,28 @@ def _extract_certificate_info(sig: SignatureInfo) -> dict[str, Any]:
     return cert_info
 
 
-def _extract_algorithm_info(sig: SignatureInfo) -> AlgorithmAssessment | None:
+def _extract_algorithm_info(
+    sig: SignatureInfo, cert: x509.Certificate | None = None
+) -> AlgorithmAssessment | None:
     """Extract and assess algorithm strength from certificate.
 
     Args:
         sig: Signature info with certificate bytes
+        cert: Pre-parsed x509 certificate (avoids duplicate parsing)
 
     Returns:
         AlgorithmAssessment or None if extraction fails
     """
-    if not sig.certificate_bytes:
+    if cert is None and sig.certificate_bytes:
+        try:
+            cert = x509.load_der_x509_certificate(sig.certificate_bytes)
+        except Exception:
+            pass
+
+    if cert is None:
         return None
 
     try:
-        cert = x509.load_der_x509_certificate(sig.certificate_bytes)
         pub_key = cert.public_key()
 
         # Determine signature algorithm and hash
@@ -338,8 +355,16 @@ def _build_signature_report(sig: SignatureInfo) -> dict[str, Any]:
     Returns:
         Dictionary with full signature report
     """
+    # Parse certificate once, pass to both helpers
+    cert = None
+    if sig.certificate_bytes:
+        try:
+            cert = x509.load_der_x509_certificate(sig.certificate_bytes)
+        except Exception:
+            pass
+
     # Algorithm assessment
-    algo_assessment = _extract_algorithm_info(sig)
+    algo_assessment = _extract_algorithm_info(sig, cert)
 
     # Main and sub indication
     main_indication = _determine_main_indication(sig)
@@ -413,7 +438,7 @@ def _build_signature_report(sig: SignatureInfo) -> dict[str, Any]:
             "covers_whole_document": sig.covers_whole_document,
             "has_timestamp": sig.is_timestamp_valid,
         },
-        "certificate_info": _extract_certificate_info(sig),
+        "certificate_info": _extract_certificate_info(sig, cert),
         "revocation_status": _build_revocation_info(sig),
         "algorithm_assessment": algo_section,
         "trust_service_provider": _build_tsp_info(sig),

@@ -26,7 +26,7 @@ QcStatements OIDs (RFC 3739):
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -87,7 +87,7 @@ class QESValidationResult:
     signature_validations: list[SignatureValidation] = field(default_factory=list)
     issues: list[str] = field(default_factory=list)
     recommendations: list[str] = field(default_factory=list)
-    validation_time: datetime = field(default_factory=datetime.now)
+    validation_time: datetime = field(default_factory=lambda: datetime.now(UTC))
 
     # Legacy compatibility properties
     @property
@@ -324,8 +324,8 @@ class QualifiedSignatureValidator:
                 logger.warning("Revocation check indeterminate, fail-open: False")
                 return False
         except Exception as e:
-            logger.debug("Revocation check failed: %s", e)
-            return True  # Fail open on exception
+            logger.warning("Revocation check error (fail-closed): %s", e)
+            return False  # Fail closed on unexpected exception
 
     def _generate_recommendations(self, result: QESValidationResult) -> None:
         """Generate recommendations based on validation results.

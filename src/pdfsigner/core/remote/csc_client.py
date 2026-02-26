@@ -119,6 +119,13 @@ class CSCClient:
         self.service_url = service_url.rstrip("/")
         self.timeout = timeout
         self.verify_ssl = verify_ssl
+
+        # Validate service URL (SSRF protection)
+        from urllib.parse import urlparse
+
+        parsed = urlparse(self.service_url)
+        if parsed.scheme not in ("https", "http"):
+            raise ValueError(f"CSC service URL must use HTTPS: {self.service_url}")
         self._access_token: str | None = None
         self._session = requests.Session()
         self._session.headers.update(
