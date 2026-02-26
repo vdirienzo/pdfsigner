@@ -18,16 +18,11 @@ from gi.repository import Adw, GLib
 
 from pdfsigner.config.settings import get_settings, reload_settings
 from pdfsigner.gui.settings_pages import (
-    create_advanced_page,
-    create_appearance_page,
-    create_argentina_page,
-    create_behavior_page,
-    create_eidas_page,
+    create_compliance_page,
     create_general_page,
     create_healthcare_page,
-    create_ltv_page,
+    create_security_page,
     create_signature_page,
-    create_validation_page,
     get_selected_language,
     get_selected_theme,
 )
@@ -38,12 +33,12 @@ class SettingsDialog(Adw.PreferencesWindow):
     """
     Settings dialog for PDFSigner.
 
-    Organized in pages:
-    - General (TSA, NSS)
-    - Visible Signature
-    - Appearance (Theme, Language)
-    - Advanced (PIN cache, logging)
-    - Argentina (Ley 25.506 compliance)
+    Organized in 5 pages:
+    - General (TSA, NSS, Behavior, Appearance)
+    - Signature (Templates, Output)
+    - Security (Validation, LTV, PIN Cache, Logging)
+    - Healthcare (HIPAA compliance)
+    - Compliance (Argentina, eIDAS)
 
     All settings auto-save when modified.
     """
@@ -59,36 +54,21 @@ class SettingsDialog(Adw.PreferencesWindow):
         self.settings = get_settings()
         self._save_timeout_id = None
 
-        # Create pages using extracted modules
+        # Create 5 consolidated pages
         general_page = create_general_page(self.settings, self)
         self.add(general_page)
 
         signature_page = create_signature_page(self.settings, self)
         self.add(signature_page)
 
-        validation_page = create_validation_page(self.settings, self)
-        self.add(validation_page)
-
-        ltv_page = create_ltv_page(self.settings, self)
-        self.add(ltv_page)
-
-        behavior_page = create_behavior_page(self.settings, self)
-        self.add(behavior_page)
-
-        appearance_page = create_appearance_page(self.settings, self)
-        self.add(appearance_page)
-
-        advanced_page = create_advanced_page(self.settings, self)
-        self.add(advanced_page)
+        security_page = create_security_page(self.settings, self)
+        self.add(security_page)
 
         healthcare_page = create_healthcare_page(self.settings, self)
         self.add(healthcare_page)
 
-        argentina_page = create_argentina_page(self.settings, self)
-        self.add(argentina_page)
-
-        eidas_page = create_eidas_page(self.settings, self)
-        self.add(eidas_page)
+        compliance_page = create_compliance_page(self.settings, self)
+        self.add(compliance_page)
 
         # Connect auto-save signals after all pages are created
         self._connect_auto_save_signals()

@@ -18,21 +18,15 @@ from pdfsigner.gui.a11y import set_accessible
 from pdfsigner.i18n import _
 
 
-def create_argentina_page(settings, dialog) -> Adw.PreferencesPage:
+def add_argentina_groups(page: Adw.PreferencesPage, settings, dialog) -> None:
     """
-    Creates the Argentina Compliance settings page.
+    Add Argentina compliance groups to an existing page.
 
     Args:
+        page: Target PreferencesPage to add groups to
         settings: Settings object with current configuration
         dialog: Parent dialog for storing widget references
-
-    Returns:
-        Configured PreferencesPage for Argentine compliance (Ley 25.506)
     """
-    page = Adw.PreferencesPage()
-    page.set_title(_("Argentina"))
-    page.set_icon_name("emblem-documents-symbolic")
-
     # --- Group 1: Compliance Ley 25.506 ---
     compliance_group = Adw.PreferencesGroup()
     compliance_group.set_title(_("Ley 25.506 Compliance"))
@@ -332,6 +326,24 @@ def create_argentina_page(settings, dialog) -> Adw.PreferencesPage:
     dialog.argentine_enabled = argentine_enabled
     dialog.argentine_strict_mode = strict_mode
     dialog.argentina_preset_button = preset_button
+
+
+def create_argentina_page(settings, dialog) -> Adw.PreferencesPage:
+    """
+    Creates the Argentina Compliance settings page.
+
+    Args:
+        settings: Settings object with current configuration
+        dialog: Parent dialog for storing widget references
+
+    Returns:
+        Configured PreferencesPage for Argentine compliance (Ley 25.506)
+    """
+    page = Adw.PreferencesPage()
+    page.set_title(_("Argentina"))
+    page.set_icon_name("emblem-documents-symbolic")
+
+    add_argentina_groups(page, settings, dialog)
 
     return page
 

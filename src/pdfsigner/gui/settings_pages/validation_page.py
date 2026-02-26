@@ -16,21 +16,15 @@ from pdfsigner.gui.a11y import set_accessible
 from pdfsigner.i18n import _
 
 
-def create_validation_page(settings, dialog) -> Adw.PreferencesPage:
+def add_validation_groups(page: Adw.PreferencesPage, settings, dialog) -> None:
     """
-    Creates the validation settings page.
+    Add validation groups (Certificate Revocation) to an existing page.
 
     Args:
+        page: Target PreferencesPage to add groups to
         settings: Settings object with current configuration
         dialog: Parent dialog for callbacks
-
-    Returns:
-        Configured PreferencesPage
     """
-    page = Adw.PreferencesPage()
-    page.set_title(_("Validation"))
-    page.set_icon_name("security-high-symbolic")
-
     # Grupo: Certificate Revocation
     revocation_group = Adw.PreferencesGroup()
     revocation_group.set_title(_("Certificate Revocation"))
@@ -105,5 +99,23 @@ def create_validation_page(settings, dialog) -> Adw.PreferencesPage:
     dialog.revocation_timeout_spin = revocation_timeout_spin
     dialog.revocation_cache_ttl_spin = revocation_cache_ttl_spin
     dialog.revocation_prefer_ocsp_switch = revocation_prefer_ocsp_switch
+
+
+def create_validation_page(settings, dialog) -> Adw.PreferencesPage:
+    """
+    Creates the validation settings page.
+
+    Args:
+        settings: Settings object with current configuration
+        dialog: Parent dialog for callbacks
+
+    Returns:
+        Configured PreferencesPage
+    """
+    page = Adw.PreferencesPage()
+    page.set_title(_("Validation"))
+    page.set_icon_name("security-high-symbolic")
+
+    add_validation_groups(page, settings, dialog)
 
     return page

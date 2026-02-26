@@ -1,9 +1,12 @@
 """
-ltv_page.py - LTV (Long Term Validation) settings page
+security_page.py - Security settings page (consolidated)
 
 Author: Homero Thompson del Lago del Terror
 
-Creates the LTV settings page with PAdES-LTV configuration.
+Creates the security settings page consolidating:
+- Certificate Revocation (from validation_page)
+- Long Term Validation / LTV (from ltv_page)
+- PIN Cache and Logging (from advanced_page)
 """
 
 import gi
@@ -15,10 +18,14 @@ from gi.repository import Adw, Gtk
 from pdfsigner.gui.a11y import set_accessible
 from pdfsigner.i18n import _
 
+from .validation_page import add_validation_groups
 
-def create_ltv_page(settings, dialog) -> Adw.PreferencesPage:
+
+def create_security_page(settings, dialog) -> Adw.PreferencesPage:
     """
-    Creates the LTV settings page.
+    Creates the consolidated security settings page.
+
+    Includes Certificate Revocation, LTV, PIN Cache, and Logging groups.
 
     Args:
         settings: Settings object with current configuration
@@ -28,10 +35,24 @@ def create_ltv_page(settings, dialog) -> Adw.PreferencesPage:
         Configured PreferencesPage
     """
     page = Adw.PreferencesPage()
-    page.set_title(_("LTV"))
+    page.set_title(_("Security"))
     page.set_icon_name("security-high-symbolic")
 
-    # Grupo: Long Term Validation
+    # Certificate Revocation groups (from validation_page)
+    add_validation_groups(page, settings, dialog)
+
+    # LTV groups (inlined from ltv_page)
+    _build_ltv_groups(page, settings, dialog)
+
+    # Advanced groups (inlined from advanced_page)
+    _build_advanced_groups(page, settings, dialog)
+
+    return page
+
+
+def _build_ltv_groups(page: Adw.PreferencesPage, settings, dialog) -> None:
+    """Build Long Term Validation groups (ex ltv_page.py)."""
+    # Group: Long Term Validation
     ltv_group = Adw.PreferencesGroup()
     ltv_group.set_title(_("Long Term Validation"))
     ltv_group.set_description(_("PAdES-LTV signatures with embedded validation info (DSS)"))
@@ -62,7 +83,7 @@ def create_ltv_page(settings, dialog) -> Adw.PreferencesPage:
 
     page.add(ltv_group)
 
-    # Grupo: Timeouts
+    # Group: Timeouts
     timeout_group = Adw.PreferencesGroup()
     timeout_group.set_title(_("Timeouts"))
     timeout_group.set_description(_("Network timeouts for fetching validation information"))
@@ -107,7 +128,7 @@ def create_ltv_page(settings, dialog) -> Adw.PreferencesPage:
 
     page.add(timeout_group)
 
-    # Grupo: Preferences
+    # Group: Preferences
     pref_group = Adw.PreferencesGroup()
     pref_group.set_title(_("Preferences"))
 
@@ -132,4 +153,53 @@ def create_ltv_page(settings, dialog) -> Adw.PreferencesPage:
     dialog.ltv_crl_timeout_spin = ltv_crl_timeout_spin
     dialog.ltv_prefer_ocsp_switch = ltv_prefer_ocsp_switch
 
-    return page
+
+def _build_advanced_groups(page: Adw.PreferencesPage, settings, dialog) -> None:
+    """Build PIN Cache and Logging groups (ex advanced_page.py)."""
+    # Group: PIN Cache
+    pin_group = Adw.PreferencesGroup()
+    pin_group.set_title(_("PIN Cache"))
+    pin_group.set_description(_("Cache PIN during batch signing"))
+
+    # Enable cache
+    pin_cache_switch = Adw.SwitchRow()
+    pin_cache_switch.set_title(_("Enable PIN cache"))
+    pin_cache_switch.set_subtitle(_("More convenient but less secure"))
+    pin_cache_switch.set_active(settings.pin_cache_enabled)
+    set_accessible(pin_cache_switch, _("Enable PIN cache"), _("Cache PIN during batch signing"))
+    pin_group.add(pin_cache_switch)
+
+    # Timeout
+    pin_timeout_spin = Adw.SpinRow.new_with_range(60, 3600, 60)
+    pin_timeout_spin.set_title(_("Timeout (seconds)"))
+    pin_timeout_spin.set_value(settings.pin_cache_timeout_seconds)
+    set_accessible(
+        pin_timeout_spin,
+        _("PIN cache timeout"),
+        _("Seconds before cached PIN expires"),
+    )
+    pin_group.add(pin_timeout_spin)
+
+    page.add(pin_group)
+
+    # Group: Logging
+    log_group = Adw.PreferencesGroup()
+    log_group.set_title(_("Logging"))
+
+    # Log level
+    log_level_combo = Adw.ComboRow()
+    log_level_combo.set_title(_("Log level"))
+    set_accessible(log_level_combo, _("Log level"), _("Verbosity of application logs"))
+    levels = Gtk.StringList.new([_("DEBUG"), _("INFO"), _("WARNING"), _("ERROR")])
+    log_level_combo.set_model(levels)
+
+    level_index = {"DEBUG": 0, "INFO": 1, "WARNING": 2, "ERROR": 3}
+    log_level_combo.set_selected(level_index.get(settings.log_level, 1))
+    log_group.add(log_level_combo)
+
+    page.add(log_group)
+
+    # Store references for saving
+    dialog.pin_cache_switch = pin_cache_switch
+    dialog.pin_timeout_spin = pin_timeout_spin
+    dialog.log_level_combo = log_level_combo

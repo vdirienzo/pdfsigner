@@ -248,6 +248,21 @@ def _build_seals_group(settings, dialog) -> Adw.PreferencesGroup:
     return group
 
 
+def add_eidas_groups(page: Adw.PreferencesPage, settings, dialog) -> None:
+    """
+    Add eIDAS groups to an existing page.
+
+    Args:
+        page: Target PreferencesPage to add groups to
+        settings: Settings object with current configuration
+        dialog: Parent dialog for widget reference storage
+    """
+    page.add(_build_core_group(settings, dialog))
+    page.add(_build_trusted_lists_group(settings, dialog))
+    page.add(_build_remote_signing_group(settings, dialog))
+    page.add(_build_seals_group(settings, dialog))
+
+
 def create_eidas_page(settings, dialog) -> Adw.PreferencesPage:
     """
     Creates the eIDAS / EU settings page.
@@ -263,9 +278,6 @@ def create_eidas_page(settings, dialog) -> Adw.PreferencesPage:
     page.set_title(_("eIDAS / EU"))
     page.set_icon_name("globe-symbolic")
 
-    page.add(_build_core_group(settings, dialog))
-    page.add(_build_trusted_lists_group(settings, dialog))
-    page.add(_build_remote_signing_group(settings, dialog))
-    page.add(_build_seals_group(settings, dialog))
+    add_eidas_groups(page, settings, dialog)
 
     return page

@@ -79,21 +79,15 @@ def apply_theme(theme: str) -> None:
         style_manager.set_color_scheme(Adw.ColorScheme.DEFAULT)
 
 
-def create_appearance_page(settings, dialog) -> Adw.PreferencesPage:
+def add_appearance_groups(page: Adw.PreferencesPage, settings, dialog) -> None:
     """
-    Creates the appearance settings page.
+    Add appearance groups (Theme, Language) to an existing page.
 
     Args:
+        page: Target PreferencesPage to add groups to
         settings: Settings object with current configuration
         dialog: Parent dialog for callbacks
-
-    Returns:
-        Configured PreferencesPage
     """
-    page = Adw.PreferencesPage()
-    page.set_title(_("Appearance"))
-    page.set_icon_name("preferences-desktop-appearance-symbolic")
-
     # Group: Theme
     theme_group = Adw.PreferencesGroup()
     theme_group.set_title(_("Theme"))
@@ -158,6 +152,24 @@ def create_appearance_page(settings, dialog) -> Adw.PreferencesPage:
     # Store references for saving
     dialog.theme_row = theme_row
     dialog.lang_row = lang_row
+
+
+def create_appearance_page(settings, dialog) -> Adw.PreferencesPage:
+    """
+    Creates the appearance settings page.
+
+    Args:
+        settings: Settings object with current configuration
+        dialog: Parent dialog for callbacks
+
+    Returns:
+        Configured PreferencesPage
+    """
+    page = Adw.PreferencesPage()
+    page.set_title(_("Appearance"))
+    page.set_icon_name("preferences-desktop-appearance-symbolic")
+
+    add_appearance_groups(page, settings, dialog)
 
     return page
 

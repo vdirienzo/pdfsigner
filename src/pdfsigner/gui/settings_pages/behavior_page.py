@@ -16,21 +16,15 @@ from pdfsigner.gui.a11y import set_accessible
 from pdfsigner.i18n import _
 
 
-def create_behavior_page(settings, dialog) -> Adw.PreferencesPage:
+def add_behavior_groups(page: Adw.PreferencesPage, settings, dialog) -> None:
     """
-    Creates the behavior settings page.
+    Add behavior groups (Recent Files, Notifications) to an existing page.
 
     Args:
+        page: Target PreferencesPage to add groups to
         settings: Settings object with current configuration
         dialog: Parent dialog for callbacks
-
-    Returns:
-        Configured PreferencesPage
     """
-    page = Adw.PreferencesPage()
-    page.set_title(_("Behavior"))
-    page.set_icon_name("preferences-other-symbolic")
-
     # Group: Recent Files
     recent_files_group = Adw.PreferencesGroup()
     recent_files_group.set_title(_("Recent Files"))
@@ -95,5 +89,23 @@ def create_behavior_page(settings, dialog) -> Adw.PreferencesPage:
     dialog.recent_files_switch = recent_files_switch
     dialog.recent_files_limit_spin = recent_files_limit_spin
     dialog.notifications_switch = notifications_switch
+
+
+def create_behavior_page(settings, dialog) -> Adw.PreferencesPage:
+    """
+    Creates the behavior settings page.
+
+    Args:
+        settings: Settings object with current configuration
+        dialog: Parent dialog for callbacks
+
+    Returns:
+        Configured PreferencesPage
+    """
+    page = Adw.PreferencesPage()
+    page.set_title(_("Behavior"))
+    page.set_icon_name("preferences-other-symbolic")
+
+    add_behavior_groups(page, settings, dialog)
 
     return page

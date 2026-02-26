@@ -1,9 +1,13 @@
 """
-general_page.py - General settings page
+general_page.py - General settings page (consolidated)
 
 Author: Homero Thompson del Lago del Terror
 
-Creates the general settings page with NSS and TSA configuration.
+Creates the general settings page consolidating:
+- USB Token (NSS database)
+- Timestamp Server (TSA)
+- Behavior (Recent Files, Notifications)
+- Appearance (Theme, Language)
 """
 
 from pathlib import Path
@@ -17,12 +21,16 @@ from gi.repository import Adw, Gio, GLib, Gtk
 from pdfsigner.gui.a11y import set_accessible
 from pdfsigner.i18n import _
 
+from .appearance_page import add_appearance_groups
+from .behavior_page import add_behavior_groups
 from .tsa_presets import TSA_PRESET_NAMES, TSA_PRESETS
 
 
 def create_general_page(settings, dialog) -> Adw.PreferencesPage:
     """
-    Creates the general settings page.
+    Creates the consolidated general settings page.
+
+    Includes USB Token, TSA, Behavior, and Appearance groups.
 
     Args:
         settings: Settings object with current configuration
@@ -35,7 +43,21 @@ def create_general_page(settings, dialog) -> Adw.PreferencesPage:
     page.set_title(_("General"))
     page.set_icon_name("preferences-system-symbolic")
 
-    # Grupo: NSS/Token
+    # Own groups: NSS and TSA
+    _build_nss_group(page, settings, dialog)
+    _build_tsa_group(page, settings, dialog)
+
+    # Behavior groups (Recent Files, Notifications)
+    add_behavior_groups(page, settings, dialog)
+
+    # Appearance groups (Theme, Language)
+    add_appearance_groups(page, settings, dialog)
+
+    return page
+
+
+def _build_nss_group(page: Adw.PreferencesPage, settings, dialog) -> None:
+    """Build USB Token / NSS database group."""
     nss_group = Adw.PreferencesGroup()
     nss_group.set_title(_("USB Token"))
     nss_group.set_description(_("NSS database configuration"))
@@ -67,7 +89,12 @@ def create_general_page(settings, dialog) -> Adw.PreferencesPage:
     nss_group.add(nss_path_row)
     page.add(nss_group)
 
-    # Grupo: TSA
+    # Store reference for saving
+    dialog.nss_path_entry = nss_path_entry
+
+
+def _build_tsa_group(page: Adw.PreferencesPage, settings, dialog) -> None:
+    """Build Timestamp Server (TSA) group."""
     tsa_group = Adw.PreferencesGroup()
     tsa_group.set_title(_("Timestamp Server (TSA)"))
     tsa_group.set_description(_("Timestamp source for signatures"))
@@ -109,7 +136,7 @@ def create_general_page(settings, dialog) -> Adw.PreferencesPage:
     tsa_group.add(presets_row)
     tsa_group.add(tsa_url_row)
 
-    # Credenciales TSA
+    # TSA Credentials
     tsa_user_row = Adw.EntryRow()
     tsa_user_row.set_title(_("TSA Username (optional)"))
     tsa_user_row.set_text(settings.tsa_username or "")
@@ -127,13 +154,10 @@ def create_general_page(settings, dialog) -> Adw.PreferencesPage:
     page.add(tsa_group)
 
     # Store references for saving
-    dialog.nss_path_entry = nss_path_entry
     dialog.tsa_presets_row = presets_row
     dialog.tsa_url_row = tsa_url_row
     dialog.tsa_user_row = tsa_user_row
     dialog.tsa_pass_row = tsa_pass_row
-
-    return page
 
 
 def _on_browse_nss_clicked(button: Gtk.Button, entry: Gtk.Entry, dialog) -> None:
