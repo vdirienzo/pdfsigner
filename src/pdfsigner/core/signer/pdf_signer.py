@@ -300,6 +300,22 @@ class PDFSigner:
         doc.save(output_path)
         doc.close()
 
+    def _create_stretch_layout(self):
+        """Create the standard stretch layout for stamp styles."""
+        from pyhanko.pdf_utils.layout import (
+            AxisAlignment,
+            InnerScaling,
+            Margins,
+            SimpleBoxLayoutRule,
+        )
+
+        return SimpleBoxLayoutRule(
+            x_align=AxisAlignment.ALIGN_MIN,
+            y_align=AxisAlignment.ALIGN_MIN,
+            inner_content_scaling=InnerScaling.STRETCH_TO_FIT,
+            margins=Margins(left=0, right=0, top=0, bottom=0),
+        )
+
     def _build_stamp_style(
         self,
         appearance: "SignatureAppearance",
@@ -347,20 +363,7 @@ class PDFSigner:
             )
             if stamp_path:
                 try:
-                    from pyhanko.pdf_utils.layout import (
-                        AxisAlignment,
-                        InnerScaling,
-                        Margins,
-                        SimpleBoxLayoutRule,
-                    )
-
-                    # Use layout that fills the box without margins for crisp rendering
-                    bg_layout = SimpleBoxLayoutRule(
-                        x_align=AxisAlignment.ALIGN_MIN,
-                        y_align=AxisAlignment.ALIGN_MIN,
-                        inner_content_scaling=InnerScaling.STRETCH_TO_FIT,
-                        margins=Margins(left=0, right=0, top=0, bottom=0),
-                    )
+                    bg_layout = self._create_stretch_layout()
                     return stamp.TextStampStyle(
                         stamp_text="",
                         background=images.PdfImage(str(stamp_path)),
@@ -401,20 +404,7 @@ class PDFSigner:
 
                 logger.debug(f"Generated QR stamp: {stamp_image_path}")
 
-                # Use composed image as background with high quality settings
-                from pyhanko.pdf_utils.layout import (
-                    AxisAlignment,
-                    InnerScaling,
-                    Margins,
-                    SimpleBoxLayoutRule,
-                )
-
-                bg_layout = SimpleBoxLayoutRule(
-                    x_align=AxisAlignment.ALIGN_MIN,
-                    y_align=AxisAlignment.ALIGN_MIN,
-                    inner_content_scaling=InnerScaling.STRETCH_TO_FIT,
-                    margins=Margins(left=0, right=0, top=0, bottom=0),
-                )
+                bg_layout = self._create_stretch_layout()
                 return stamp.TextStampStyle(
                     stamp_text="",
                     background=images.PdfImage(str(stamp_image_path)),
@@ -705,6 +695,69 @@ class PDFSigner:
         else:
             logger.warning("No validation info collected for LTV")
 
+    def _log_signing_success(
+        self,
+        signer: signers.Signer,
+        signer_name: str | None,
+        input_path: Path,
+        output_path: Path,
+        template_override: str | None,
+        reason: str | None,
+        location: str | None,
+    ) -> None:
+        """Log audit event for successful signing."""
+        certificate_serial = None
+        certificate_issuer = None
+        try:
+            if signer.signing_cert:
+                certificate_serial = hex(signer.signing_cert.serial_number)
+                certificate_issuer = signer.signing_cert.issuer.human_friendly
+        except (TypeError, AttributeError):
+            pass
+
+        log_signing_event(
+            document_path=str(input_path),
+            certificate_serial=certificate_serial,
+            certificate_issuer=certificate_issuer,
+            user_cn=signer_name,
+            success=True,
+            details={
+                "template": template_override or get_settings().signature_template or "none",
+                "output": str(output_path),
+                "reason": reason,
+                "location": location,
+            },
+        )
+
+    def _log_signing_failure(
+        self,
+        input_path: Path,
+        error: Exception,
+        signer: signers.Signer | None = None,
+        signer_name: str | None = None,
+    ) -> None:
+        """Log audit event for failed signing."""
+        certificate_serial = None
+        certificate_issuer = None
+        user_cn = None
+        try:
+            if signer is not None and signer.signing_cert:
+                certificate_serial = hex(signer.signing_cert.serial_number)
+                certificate_issuer = signer.signing_cert.issuer.human_friendly
+                user_cn = signer_name
+        except (TypeError, AttributeError):
+            pass
+
+        log_signing_event(
+            document_path=str(input_path),
+            certificate_serial=certificate_serial,
+            certificate_issuer=certificate_issuer,
+            user_cn=user_cn,
+            success=False,
+            error=str(error),
+            details={"error_type": type(error).__name__, "error_message": str(error)},
+        )
+
     def sign_pdf(
         self,
         input_path: Path,
@@ -739,6 +792,9 @@ class PDFSigner:
         appearance = appearance or SignatureAppearance()
 
         logger.info(f"Signing: {input_path.name}")
+
+        signer = None
+        signer_name = None
 
         try:
             # Phase 1: Prepare signing context
@@ -834,29 +890,14 @@ class PDFSigner:
 
             logger.info(f"PDF signed successfully: {output_path.name}")
 
-            # Log audit event for successful signing
-            certificate_serial = None
-            certificate_issuer = None
-            try:
-                if signer.signing_cert:
-                    certificate_serial = hex(signer.signing_cert.serial_number)
-                    certificate_issuer = signer.signing_cert.issuer.human_friendly
-            except (TypeError, AttributeError):
-                # Handle mocks or missing attributes gracefully
-                pass
-
-            log_signing_event(
-                document_path=str(input_path),
-                certificate_serial=certificate_serial,
-                certificate_issuer=certificate_issuer,
-                user_cn=signer_name,
-                success=True,
-                details={
-                    "template": template_override or get_settings().signature_template or "none",
-                    "output": str(output_path),
-                    "reason": reason,
-                    "location": location,
-                },
+            self._log_signing_success(
+                signer,
+                signer_name,
+                input_path,
+                output_path,
+                template_override,
+                reason,
+                location,
             )
 
             return SigningResult(
@@ -869,16 +910,7 @@ class PDFSigner:
         except (PDFCorruptedError, PDFProtectedError) as e:
             logger.error(f"PDF error: {e}")
 
-            # Log audit event for failed signing
-            log_signing_event(
-                document_path=str(input_path),
-                certificate_serial=None,
-                certificate_issuer=None,
-                user_cn=None,
-                success=False,
-                error=str(e),
-                details={"error_type": type(e).__name__},
-            )
+            self._log_signing_failure(input_path, e)
 
             return SigningResult(
                 success=False,
@@ -891,33 +923,7 @@ class PDFSigner:
 
             logger.error(f"Error signing PDF: {e}\n{traceback.format_exc()}")
 
-            # Log audit event for failed signing
-            # Try to get certificate info if signer was created
-            certificate_serial = None
-            certificate_issuer = None
-            user_cn = None
-            try:
-                # Check if signer was successfully created in Phase 1
-                signer  # This will raise NameError if not defined
-                if signer and signer.signing_cert:
-                    certificate_serial = hex(signer.signing_cert.serial_number)
-                    certificate_issuer = signer.signing_cert.issuer.human_friendly
-                    try:
-                        user_cn = signer_name  # May not be defined if error in Phase 1
-                    except NameError:
-                        pass
-            except (NameError, AttributeError):
-                pass  # Signer not yet created or cert info unavailable
-
-            log_signing_event(
-                document_path=str(input_path),
-                certificate_serial=certificate_serial,
-                certificate_issuer=certificate_issuer,
-                user_cn=user_cn,
-                success=False,
-                error=str(e),
-                details={"error_type": type(e).__name__, "traceback": traceback.format_exc()},
-            )
+            self._log_signing_failure(input_path, e, signer=signer, signer_name=signer_name)
 
             return SigningResult(
                 success=False,

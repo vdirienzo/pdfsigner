@@ -17,6 +17,7 @@ from typing import Any
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from loguru import logger as log
 
 
 class KeyType(str, Enum):
@@ -120,6 +121,7 @@ class KeyManager:
 
     PBKDF2_ITERATIONS = 600000  # NIST recommendation (2023)
     SALT_LENGTH = 32
+    _SENTINEL_PLAINTEXT = b"PDFSIGNER_KEY_MANAGER_SENTINEL"
 
     def __init__(self, db_path: Path, master_password: str):
         """
@@ -196,12 +198,27 @@ class KeyManager:
         """
         )
 
-        # Store master salt if new DB
+        # Store master salt and sentinel if new DB
         if hasattr(self, "_master_salt"):
             cursor.execute(
                 "INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)",
                 ("master_salt", self._master_salt.hex()),
             )
+            sentinel = self._fernet.encrypt(self._SENTINEL_PLAINTEXT).decode()
+            cursor.execute(
+                "INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)",
+                ("sentinel", sentinel),
+            )
+        else:
+            # Existing DB: verify master password via sentinel
+            cursor.execute("SELECT value FROM metadata WHERE key = 'sentinel'")
+            row = cursor.fetchone()
+            if row:
+                try:
+                    self._fernet.decrypt(row[0].encode())
+                except Exception:
+                    conn.close()
+                    raise ValueError("Wrong master password")
 
         # Keys table
         cursor.execute(
@@ -322,10 +339,16 @@ class KeyManager:
             raise KeyRevokedError(f"Key {key_id} has been revoked")
 
         # Check expiration
-        if info.expires_at and datetime.now(UTC) > info.expires_at:
-            # Auto-mark as expired
-            self._update_key_status(key_id, KeyStatus.EXPIRED)
-            raise KeyExpiredError(f"Key {key_id} has expired")
+        if info.expires_at:
+            now = datetime.now(UTC)
+            expires = info.expires_at
+            # Ensure both are timezone-aware for comparison
+            if expires.tzinfo is None:
+                expires = expires.replace(tzinfo=UTC)
+            if now > expires:
+                # Auto-mark as expired
+                self._update_key_status(key_id, KeyStatus.EXPIRED)
+                raise KeyExpiredError(f"Key {key_id} has expired")
 
         # Retrieve and decrypt
         conn = sqlite3.connect(self.db_path)
@@ -614,8 +637,10 @@ class KeyManager:
 
             return new_key_id
 
+        except ValueError:
+            raise
         except Exception as e:
-            raise ValueError(f"Failed to import key: {e}") from e
+            raise ValueError("Failed to import key") from e
 
     def encrypt_data(self, key_id: str, plaintext: bytes) -> bytes:
         """
@@ -676,7 +701,7 @@ class KeyManager:
         try:
             return cipher.decrypt(ciphertext)
         except Exception as e:
-            raise ValueError(f"Decryption failed: {e}") from e
+            raise ValueError("Decryption failed") from e
 
     def get_or_create_mfa_key(self) -> str:
         """
@@ -822,25 +847,21 @@ class KeyManager:
         """Emit audit event for key operations."""
         try:
             from pdfsigner.core.audit import get_audit_logger
+            from pdfsigner.core.audit.audit_event import AuditEvent, AuditEventType
 
-            logger = get_audit_logger()
-            logger.log_system_event(
-                action=action,
+            audit_logger = get_audit_logger()
+            event = AuditEvent(
+                event_type=AuditEventType.CONFIG_CHANGE,
                 details={
+                    "action": action,
                     "key_id": key_id,
                     "algorithm": algorithm,
                     "detail": detail,
                 },
-                severity="info",
             )
+            audit_logger.log_event(event)
         except Exception as e:
-            # Log audit failure but don't fail key operations
-            import sys
-
-            print(
-                f"WARNING: Audit logging failed for key operation '{action}': {e}",
-                file=sys.stderr,
-            )
+            log.warning(f"Failed to emit audit event for key operation '{action}': {e}")
 
 
 # Singleton instance

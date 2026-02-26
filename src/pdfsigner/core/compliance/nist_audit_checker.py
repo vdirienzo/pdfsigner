@@ -23,45 +23,21 @@ class NISTAuditChecker:
         self.settings = settings
 
     # ========================================================================
-    # Audit and Accountability (AU) Family
+    # Shared helper
     # ========================================================================
 
-    def _check_nist_audit_events(self, control: ControlDefinition) -> ControlCheck:
-        """Check NIST AU-2 - Audit events."""
-        evidence: list[str] = []
-        recommendations: list[str] = []
+    def _make_audit_check(
+        self,
+        control: ControlDefinition,
+        evidence: list[str],
+        status: ControlStatus = ControlStatus.PASSED,
+        recommendations: list[str] | None = None,
+    ) -> ControlCheck:
+        """Common pattern for audit-related compliance checks.
 
-        if not self.settings.audit_enabled:
-            return ControlCheck(
-                control_id=control.control_id,
-                name=control.name,
-                description=control.description,
-                standard=control.standard,
-                status=ControlStatus.FAILED,
-                evidence=["audit_enabled is false"],
-                recommendations=["Enable audit_enabled to log security events"],
-            )
-
-        evidence.append("Comprehensive audit logging enabled")
-        evidence.append("Events include: sign, validate, encrypt, decrypt, auth, session")
-        evidence.append(f"Retention: {self.settings.audit_retention_days} days")
-
-        status = ControlStatus.PASSED
-        return ControlCheck(
-            control_id=control.control_id,
-            name=control.name,
-            description=control.description,
-            standard=control.standard,
-            status=status,
-            evidence=evidence,
-            recommendations=recommendations,
-        )
-
-    def _check_nist_audit_content(self, control: ControlDefinition) -> ControlCheck:
-        """Check NIST AU-3 - Content of audit records."""
-        evidence: list[str] = []
-        recommendations: list[str] = []
-
+        Returns FAILED if audit is disabled, otherwise builds a check
+        with the provided evidence, status and recommendations.
+        """
         if not self.settings.audit_enabled:
             return ControlCheck(
                 control_id=control.control_id,
@@ -73,6 +49,33 @@ class NISTAuditChecker:
                 recommendations=["Enable audit_enabled"],
             )
 
+        return ControlCheck(
+            control_id=control.control_id,
+            name=control.name,
+            description=control.description,
+            standard=control.standard,
+            status=status,
+            evidence=evidence,
+            recommendations=recommendations or [],
+        )
+
+    # ========================================================================
+    # Audit and Accountability (AU) Family
+    # ========================================================================
+
+    def _check_nist_audit_events(self, control: ControlDefinition) -> ControlCheck:
+        """Check NIST AU-2 - Audit events."""
+        return self._make_audit_check(
+            control,
+            evidence=[
+                "Comprehensive audit logging enabled",
+                "Events include: sign, validate, encrypt, decrypt, auth, session",
+                f"Retention: {self.settings.audit_retention_days} days",
+            ],
+        )
+
+    def _check_nist_audit_content(self, control: ControlDefinition) -> ControlCheck:
+        """Check NIST AU-3 - Content of audit records."""
         required_fields = [
             "timestamp",
             "user_id",
@@ -81,36 +84,24 @@ class NISTAuditChecker:
             "details",
             "source_ip",
         ]
-        evidence.append(f"Audit records contain required fields: {', '.join(required_fields)}")
-        evidence.append("ISO 8601 timestamp format with timezone")
-        evidence.append("Structured JSON Lines format for machine parsing")
-
-        status = ControlStatus.PASSED
-        return ControlCheck(
-            control_id=control.control_id,
-            name=control.name,
-            description=control.description,
-            standard=control.standard,
-            status=status,
-            evidence=evidence,
-            recommendations=recommendations,
+        return self._make_audit_check(
+            control,
+            evidence=[
+                f"Audit records contain required fields: {', '.join(required_fields)}",
+                "ISO 8601 timestamp format with timezone",
+                "Structured JSON Lines format for machine parsing",
+            ],
         )
 
     def _check_nist_audit_storage(self, control: ControlDefinition) -> ControlCheck:
         """Check NIST AU-4 - Audit storage capacity."""
         evidence: list[str] = []
         recommendations: list[str] = []
+        status = ControlStatus.PASSED
 
+        # Use helper for the audit_enabled guard
         if not self.settings.audit_enabled:
-            return ControlCheck(
-                control_id=control.control_id,
-                name=control.name,
-                description=control.description,
-                standard=control.standard,
-                status=ControlStatus.FAILED,
-                evidence=["audit_enabled is false"],
-                recommendations=["Enable audit_enabled"],
-            )
+            return self._make_audit_check(control, evidence=[])
 
         try:
             import shutil
@@ -124,7 +115,6 @@ class NISTAuditChecker:
             evidence.append(f"Free disk space: {free_percent:.1f}%")
 
             if free_percent >= 20:
-                status = ControlStatus.PASSED
                 evidence.append("Sufficient storage capacity available")
             elif free_percent >= 10:
                 status = ControlStatus.PARTIAL
@@ -137,179 +127,74 @@ class NISTAuditChecker:
             evidence.append(f"Could not check disk space: {e}")
             recommendations.append("Verify log directory exists and is accessible")
 
-        return ControlCheck(
-            control_id=control.control_id,
-            name=control.name,
-            description=control.description,
-            standard=control.standard,
-            status=status,
-            evidence=evidence,
-            recommendations=recommendations,
+        return self._make_audit_check(
+            control, evidence=evidence, status=status, recommendations=recommendations
         )
 
     def _check_nist_audit_review(self, control: ControlDefinition) -> ControlCheck:
         """Check NIST AU-6 - Audit review, analysis, and reporting."""
-        evidence: list[str] = []
-        recommendations: list[str] = []
-
-        if not self.settings.audit_enabled:
-            return ControlCheck(
-                control_id=control.control_id,
-                name=control.name,
-                description=control.description,
-                standard=control.standard,
-                status=ControlStatus.FAILED,
-                evidence=["audit_enabled is false"],
-                recommendations=["Enable audit_enabled"],
-            )
-
-        evidence.append("Audit logs available in JSON Lines format for analysis")
-        evidence.append("CSV export capability for reporting")
-        evidence.append("SIEM integration available via SIEMExporter")
-        evidence.append(f"Retention period: {self.settings.audit_retention_days} days")
-
-        status = ControlStatus.PASSED
-        return ControlCheck(
-            control_id=control.control_id,
-            name=control.name,
-            description=control.description,
-            standard=control.standard,
-            status=status,
-            evidence=evidence,
-            recommendations=recommendations,
+        return self._make_audit_check(
+            control,
+            evidence=[
+                "Audit logs available in JSON Lines format for analysis",
+                "CSV export capability for reporting",
+                "SIEM integration available via SIEMExporter",
+                f"Retention period: {self.settings.audit_retention_days} days",
+            ],
         )
 
     def _check_nist_timestamps(self, control: ControlDefinition) -> ControlCheck:
         """Check NIST AU-8 - Time stamps."""
-        evidence: list[str] = []
-        recommendations: list[str] = []
-
-        if not self.settings.audit_enabled:
-            return ControlCheck(
-                control_id=control.control_id,
-                name=control.name,
-                description=control.description,
-                standard=control.standard,
-                status=ControlStatus.FAILED,
-                evidence=["audit_enabled is false"],
-                recommendations=["Enable audit_enabled"],
-            )
-
-        evidence.append("Audit records use UTC timestamps (ISO 8601 format)")
-        evidence.append("Internal system clock synchronized with system time")
-        evidence.append("Timestamp precision: microseconds")
-
-        status = ControlStatus.PASSED
-        return ControlCheck(
-            control_id=control.control_id,
-            name=control.name,
-            description=control.description,
-            standard=control.standard,
-            status=status,
-            evidence=evidence,
-            recommendations=recommendations,
+        return self._make_audit_check(
+            control,
+            evidence=[
+                "Audit records use UTC timestamps (ISO 8601 format)",
+                "Internal system clock synchronized with system time",
+                "Timestamp precision: microseconds",
+            ],
         )
 
     def _check_nist_audit_protection(self, control: ControlDefinition) -> ControlCheck:
         """Check NIST AU-9 - Protection of audit information."""
-        evidence: list[str] = []
-        recommendations: list[str] = []
-
-        if not self.settings.audit_enabled:
-            return ControlCheck(
-                control_id=control.control_id,
-                name=control.name,
-                description=control.description,
-                standard=control.standard,
-                status=ControlStatus.FAILED,
-                evidence=["audit_enabled is false"],
-                recommendations=["Enable audit_enabled"],
-            )
-
-        evidence.append("Audit logs use HMAC chain hashing for tamper detection")
-        evidence.append("AuditIntegrityManager provides verification capabilities")
-        evidence.append(f"Logs stored in protected directory: {self.settings.log_dir}")
-
-        status = ControlStatus.PASSED
-        return ControlCheck(
-            control_id=control.control_id,
-            name=control.name,
-            description=control.description,
-            standard=control.standard,
-            status=status,
-            evidence=evidence,
-            recommendations=recommendations,
+        return self._make_audit_check(
+            control,
+            evidence=[
+                "Audit logs use HMAC chain hashing for tamper detection",
+                "AuditIntegrityManager provides verification capabilities",
+                f"Logs stored in protected directory: {self.settings.log_dir}",
+            ],
         )
 
     def _check_nist_audit_retention(self, control: ControlDefinition) -> ControlCheck:
         """Check NIST AU-11 - Audit record retention."""
-        evidence: list[str] = []
+        retention_days = self.settings.audit_retention_days
+        evidence = [
+            f"Audit retention period: {retention_days} days",
+            "Automatic cleanup of logs older than retention period",
+        ]
         recommendations: list[str] = []
 
-        if not self.settings.audit_enabled:
-            return ControlCheck(
-                control_id=control.control_id,
-                name=control.name,
-                description=control.description,
-                standard=control.standard,
-                status=ControlStatus.FAILED,
-                evidence=["audit_enabled is false"],
-                recommendations=["Enable audit_enabled"],
-            )
-
-        retention_days = self.settings.audit_retention_days
-        evidence.append(f"Audit retention period: {retention_days} days")
-        evidence.append("Automatic cleanup of logs older than retention period")
-
         if retention_days >= 365:
-            status = ControlStatus.PASSED
             evidence.append("Retention meets minimum NIST recommendation (365 days)")
+            status = ControlStatus.PASSED
         else:
             status = ControlStatus.PARTIAL
             recommendations.append("Set audit_retention_days to at least 365")
 
-        return ControlCheck(
-            control_id=control.control_id,
-            name=control.name,
-            description=control.description,
-            standard=control.standard,
-            status=status,
-            evidence=evidence,
-            recommendations=recommendations,
+        return self._make_audit_check(
+            control, evidence=evidence, status=status, recommendations=recommendations
         )
 
     def _check_nist_audit_generation(self, control: ControlDefinition) -> ControlCheck:
         """Check NIST AU-12 - Audit generation."""
-        evidence: list[str] = []
-        recommendations: list[str] = []
-
-        if not self.settings.audit_enabled:
-            return ControlCheck(
-                control_id=control.control_id,
-                name=control.name,
-                description=control.description,
-                standard=control.standard,
-                status=ControlStatus.FAILED,
-                evidence=["audit_enabled is false"],
-                recommendations=["Enable audit_enabled"],
-            )
-
-        evidence.append("Comprehensive event types defined in AuditEventType enum")
-        evidence.append(
-            "Events include: LOGIN, LOGOUT, PDF_SIGNED, PDF_VALIDATED, "
-            "CERTIFICATE_LOADED, PERMISSION_DENIED, CONFIG_CHANGE, etc."
-        )
-        evidence.append("Automatic audit generation via AuditLogger")
-
-        status = ControlStatus.PASSED
-        return ControlCheck(
-            control_id=control.control_id,
-            name=control.name,
-            description=control.description,
-            standard=control.standard,
-            status=status,
-            evidence=evidence,
-            recommendations=recommendations,
+        return self._make_audit_check(
+            control,
+            evidence=[
+                "Comprehensive event types defined in AuditEventType enum",
+                "Events include: LOGIN, LOGOUT, PDF_SIGNED, PDF_VALIDATED, "
+                "CERTIFICATE_LOADED, PERMISSION_DENIED, CONFIG_CHANGE, etc.",
+                "Automatic audit generation via AuditLogger",
+            ],
         )
 
     # ========================================================================

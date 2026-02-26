@@ -383,8 +383,10 @@ class RetentionManager:
             List of RetentionResult objects
         """
         if policy_id:
-            policies = [self.get_policy(policy_id)]
-            policies = [p for p in policies if p]
+            policy = self.get_policy(policy_id)
+            if policy is None:
+                raise ValueError(f"Retention policy not found: {policy_id}")
+            policies = [policy]
         else:
             policies = self.list_policies(enabled_only=True)
 

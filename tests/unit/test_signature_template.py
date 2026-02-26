@@ -301,8 +301,10 @@ class TestBuiltinTemplates:
     """Tests for builtin template JSON files."""
 
     def test_corporate_template_structure(self):
-        """Test corporate template has expected structure."""
-        template = load_template("corporate")
+        """Test corporate builtin template has expected structure."""
+        # Load directly from builtin dir to avoid user template overrides
+        builtin_path = get_builtin_templates_dir() / "corporate.json"
+        template = Template.from_json(builtin_path)
 
         assert template.name == "corporate"
         assert template.width_mm == 60

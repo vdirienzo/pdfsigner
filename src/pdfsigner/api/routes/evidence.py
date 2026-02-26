@@ -7,6 +7,7 @@ REST API endpoints for SOC 2 Type II evidence collection and reporting.
 import hashlib
 import json
 import tempfile
+import time
 import zipfile
 from pathlib import Path
 from typing import Annotated
@@ -33,6 +34,18 @@ router = APIRouter(prefix="/api/v1/compliance/evidence", tags=["evidence", "soc2
 
 # Store generated exports temporarily (in production, use proper storage)
 _generated_exports: dict[str, Path] = {}
+_export_timestamps: dict[str, float] = {}
+_MAX_EXPORTS = 1000
+_EXPORT_TTL_SECONDS = 86400  # 24 hours
+
+
+def _cleanup_old_exports() -> None:
+    """Remove expired export entries."""
+    now = time.time()
+    expired = [k for k, t in _export_timestamps.items() if now - t > _EXPORT_TTL_SECONDS]
+    for k in expired:
+        _generated_exports.pop(k, None)
+        _export_timestamps.pop(k, None)
 
 
 @router.post(
@@ -117,8 +130,8 @@ async def collect_evidence(
         logger.error(f"Failed to collect evidence: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Evidence collection failed: {str(e)}",
-        )
+            detail="Evidence collection failed",
+        ) from e
 
 
 @router.get(
@@ -279,8 +292,8 @@ async def generate_soc2_report(
         logger.error(f"Failed to generate SOC 2 report: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Report generation failed: {str(e)}",
-        )
+            detail="Report generation failed",
+        ) from e
 
 
 @router.get(
@@ -395,7 +408,11 @@ Coverage: {report.summary.get("coverage_percentage", 0):.1f}%
         with open(zip_path, "rb") as f:
             checksum = hashlib.sha256(f.read()).hexdigest()
 
+        # Cleanup old entries before adding new ones
+        _cleanup_old_exports()
+
         # Store for download
+        _export_timestamps[filename] = time.time()
         _generated_exports[filename] = zip_path
 
         return SOC2ExportResponse(
@@ -410,8 +427,8 @@ Coverage: {report.summary.get("coverage_percentage", 0):.1f}%
         logger.error(f"Failed to export SOC 2 report: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Export failed: {str(e)}",
-        )
+            detail="Export failed",
+        ) from e
 
 
 @router.get(

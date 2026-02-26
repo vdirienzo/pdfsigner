@@ -159,7 +159,7 @@ class TestMFAManagerEncryption:
         import sqlite3
 
         # Enroll user
-        enrollment = mfa_manager.begin_enrollment("test_user")
+        enrollment = mfa_manager.enroll("test_user")
         secret = enrollment.secret
 
         # Check database directly
@@ -186,7 +186,7 @@ class TestMFAManagerEncryption:
     def test_secret_retrieved_correctly(self, mfa_manager, initialized_key_manager):
         """Stored secret should decrypt correctly."""
         # Enroll user
-        enrollment = mfa_manager.begin_enrollment("retrieve_user")
+        enrollment = mfa_manager.enroll("retrieve_user")
         original_secret = enrollment.secret
 
         # Retrieve via internal method
@@ -199,7 +199,7 @@ class TestMFAManagerEncryption:
         import pyotp
 
         # Enroll and enable
-        enrollment = mfa_manager.begin_enrollment("verify_user")
+        enrollment = mfa_manager.enroll("verify_user")
         secret = enrollment.secret
 
         # Generate valid code
@@ -207,12 +207,12 @@ class TestMFAManagerEncryption:
         code = totp.now()
 
         # Complete enrollment with valid code
-        result = mfa_manager.complete_enrollment("verify_user", code)
+        result = mfa_manager.verify_and_activate("verify_user", code)
         assert result is True
 
         # Verify with new code
         new_code = totp.now()
-        is_valid = mfa_manager.verify_code("verify_user", new_code)
+        is_valid = mfa_manager.verify("verify_user", new_code)
         assert is_valid is True
 
 

@@ -10,7 +10,7 @@ Provides endpoints for:
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from loguru import logger
 
 from pdfsigner.api.middleware.auth import User, get_current_user_or_api_key
@@ -22,6 +22,7 @@ from pdfsigner.api.schemas.retention import (
     RetentionResultResponse,
     RetentionRunRequest,
 )
+from pdfsigner.core.rbac import Permission, check_permission
 from pdfsigner.core.retention import RetentionPolicy, get_retention_manager
 
 router = APIRouter(prefix="/api/v1/retention", tags=["retention"])
@@ -113,8 +114,7 @@ async def get_retention_policy(
     description="""
     Create a new retention policy.
 
-    **Permissions:** Requires authentication (user or API key).
-    **Note:** Admin permissions recommended for production use.
+    **Permissions:** Requires admin authorization.
 
     Creates a custom retention policy for data cleanup automation.
     """,
@@ -122,6 +122,7 @@ async def get_retention_policy(
 async def create_retention_policy(
     policy_data: RetentionPolicyCreate,
     current_user: Annotated[User, Depends(get_current_user_or_api_key)],
+    _perm: Annotated[None, Depends(check_permission(Permission.ADMIN_USERS))],
 ) -> RetentionPolicyResponse:
     """
     Create new retention policy.
@@ -159,8 +160,7 @@ async def create_retention_policy(
     description="""
     Update an existing retention policy.
 
-    **Permissions:** Requires authentication (user or API key).
-    **Note:** Admin permissions recommended for production use.
+    **Permissions:** Requires admin authorization.
 
     **Restrictions:**
     - Cannot modify HIPAA-required policies in ways that violate compliance
@@ -171,6 +171,7 @@ async def update_retention_policy(
     policy_id: str,
     policy_data: RetentionPolicyUpdate,
     current_user: Annotated[User, Depends(get_current_user_or_api_key)],
+    _perm: Annotated[None, Depends(check_permission(Permission.ADMIN_USERS))],
 ) -> RetentionPolicyResponse:
     """
     Update existing retention policy.
@@ -220,8 +221,7 @@ async def update_retention_policy(
     description="""
     Delete a retention policy.
 
-    **Permissions:** Requires authentication (user or API key).
-    **Note:** Admin permissions recommended for production use.
+    **Permissions:** Requires admin authorization.
 
     **Restrictions:**
     - Cannot delete HIPAA-required policies
@@ -231,6 +231,7 @@ async def update_retention_policy(
 async def delete_retention_policy(
     policy_id: str,
     current_user: Annotated[User, Depends(get_current_user_or_api_key)],
+    _perm: Annotated[None, Depends(check_permission(Permission.ADMIN_USERS))],
 ) -> None:
     """
     Delete retention policy.
@@ -276,8 +277,7 @@ async def delete_retention_policy(
     description="""
     Execute retention cleanup for one or all policies.
 
-    **Permissions:** Requires authentication (user or API key).
-    **Note:** Admin permissions recommended for production use.
+    **Permissions:** Requires admin authorization.
 
     Runs cleanup based on retention policies and returns detailed results.
     If policy_id is not provided, runs cleanup for all enabled policies.
@@ -286,6 +286,7 @@ async def delete_retention_policy(
 async def run_retention_cleanup(
     request: RetentionRunRequest,
     current_user: Annotated[User, Depends(get_current_user_or_api_key)],
+    _perm: Annotated[None, Depends(check_permission(Permission.ADMIN_USERS))],
 ) -> list[RetentionResultResponse]:
     """
     Run retention cleanup.
@@ -353,7 +354,7 @@ async def run_retention_cleanup(
 async def get_retention_history(
     current_user: Annotated[User, Depends(get_current_user_or_api_key)],
     policy_id: str | None = None,
-    limit: int = 100,
+    limit: int = Query(100, ge=1, le=1000),
 ) -> list[RetentionHistoryResponse]:
     """
     Get retention cleanup history.

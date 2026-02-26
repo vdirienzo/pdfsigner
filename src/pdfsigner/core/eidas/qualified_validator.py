@@ -41,24 +41,6 @@ from pdfsigner.core.eidas.tsp_registry import EUTSPRegistry, QualificationStatus
 logger = logging.getLogger(__name__)
 
 
-# QcStatements OIDs per ETSI EN 319 412-5
-QC_OIDS = {
-    "0.4.0.1862.1.1": "QcCompliance",  # Certificate is Qualified
-    "0.4.0.1862.1.3": "QcRetentionPeriod",  # Retention period
-    "0.4.0.1862.1.4": "QcSSCD",  # Qualified Signature Creation Device
-    "0.4.0.1862.1.5": "QcPDS",  # PKI Disclosure Statements
-    "0.4.0.1862.1.6": "QcType",  # Certificate type
-    "0.4.0.1862.1.7": "QcCClegislation",  # EU legislation
-}
-
-# Certificate types per QcType (0.4.0.1862.1.6)
-QC_TYPES = {
-    "0.4.0.1862.1.6.1": "esign",  # For electronic signatures
-    "0.4.0.1862.1.6.2": "eseal",  # For electronic seals
-    "0.4.0.1862.1.6.3": "web",  # For website authentication
-}
-
-
 @dataclass
 class SignatureValidation:
     """Validation result for a single signature."""
@@ -438,7 +420,7 @@ class QualifiedSignatureValidator:
         try:
             cn_attr = cert.subject.get_attributes_for_oid(x509.oid.NameOID.COMMON_NAME)
             if cn_attr:
-                return cn_attr[0].value
+                return str(cn_attr[0].value)
         except Exception as e:
             logger.debug("Failed to extract CN: %s", e)
 

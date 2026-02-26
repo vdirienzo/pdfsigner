@@ -155,29 +155,31 @@ class TestNSSSetupRunCertutil:
         """Test that correct command is executed."""
         setup = NSSSetup(nss_path=tmp_path)
 
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=0)
-            setup._run_certutil()
+        with patch("shutil.which", return_value="/usr/bin/certutil"):
+            with patch("subprocess.run") as mock_run:
+                mock_run.return_value = MagicMock(returncode=0)
+                setup._run_certutil()
 
-            # Check command arguments
-            call_args = mock_run.call_args
-            cmd = call_args[0][0]  # First positional arg
+                # Check command arguments
+                call_args = mock_run.call_args
+                cmd = call_args[0][0]  # First positional arg
 
-            assert "certutil" in cmd
-            assert "-N" in cmd
-            assert "--empty-password" in cmd
-            assert f"sql:{tmp_path}" in cmd
+                assert cmd[0] == "/usr/bin/certutil"
+                assert "-N" in cmd
+                assert "--empty-password" in cmd
+                assert f"sql:{tmp_path}" in cmd
 
     def test_run_certutil_timeout(self, tmp_path: Path):
         """Test that timeout is set."""
         setup = NSSSetup(nss_path=tmp_path)
 
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=0)
-            setup._run_certutil()
+        with patch("shutil.which", return_value="/usr/bin/certutil"):
+            with patch("subprocess.run") as mock_run:
+                mock_run.return_value = MagicMock(returncode=0)
+                setup._run_certutil()
 
-            call_kwargs = mock_run.call_args[1]
-            assert call_kwargs.get("timeout") == setup.TIMEOUT_SECONDS
+                call_kwargs = mock_run.call_args[1]
+                assert call_kwargs.get("timeout") == setup.TIMEOUT_SECONDS
 
 
 class TestNSSSetupVerify:

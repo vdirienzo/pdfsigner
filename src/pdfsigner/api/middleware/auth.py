@@ -5,6 +5,7 @@ Provides JWT and API key authentication for FastAPI routes.
 """
 
 import hashlib
+import hmac
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
@@ -69,6 +70,11 @@ def create_access_token(
     from pdfsigner.core.auth.jwt_blacklist import generate_jti
 
     settings = get_api_settings()
+    if not settings.jwt_secret_key:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="JWT secret key not configured",
+        )
     to_encode = data.copy()
 
     # Add unique JWT ID for revocation support
@@ -111,6 +117,11 @@ def verify_token(token: str) -> TokenData:
     from pdfsigner.core.auth.jwt_blacklist import get_jwt_blacklist
 
     settings = get_api_settings()
+    if not settings.jwt_secret_key:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="JWT secret key not configured",
+        )
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -136,15 +147,16 @@ def verify_token(token: str) -> TokenData:
         jti: str | None = payload.get("jti")
 
         # Check if token is blacklisted (revoked)
-        if jti:
-            blacklist = get_jwt_blacklist()
-            if blacklist.is_blacklisted(jti):
-                logger.debug("Rejected blacklisted token for user")
-                raise HTTPException(
-                    status_code=status.HTTP_401_UNAUTHORIZED,
-                    detail="Token has been revoked",
-                    headers={"WWW-Authenticate": "Bearer"},
-                )
+        if not jti:
+            raise credentials_exception  # Reject tokens without JTI
+        blacklist = get_jwt_blacklist()
+        if blacklist.is_blacklisted(jti):
+            logger.debug("Rejected blacklisted token for user")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Token has been revoked",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
         return TokenData(
             username=username,
@@ -235,7 +247,7 @@ async def get_current_user(
         return User(
             id=token_data.user_id or token_data.username,
             username=token_data.username,
-            email=f"{token_data.username}@example.com",
+            email="",
             role=role,
             status=UserStatus.ACTIVE,
         )
@@ -342,14 +354,18 @@ async def require_mfa_verified(
         ) from e
 
     # Verify token has MFA verification flag
-    if credentials:
-        token_data = verify_token(credentials.credentials)
-        if not token_data.mfa_verified:
-            raise HTTPException(
-                status_code=status.HTTP_403_FORBIDDEN,
-                detail="MFA verification required",
-                headers={"X-MFA-Required": "true", "X-MFA-Status": "not_verified"},
-            )
+    if not credentials:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="MFA verification required",
+        )
+    token_data = verify_token(credentials.credentials)
+    if not token_data.mfa_verified:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="MFA verification required",
+            headers={"X-MFA-Required": "true", "X-MFA-Status": "not_verified"},
+        )
 
     return current_user
 
@@ -387,13 +403,15 @@ async def verify_api_key(
         )
 
     # Check legacy config-based API keys first (backward compatibility)
-    if settings.api_keys and api_key in settings.api_keys:
+    if settings.api_keys and any(
+        hmac.compare_digest(api_key, valid_key) for valid_key in settings.api_keys
+    ):
         # Legacy API key from config - return generic user
         _api_key_id = _hash_api_key_id(api_key)
         return User(
             id=_api_key_id,
             username=_api_key_id,
-            email=None,
+            email="",
             role=UserRole.SIGNER,
             status=UserStatus.ACTIVE,
         )

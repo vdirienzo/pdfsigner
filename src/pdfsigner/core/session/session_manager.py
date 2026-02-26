@@ -164,21 +164,6 @@ class SessionManager:
         timeout_minutes = self._get_timeout_minutes()
         expires_at = now + timedelta(minutes=timeout_minutes)
 
-        # Check session limit BEFORE creating new session
-        if self._is_healthcare_mode():
-            active_count = self.get_active_session_count(user_id)
-            max_sessions = self._get_max_sessions()
-
-            if active_count >= max_sessions:
-                raise MaxSessionsExceededError(
-                    max_sessions=max_sessions,
-                    message=(
-                        f"User {user_id} has {active_count} active sessions. "
-                        f"Maximum allowed: {max_sessions}. "
-                        "Please terminate an existing session first."
-                    ),
-                )
-
         session = Session(
             id=str(uuid.uuid4()),
             user_id=user_id,
@@ -189,7 +174,27 @@ class SessionManager:
             user_agent=user_agent,
         )
 
+        # Atomic check-and-insert to prevent TOCTOU race condition
         with self._get_connection() as conn:
+            if self._is_healthcare_mode():
+                max_sessions = self._get_max_sessions()
+                now_iso = now.isoformat()
+                conn.execute("BEGIN IMMEDIATE")
+                active_count = conn.execute(
+                    "SELECT COUNT(*) FROM sessions WHERE user_id = ? AND expires_at > ?",
+                    (user_id, now_iso),
+                ).fetchone()[0]
+                if active_count >= max_sessions:
+                    conn.execute("ROLLBACK")
+                    raise MaxSessionsExceededError(
+                        max_sessions=max_sessions,
+                        message=(
+                            f"User {user_id} has {active_count} active sessions. "
+                            f"Maximum allowed: {max_sessions}. "
+                            "Please terminate an existing session first."
+                        ),
+                    )
+
             conn.execute(
                 """
                 INSERT INTO sessions (
@@ -209,7 +214,7 @@ class SessionManager:
             )
 
         logger.info(
-            f"Created session {session.id} for user {user_id} "
+            f"Created session {session.id[:8]}... for user {user_id} "
             f"(expires: {expires_at.isoformat()}, healthcare_mode={self._is_healthcare_mode()})"
         )
         return session
@@ -249,11 +254,13 @@ class SessionManager:
 
         session = self.get_session(session_id)
         if not session:
-            logger.warning(f"Session {session_id} not found")
+            logger.warning(f"Session {session_id[:8]}... not found")
             return False
 
         if session.is_expired:
-            logger.warning(f"Session {session_id} expired at {session.expires_at.isoformat()}")
+            logger.warning(
+                f"Session {session_id[:8]}... expired at {session.expires_at.isoformat()}"
+            )
             return False
 
         return True
@@ -293,7 +300,7 @@ class SessionManager:
                 (now.isoformat(), new_expires_at.isoformat(), session_id),
             )
 
-        logger.debug(f"Extended session {session_id} until {new_expires_at.isoformat()}")
+        logger.debug(f"Extended session {session_id[:8]}... until {new_expires_at.isoformat()}")
 
     def regenerate_session_id(self, old_session_id: str) -> Session:
         """
@@ -364,7 +371,7 @@ class SessionManager:
 
         logger.info(
             f"Regenerated session for user {new_session.user_id}: "
-            f"{old_session_id} -> {new_session.id} (Session Fixation prevention)"
+            f"{old_session_id[:8]}... -> {new_session.id[:8]}... (Session Fixation prevention)"
         )
 
         return new_session
@@ -381,7 +388,7 @@ class SessionManager:
             deleted = cursor.rowcount > 0
 
         if deleted:
-            logger.info(f"Terminated session {session_id}")
+            logger.info(f"Terminated session {session_id[:8]}...")
 
     def terminate_user_sessions(self, user_id: str) -> int:
         """
@@ -476,7 +483,7 @@ class SessionManager:
             for session in to_terminate:
                 self.terminate_session(session.id)
                 logger.info(
-                    f"Terminated oldest session {session.id} for user {user_id} "
+                    f"Terminated oldest session {session.id[:8]}... for user {user_id} "
                     f"(max_sessions={max_sessions})"
                 )
 

@@ -24,8 +24,6 @@ from pdfsigner.core.token.nss_handler import NSSHandler
 from pdfsigner.core.validator.pdf_validator import PDFValidator
 from pdfsigner.exceptions import (
     NSSConfigError,
-    PDFCorruptedError,
-    PDFProtectedError,
     TimestampError,
     TokenAuthenticationError,
     TSAConnectionError,
@@ -252,10 +250,10 @@ class TestNetworkFailures:
 
     def test_tsa_connection_refused_raises_error(self, mock_nss_handler):
         """Test that TSA connection refused raises appropriate error."""
-        from pdfsigner.core.signer.lta_handler import LTAHandler
+        from pdfsigner.core.signer.lta_handler import LTAHandler, TSAConfig
 
         # Create LTA handler with unreachable TSA
-        lta_handler = LTAHandler(tsa_url="https://unreachable.tsa.example.com")
+        lta_handler = LTAHandler(tsa_config=TSAConfig(url="https://unreachable.tsa.example.com"))
 
         # Get timestamper (this should succeed)
         timestamper = lta_handler.get_timestamper()
@@ -289,23 +287,28 @@ class TestFilesystemEdgeCases:
 
         signer = PDFSigner(nss_handler=mock_nss_handler, lta_handler=mock_lta_handler)
 
-        # Mock IncrementalPdfFileWriter to simulate disk full on write
-        with patch("pdfsigner.core.signer.pdf_signer.IncrementalPdfFileWriter") as mock_writer:
-            mock_instance = MagicMock()
-            mock_instance.write.side_effect = OSError(errno.ENOSPC, "No space left on device")
-            mock_writer.return_value.__enter__.return_value = mock_instance
+        # Mock signing context to simulate disk full on write
+        with (
+            patch.object(signer, "_prepare_signing_context") as mock_prepare,
+            patch(
+                "pdfsigner.core.signer.signature_field.create_signature_field_with_stamps"
+            ) as mock_field,
+            patch.object(signer, "_preprocess_pdf_with_stamps") as mock_preprocess,
+            patch.object(signer, "_execute_signing") as mock_execute,
+        ):
+            mock_prepare.return_value = (MagicMock(), None, "Test", "Org", 0)
+            mock_field.return_value = MagicMock(field_spec=None, visual_stamps=[])
+            mock_preprocess.return_value = (sample_pdf, None)
+            mock_execute.side_effect = OSError(errno.ENOSPC, "No space left on device")
 
-            # Should raise OSError with ENOSPC
-            with pytest.raises(OSError) as exc_info:
-                signer.sign(
-                    pdf_path=sample_pdf,
-                    output_path=output_path,
-                    cert_id=None,
-                    visible=False,
-                )
+            # sign_pdf catches exceptions and returns SigningResult
+            result = signer.sign_pdf(
+                input_path=sample_pdf,
+                output_path=output_path,
+            )
 
-            # Verify it's specifically a disk full error
-            assert exc_info.value.errno == errno.ENOSPC
+            assert result.success is False
+            assert "No space left on device" in result.error
 
     def test_permission_denied_on_output_file_raises_error(
         self, tmp_path, sample_pdf, mock_nss_handler, mock_lta_handler
@@ -315,25 +318,28 @@ class TestFilesystemEdgeCases:
 
         signer = PDFSigner(nss_handler=mock_nss_handler, lta_handler=mock_lta_handler)
 
-        # Mock open() to simulate permission denied when opening output file
-        original_open = open
+        # Mock signing context to simulate permission denied on write
+        with (
+            patch.object(signer, "_prepare_signing_context") as mock_prepare,
+            patch(
+                "pdfsigner.core.signer.signature_field.create_signature_field_with_stamps"
+            ) as mock_field,
+            patch.object(signer, "_preprocess_pdf_with_stamps") as mock_preprocess,
+            patch.object(signer, "_execute_signing") as mock_execute,
+        ):
+            mock_prepare.return_value = (MagicMock(), None, "Test", "Org", 0)
+            mock_field.return_value = MagicMock(field_spec=None, visual_stamps=[])
+            mock_preprocess.return_value = (sample_pdf, None)
+            mock_execute.side_effect = PermissionError("Permission denied")
 
-        def selective_open(path, *args, **kwargs):
-            if str(path) == str(output_path) and "w" in args[0] if args else False:
-                raise PermissionError("Permission denied")
-            return original_open(path, *args, **kwargs)
+            # sign_pdf catches exceptions and returns SigningResult
+            result = signer.sign_pdf(
+                input_path=sample_pdf,
+                output_path=output_path,
+            )
 
-        with patch("builtins.open", side_effect=selective_open):
-            # Should raise PermissionError
-            with pytest.raises(PermissionError) as exc_info:
-                signer.sign(
-                    pdf_path=sample_pdf,
-                    output_path=output_path,
-                    cert_id=None,
-                    visible=False,
-                )
-
-            assert "permission" in str(exc_info.value).lower()
+            assert result.success is False
+            assert "permission" in result.error.lower()
 
     def test_read_only_input_directory_handled_properly(self, tmp_path):
         """Test that read-only input directory doesn't prevent reading."""
@@ -376,7 +382,7 @@ class TestTokenHSMEdgeCases:
 
     def test_invalid_tsa_url_format_raises_error(self):
         """Test that invalid TSA URL format (not http/https) raises error."""
-        from pdfsigner.core.signer.lta_handler import LTAHandler
+        from pdfsigner.core.signer.lta_handler import LTAHandler, TSAConfig
 
         # Invalid URL formats
         invalid_urls = [
@@ -387,7 +393,7 @@ class TestTokenHSMEdgeCases:
         ]
 
         for invalid_url in invalid_urls:
-            lta_handler = LTAHandler(tsa_url=invalid_url)
+            lta_handler = LTAHandler(tsa_config=TSAConfig(url=invalid_url))
 
             # Get timestamper - may succeed even with invalid URL
             timestamper = lta_handler.get_timestamper()
@@ -471,6 +477,9 @@ class TestCertificateEdgeCases:
         from cryptography.hazmat.primitives.asymmetric import rsa
         from cryptography.x509.oid import NameOID
 
+        from pdfsigner.core.certificate.chain_validator import CertificateChainValidator
+        from pdfsigner.core.certificate.trust_store import TrustStore
+
         # Create an expired certificate
         private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         subject = issuer = x509.Name(
@@ -489,16 +498,15 @@ class TestCertificateEdgeCases:
             .sign(private_key, hashes.SHA256(), default_backend())
         )
 
-        from pdfsigner.core.certificate import CertificateChainValidator
-
-        validator = CertificateChainValidator()
+        validator = CertificateChainValidator(trust_store=TrustStore())
 
         # Should detect expired certificate
-        result = validator.validate([expired_cert])
+        result = validator.validate_chain(expired_cert)
 
         # Result should indicate certificate is expired
         assert not result.is_valid
-        assert "expired" in result.error_message.lower()
+        error_text = " ".join(result.errors).lower()
+        assert "expired" in error_text
 
     def test_self_signed_certificate_without_ca_detected(self):
         """Test that self-signed certificate without trusted CA is detected."""
@@ -508,7 +516,10 @@ class TestCertificateEdgeCases:
         from cryptography.hazmat.primitives.asymmetric import rsa
         from cryptography.x509.oid import NameOID
 
-        # Create a self-signed certificate
+        from pdfsigner.core.certificate.chain_validator import CertificateChainValidator
+        from pdfsigner.core.certificate.trust_store import TrustStore
+
+        # Create a self-signed certificate (valid dates so expiry doesn't mask the issue)
         private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
         subject = issuer = x509.Name(
             [x509.NameAttribute(NameOID.COMMON_NAME, "Self-Signed Certificate")]
@@ -521,24 +532,23 @@ class TestCertificateEdgeCases:
             .public_key(private_key.public_key())
             .serial_number(x509.random_serial_number())
             .not_valid_before(datetime(2024, 1, 1))
-            .not_valid_after(datetime(2025, 1, 1))
+            .not_valid_after(datetime(2027, 1, 1))
             .add_extension(x509.BasicConstraints(ca=True, path_length=None), critical=True)
             .sign(private_key, hashes.SHA256(), default_backend())
         )
-
-        from pdfsigner.core.certificate import CertificateChainValidator, TrustStore
 
         # Create validator with empty trust store (no trusted roots)
         validator = CertificateChainValidator(trust_store=TrustStore())
 
         # Should detect self-signed cert is not in trust store
-        result = validator.validate([self_signed_cert])
+        result = validator.validate_chain(self_signed_cert)
 
         # Result should indicate untrusted certificate
         assert not result.is_valid
+        error_text = " ".join(result.errors).lower()
         assert any(
-            keyword in result.error_message.lower()
-            for keyword in ["untrusted", "self-signed", "trust", "root"]
+            keyword in error_text
+            for keyword in ["untrusted", "self-signed", "trust", "root", "not trusted"]
         )
 
 
@@ -584,17 +594,16 @@ class TestAdditionalEdgeCases:
         # Attempting to sign should detect protection
         signer = PDFSigner(nss_handler=MagicMock(), lta_handler=MagicMock())
 
-        # Should raise PDFProtectedError, PDFCorruptedError or similar
-        with pytest.raises((PDFProtectedError, PDFCorruptedError, Exception)) as exc_info:
-            signer.sign(
-                pdf_path=protected_pdf,
-                output_path=tmp_path / "signed.pdf",
-                cert_id=None,
-                visible=False,
-            )
+        # sign_pdf catches exceptions and returns SigningResult
+        result = signer.sign_pdf(
+            input_path=protected_pdf,
+            output_path=tmp_path / "signed.pdf",
+        )
 
         # Verify error is related to protection/encryption
-        error_msg = str(exc_info.value).lower()
+        assert result.success is False
+        assert result.error is not None
+        error_msg = result.error.lower()
         assert any(
             keyword in error_msg
             for keyword in [

@@ -7,6 +7,7 @@ Creates and initializes NSS database for PKCS#11 token
 communication using certutil.
 """
 
+import shutil
 import subprocess  # nosec B404 - subprocess used safely with fixed certutil command
 from dataclasses import dataclass
 from pathlib import Path
@@ -139,8 +140,12 @@ class NSSSetup:
         Returns:
             CompletedProcess with result
         """
+        certutil_path = shutil.which("certutil")
+        if certutil_path is None:
+            raise FileNotFoundError("certutil not found in PATH")
+
         cmd = [
-            "certutil",
+            certutil_path,
             "-N",
             "--empty-password",
             "-d",

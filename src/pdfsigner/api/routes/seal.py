@@ -5,6 +5,7 @@ Electronic seals are for organizations (legal persons), not individuals.
 """
 
 import tempfile
+import time
 import uuid
 from datetime import UTC, datetime
 from pathlib import Path
@@ -45,6 +46,18 @@ router = APIRouter(prefix="/api/v1/seal", tags=["sealing"])
 
 # In-memory job storage (production would use database)
 _seal_jobs: dict[str, dict] = {}
+_seal_job_timestamps: dict[str, float] = {}
+_MAX_SEAL_JOBS = 1000
+_SEAL_JOB_TTL_SECONDS = 86400  # 24 hours
+
+
+def _cleanup_seal_jobs() -> None:
+    """Remove expired seal job entries."""
+    now = time.time()
+    expired = [k for k, t in _seal_job_timestamps.items() if now - t > _SEAL_JOB_TTL_SECONDS]
+    for k in expired:
+        _seal_jobs.pop(k, None)
+        _seal_job_timestamps.pop(k, None)
 
 
 def _pydantic_to_org_info(schema: OrganizationInfoSchema) -> OrganizationInfo:
@@ -76,9 +89,11 @@ def _org_info_to_pydantic(org: OrganizationInfo) -> OrganizationInfoSchema:
     Returns:
         Pydantic organization info schema
     """
+    # Default empty country to "XX" (unknown) to satisfy schema regex ^[A-Z]{2}$
+    country = org.country.upper() if org.country and len(org.country) == 2 else "XX"
     return OrganizationInfoSchema(
-        name=org.name,
-        country=org.country,
+        name=org.name or "Unknown",
+        country=country,
         organization_id=org.organization_id,
         department=org.department,
         address=org.address,
@@ -237,10 +252,27 @@ async def seal_document(
         organization_id=organization_id,
     )
 
+    try:
+        seal_type_enum = SealType(seal_type)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid seal_type: {seal_type}. Must be one of: {[e.value for e in SealType]}",
+        )
+
+    try:
+        appearance_enum = SealAppearance(appearance)
+    except ValueError:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Invalid appearance: {appearance}. "
+            f"Must be one of: {[e.value for e in SealAppearance]}",
+        )
+
     seal_config = SealConfig(
         organization=org_info,
-        seal_type=SealType(seal_type),
-        appearance=SealAppearance(appearance),
+        seal_type=seal_type_enum,
+        appearance=appearance_enum,
         reason=reason,
         location=location,
         page=page,
@@ -248,9 +280,19 @@ async def seal_document(
         tsa_url=getattr(settings, "default_tsa_url", "") or "",
     )
 
+    # Cleanup old entries before adding new ones
+    _cleanup_seal_jobs()
+    if len(_seal_jobs) >= _MAX_SEAL_JOBS:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Too many pending seal jobs. Please try again later.",
+        )
+
     # Store job info
+    _seal_job_timestamps[job_id] = time.time()
     _seal_jobs[job_id] = {
         "job_id": job_id,
+        "user_id": current_user.id,
         "status": "pending",
         "filename": file.filename,
         "organization": organization_name,
@@ -274,6 +316,7 @@ async def seal_document(
         organization=organization_name,
         seal_type=seal_type,
         message=f"Seal job created for {safe_filename_str}",
+        download_url=f"/api/v1/seal/{job_id}/download",
     )
 
 
@@ -297,7 +340,13 @@ async def get_seal_status(
     if job_id not in _seal_jobs:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Seal job not found: {job_id}",
+            detail="Job not found",
+        )
+
+    if _seal_jobs[job_id].get("user_id") != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Job not found",
         )
 
     job = _seal_jobs[job_id]
@@ -337,7 +386,13 @@ async def download_sealed_pdf(
     if job_id not in _seal_jobs:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Seal job not found: {job_id}",
+            detail="Job not found",
+        )
+
+    if _seal_jobs[job_id].get("user_id") != current_user.id:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Job not found",
         )
 
     job = _seal_jobs[job_id]
@@ -426,7 +481,20 @@ async def validate_seal(
 
     temp_path = temp_dir / f"validate_{uuid.uuid4().hex[:12]}.pdf"
 
+    settings = get_api_settings()
+
     content = await file.read()
+    max_size = (
+        settings.max_upload_size_mb * 1024 * 1024
+        if hasattr(settings, "max_upload_size_mb")
+        else 50 * 1024 * 1024
+    )
+    if len(content) > max_size:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="File too large",
+        )
+
     with open(temp_path, "wb") as f:
         f.write(content)
 

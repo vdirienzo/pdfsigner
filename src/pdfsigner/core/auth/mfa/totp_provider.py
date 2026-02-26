@@ -190,7 +190,9 @@ class TOTPProvider:
         elif self.config.algorithm == "SHA512":
             return hashlib.sha512
         else:
-            # Default to SHA1 for compatibility
+            logger.warning(
+                f"Unknown TOTP algorithm '{self.config.algorithm}', falling back to SHA1"
+            )
             return hashlib.sha1
 
 

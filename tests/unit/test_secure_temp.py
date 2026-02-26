@@ -9,7 +9,7 @@ with HIPAA compliance verification.
 
 import os
 import threading
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -307,7 +307,7 @@ class TestCleanupTask:
     def test_cleanup_task_is_expired(self):
         """Test CleanupTask.is_expired property."""
         # Create task that expired 1 hour ago
-        created_at = datetime.now() - timedelta(hours=25)
+        created_at = datetime.now(UTC) - timedelta(hours=25)
         task = CleanupTask(
             path=Path("/tmp/test.pdf"),
             created_at=created_at,
@@ -319,7 +319,7 @@ class TestCleanupTask:
     def test_cleanup_task_not_expired(self):
         """Test CleanupTask.is_expired for non-expired task."""
         # Create task that expires in 23 hours
-        created_at = datetime.now() - timedelta(hours=1)
+        created_at = datetime.now(UTC) - timedelta(hours=1)
         task = CleanupTask(
             path=Path("/tmp/test.pdf"),
             created_at=created_at,
@@ -411,12 +411,12 @@ class TestCleanupScheduler:
         # Register with different expiration times
         expired_task = CleanupTask(
             path=expired_file,
-            created_at=datetime.now() - timedelta(hours=25),
+            created_at=datetime.now(UTC) - timedelta(hours=25),
             retention_hours=24,
         )
         active_task = CleanupTask(
             path=active_file,
-            created_at=datetime.now(),
+            created_at=datetime.now(UTC),
             retention_hours=24,
         )
 
@@ -448,7 +448,7 @@ class TestCleanupScheduler:
         # Register with future expiration
         task = CleanupTask(
             path=temp_file,
-            created_at=datetime.now(),
+            created_at=datetime.now(UTC),
             retention_hours=24,
         )
         scheduler._tasks = [task]
@@ -529,7 +529,7 @@ class TestCleanupScheduler:
 
         task = CleanupTask(
             path=temp_file,
-            created_at=datetime.now() - timedelta(hours=25),
+            created_at=datetime.now(UTC) - timedelta(hours=25),
             retention_hours=24,
         )
 

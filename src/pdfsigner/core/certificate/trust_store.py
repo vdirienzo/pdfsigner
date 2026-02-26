@@ -35,9 +35,12 @@ class TrustStore:
         self._system_ca_paths = get_trust_store_paths()
 
     @property
-    def SYSTEM_CA_PATHS(self) -> list[str]:
-        """Get system CA paths (for backward compatibility)."""
+    def get_system_ca_paths(self) -> list[str]:
+        """Get system CA paths."""
         return [str(p) for p in self._system_ca_paths]
+
+    # Backwards compatibility alias
+    SYSTEM_CA_PATHS = get_system_ca_paths
 
     def load_system_cas(self) -> list[x509.Certificate]:
         """

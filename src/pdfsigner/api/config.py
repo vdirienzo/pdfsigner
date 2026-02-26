@@ -163,16 +163,18 @@ class APISettings(BaseSettings):
     )
 
     # --- OpenAPI Documentation ---
+    # Disabled by default for production security. Set via env vars for development:
+    # PDFSIGNER_API_DOCS_URL=/docs PDFSIGNER_API_REDOC_URL=/redoc PDFSIGNER_API_OPENAPI_URL=/openapi.json
     docs_url: str | None = Field(
-        default="/docs",
+        default=None,
         description="OpenAPI Swagger UI path (None to disable)",
     )
     redoc_url: str | None = Field(
-        default="/redoc",
+        default=None,
         description="ReDoc documentation path (None to disable)",
     )
     openapi_url: str | None = Field(
-        default="/openapi.json",
+        default=None,
         description="OpenAPI JSON schema path (None to disable)",
     )
 
@@ -214,12 +216,16 @@ class APISettings(BaseSettings):
         ),
     )
 
-    @field_validator("temp_dir")
+    @field_validator("temp_dir", mode="before")
     @classmethod
-    def validate_temp_dir(cls, v: Path) -> Path:
-        """Ensure temp directory exists."""
-        v.mkdir(parents=True, exist_ok=True)
-        return v
+    def validate_temp_dir(cls, v: str | Path | None) -> Path:
+        """Ensure temp directory exists with secure permissions."""
+        import tempfile
+
+        path = Path(v) if v else Path(tempfile.mkdtemp(prefix="pdfsigner-api-"))
+        path.mkdir(parents=True, exist_ok=True)
+        path.chmod(0o700)
+        return path
 
     @field_validator("jwt_secret_key")
     @classmethod

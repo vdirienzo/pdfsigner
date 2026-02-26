@@ -5,11 +5,13 @@ Provides endpoints for monitoring HIPAA compliance status and generating reports
 """
 
 import tempfile
+import time
 from pathlib import Path
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.responses import FileResponse
+from loguru import logger
 
 from pdfsigner.api.middleware.auth import User, get_current_user_or_api_key
 from pdfsigner.api.schemas.compliance import (
@@ -26,6 +28,18 @@ router = APIRouter(prefix="/api/v1/compliance", tags=["compliance"])
 
 # Store generated reports temporarily (in production, use proper storage)
 _generated_reports: dict[str, Path] = {}
+_report_timestamps: dict[str, float] = {}
+_MAX_REPORTS = 1000
+_REPORT_TTL_SECONDS = 86400  # 24 hours
+
+
+def _cleanup_old_reports() -> None:
+    """Remove expired report entries."""
+    now = time.time()
+    expired = [k for k, t in _report_timestamps.items() if now - t > _REPORT_TTL_SECONDS]
+    for k in expired:
+        _generated_reports.pop(k, None)
+        _report_timestamps.pop(k, None)
 
 
 @router.get(
@@ -208,7 +222,11 @@ async def generate_compliance_report(
         # Generate
         report_metadata = generator.generate(config, output_path)
 
+        # Cleanup old entries before adding new ones
+        _cleanup_old_reports()
+
         # Store for download
+        _report_timestamps[report_id] = time.time()
         _generated_reports[report_id] = report_metadata.path
 
         return GeneratedReportResponse(
@@ -221,10 +239,11 @@ async def generate_compliance_report(
         )
 
     except Exception as e:
+        logger.error(f"Report generation failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to generate report: {str(e)}",
-        )
+            detail="Report generation failed",
+        ) from e
 
 
 @router.get(

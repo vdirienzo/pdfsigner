@@ -21,6 +21,28 @@ import fitz  # PyMuPDF
 from pdfsigner.core.compliance.report_generator import ReportConfig
 from pdfsigner.core.compliance.status_checker import ComplianceReport, ComplianceStatus
 
+# PDF Layout Constants
+MARGIN_LEFT = 50
+MARGIN_RIGHT_OFFSET = 50  # Subtracted from page width
+PAGE_BREAK_Y = 700
+TITLE_FONT_SIZE = 24
+HEADING_FONT_SIZE = 18
+SUBHEADING_FONT_SIZE = 14
+BODY_FONT_SIZE = 11
+DETAIL_FONT_SIZE = 9
+EVIDENCE_FONT_SIZE = 8
+SMALL_FONT_SIZE = 10
+CHECK_HEADER_FONT_SIZE = 12
+INDENT_LEFT = 70
+
+# Status symbols shared across formatters
+STATUS_SYMBOLS: dict[ComplianceStatus, str] = {
+    ComplianceStatus.COMPLIANT: "✓",
+    ComplianceStatus.WARNING: "⚠",
+    ComplianceStatus.NON_COMPLIANT: "✗",
+    ComplianceStatus.UNKNOWN: "?",
+}
+
 
 class ReportFormatter(ABC):
     """Base class for report formatters."""
@@ -93,52 +115,49 @@ class PDFReportFormatter(ReportFormatter):
         """Add title page to PDF."""
         page = doc.new_page()
         width = page.rect.width
+        right = width - MARGIN_RIGHT_OFFSET
 
         # Title
-        title_rect = fitz.Rect(50, 100, width - 50, 150)
+        title_rect = fitz.Rect(MARGIN_LEFT, 100, right, 150)
         page.insert_textbox(
             title_rect,
             "COMPLIANCE REPORT",
-            fontsize=24,
+            fontsize=TITLE_FONT_SIZE,
             fontname="Helvetica-Bold",
             align=fitz.TEXT_ALIGN_CENTER,
         )
 
         # Subtitle
-        subtitle_rect = fitz.Rect(50, 160, width - 50, 190)
+        subtitle_rect = fitz.Rect(MARGIN_LEFT, 160, right, 190)
         page.insert_textbox(
             subtitle_rect,
             "PDFSigner Healthcare Compliance",
-            fontsize=14,
+            fontsize=SUBHEADING_FONT_SIZE,
             fontname="Helvetica",
             align=fitz.TEXT_ALIGN_CENTER,
         )
 
         # Generated date
-        date_rect = fitz.Rect(50, 200, width - 50, 230)
+        date_rect = fitz.Rect(MARGIN_LEFT, 200, right, 230)
         page.insert_textbox(
             date_rect,
             f"Generated: {report.generated_at.strftime('%Y-%m-%d %H:%M:%S')}",
-            fontsize=11,
+            fontsize=BODY_FONT_SIZE,
             fontname="Helvetica",
             align=fitz.TEXT_ALIGN_CENTER,
         )
 
         # Overall status indicator
-        status_emoji = {
-            ComplianceStatus.COMPLIANT: "✓",
-            ComplianceStatus.WARNING: "⚠",
-            ComplianceStatus.NON_COMPLIANT: "✗",
-        }
         status_text = (
-            f"{status_emoji.get(report.overall_status, '?')} {report.overall_status.value.upper()}"
+            f"{STATUS_SYMBOLS.get(report.overall_status, '?')} "
+            f"{report.overall_status.value.upper()}"
         )
 
-        status_rect = fitz.Rect(50, 250, width - 50, 290)
+        status_rect = fitz.Rect(MARGIN_LEFT, 250, right, 290)
         page.insert_textbox(
             status_rect,
             status_text,
-            fontsize=18,
+            fontsize=HEADING_FONT_SIZE,
             fontname="Helvetica",
             align=fitz.TEXT_ALIGN_CENTER,
         )
@@ -147,14 +166,15 @@ class PDFReportFormatter(ReportFormatter):
         """Add executive summary page."""
         page = doc.new_page()
         width = page.rect.width
-        y_pos = 50
+        right = width - MARGIN_RIGHT_OFFSET
+        y_pos = MARGIN_LEFT
 
         # Section title
-        title_rect = fitz.Rect(50, y_pos, width - 50, y_pos + 30)
+        title_rect = fitz.Rect(MARGIN_LEFT, y_pos, right, y_pos + 30)
         page.insert_textbox(
             title_rect,
             "EXECUTIVE SUMMARY",
-            fontsize=18,
+            fontsize=HEADING_FONT_SIZE,
             fontname="Helvetica",
             align=fitz.TEXT_ALIGN_LEFT,
         )
@@ -165,11 +185,11 @@ class PDFReportFormatter(ReportFormatter):
         score = (report.compliant_count / total_checks * 100) if total_checks > 0 else 0
         score_text = f"Overall Compliance Score: {score:.0f}/100"
 
-        score_rect = fitz.Rect(50, y_pos, width - 50, y_pos + 20)
+        score_rect = fitz.Rect(MARGIN_LEFT, y_pos, right, y_pos + 20)
         page.insert_textbox(
             score_rect,
             score_text,
-            fontsize=14,
+            fontsize=SUBHEADING_FONT_SIZE,
             fontname="Helvetica",
             align=fitz.TEXT_ALIGN_LEFT,
         )
@@ -178,11 +198,11 @@ class PDFReportFormatter(ReportFormatter):
         # Standards assessed
         standards_text = "Standards Assessed:\n\n• HIPAA §164.312 (Security Rule)"
 
-        standards_rect = fitz.Rect(50, y_pos, width - 50, y_pos + 60)
+        standards_rect = fitz.Rect(MARGIN_LEFT, y_pos, right, y_pos + 60)
         page.insert_textbox(
             standards_rect,
             standards_text,
-            fontsize=11,
+            fontsize=BODY_FONT_SIZE,
             fontname="Helvetica",
             align=fitz.TEXT_ALIGN_LEFT,
         )
@@ -197,11 +217,11 @@ class PDFReportFormatter(ReportFormatter):
 
 Total Checks: {total_checks}"""
 
-        stats_rect = fitz.Rect(50, y_pos, width - 50, y_pos + 150)
+        stats_rect = fitz.Rect(MARGIN_LEFT, y_pos, right, y_pos + 150)
         page.insert_textbox(
             stats_rect,
             stats_text,
-            fontsize=11,
+            fontsize=BODY_FONT_SIZE,
             fontname="Helvetica",
             align=fitz.TEXT_ALIGN_LEFT,
         )
@@ -212,14 +232,15 @@ Total Checks: {total_checks}"""
         """Add detailed findings pages."""
         page = doc.new_page()
         width = page.rect.width
-        y_pos = 50
+        right = width - MARGIN_RIGHT_OFFSET
+        y_pos = MARGIN_LEFT
 
         # Section title
-        title_rect = fitz.Rect(50, y_pos, width - 50, y_pos + 30)
+        title_rect = fitz.Rect(MARGIN_LEFT, y_pos, right, y_pos + 30)
         page.insert_textbox(
             title_rect,
             "DETAILED FINDINGS",
-            fontsize=18,
+            fontsize=HEADING_FONT_SIZE,
             fontname="Helvetica",
             align=fitz.TEXT_ALIGN_LEFT,
         )
@@ -228,38 +249,31 @@ Total Checks: {total_checks}"""
         # List each check
         for check in report.checks:
             # Check if we need a new page
-            if y_pos > 700:
+            if y_pos > PAGE_BREAK_Y:
                 page = doc.new_page()
-                y_pos = 50
+                y_pos = MARGIN_LEFT
 
-            # Status indicator
-            status_symbol = {
-                ComplianceStatus.COMPLIANT: "✓",
-                ComplianceStatus.WARNING: "⚠",
-                ComplianceStatus.NON_COMPLIANT: "✗",
-                ComplianceStatus.UNKNOWN: "?",
-            }
-            symbol = status_symbol.get(check.status, "?")
+            symbol = STATUS_SYMBOLS.get(check.status, "?")
 
             # Check header
             header_text = f"{symbol} {check.name}"
-            header_rect = fitz.Rect(50, y_pos, width - 50, y_pos + 20)
+            header_rect = fitz.Rect(MARGIN_LEFT, y_pos, right, y_pos + 20)
             page.insert_textbox(
                 header_rect,
                 header_text,
-                fontsize=12,
-                fontname="Helvetica-Bold",  # Bold
+                fontsize=CHECK_HEADER_FONT_SIZE,
+                fontname="Helvetica-Bold",
                 align=fitz.TEXT_ALIGN_LEFT,
             )
             y_pos += 25
 
             # Reference
             ref_text = f"Reference: {check.hipaa_reference}"
-            ref_rect = fitz.Rect(70, y_pos, width - 50, y_pos + 15)
+            ref_rect = fitz.Rect(INDENT_LEFT, y_pos, right, y_pos + 15)
             page.insert_textbox(
                 ref_rect,
                 ref_text,
-                fontsize=9,
+                fontsize=DETAIL_FONT_SIZE,
                 fontname="Helvetica",
                 align=fitz.TEXT_ALIGN_LEFT,
             )
@@ -267,11 +281,11 @@ Total Checks: {total_checks}"""
 
             # Details
             details_text = f"{check.description}\n{check.details}"
-            details_rect = fitz.Rect(70, y_pos, width - 50, y_pos + 40)
+            details_rect = fitz.Rect(INDENT_LEFT, y_pos, right, y_pos + 40)
             page.insert_textbox(
                 details_rect,
                 details_text,
-                fontsize=9,
+                fontsize=DETAIL_FONT_SIZE,
                 fontname="Helvetica",
                 align=fitz.TEXT_ALIGN_LEFT,
             )
@@ -280,11 +294,11 @@ Total Checks: {total_checks}"""
             # Evidence if requested
             if config.include_evidence and check.status == ComplianceStatus.COMPLIANT:
                 evidence_text = f"Evidence: {check.details}"
-                evidence_rect = fitz.Rect(70, y_pos, width - 50, y_pos + 25)
+                evidence_rect = fitz.Rect(INDENT_LEFT, y_pos, right, y_pos + 25)
                 page.insert_textbox(
                     evidence_rect,
                     evidence_text,
-                    fontsize=8,
+                    fontsize=EVIDENCE_FONT_SIZE,
                     fontname="Helvetica",
                     align=fitz.TEXT_ALIGN_LEFT,
                     color=(0.3, 0.3, 0.3),
@@ -303,14 +317,15 @@ Total Checks: {total_checks}"""
 
         page = doc.new_page()
         width = page.rect.width
-        y_pos = 50
+        right = width - MARGIN_RIGHT_OFFSET
+        y_pos = MARGIN_LEFT
 
         # Section title
-        title_rect = fitz.Rect(50, y_pos, width - 50, y_pos + 30)
+        title_rect = fitz.Rect(MARGIN_LEFT, y_pos, right, y_pos + 30)
         page.insert_textbox(
             title_rect,
             "RECOMMENDATIONS",
-            fontsize=18,
+            fontsize=HEADING_FONT_SIZE,
             fontname="Helvetica",
             align=fitz.TEXT_ALIGN_LEFT,
         )
@@ -318,16 +333,16 @@ Total Checks: {total_checks}"""
 
         # List recommendations
         for i, check in enumerate(checks_with_remediation, 1):
-            if y_pos > 700:
+            if y_pos > PAGE_BREAK_Y:
                 page = doc.new_page()
-                y_pos = 50
+                y_pos = MARGIN_LEFT
 
             rec_text = f"{i}. {check.name}\n   {check.remediation}"
-            rec_rect = fitz.Rect(50, y_pos, width - 50, y_pos + 40)
+            rec_rect = fitz.Rect(MARGIN_LEFT, y_pos, right, y_pos + 40)
             page.insert_textbox(
                 rec_rect,
                 rec_text,
-                fontsize=10,
+                fontsize=SMALL_FONT_SIZE,
                 fontname="Helvetica",
                 align=fitz.TEXT_ALIGN_LEFT,
             )

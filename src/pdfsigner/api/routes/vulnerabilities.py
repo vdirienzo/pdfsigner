@@ -207,22 +207,33 @@ async def list_vulnerabilities(
 
     # Query vulnerabilities
     repo = get_vuln_repository()
-    vulnerabilities = repo.list_vulnerabilities(
-        status=status_enum,
-        severity=severity_enum,
-        source=source_enum,
-        limit=limit,
-        offset=offset,
-    )
 
-    # Filter by assignee for non-admin users
     from pdfsigner.core.users import UserRole
 
-    if current_user.role not in {UserRole.ADMIN, UserRole.AUDITOR}:
-        vulnerabilities = [v for v in vulnerabilities if v.assignee == current_user.username]
+    is_privileged = current_user.role in {UserRole.ADMIN, UserRole.AUDITOR}
 
-    # Count total
-    total = len(vulnerabilities)
+    if is_privileged:
+        vulnerabilities = repo.list_vulnerabilities(
+            status=status_enum,
+            severity=severity_enum,
+            source=source_enum,
+            limit=limit,
+            offset=offset,
+        )
+        total = len(vulnerabilities)
+    else:
+        # For non-admin users, fetch all matching results without pagination
+        # and filter by assignee before applying pagination
+        all_vulns = repo.list_vulnerabilities(
+            status=status_enum,
+            severity=severity_enum,
+            source=source_enum,
+            limit=10000,
+            offset=0,
+        )
+        user_vulns = [v for v in all_vulns if v.assignee == current_user.username]
+        total = len(user_vulns)
+        vulnerabilities = user_vulns[offset : offset + limit]
 
     logger.debug(f"Listed {len(vulnerabilities)} vulnerabilities for user {current_user.username}")
 
@@ -401,6 +412,12 @@ async def update_vulnerability(
 
     # Get updated vulnerability
     updated_vuln = repo.get_vulnerability(vuln_id)
+
+    if not updated_vuln:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Vulnerability not found",
+        )
 
     logger.info(f"User {current_user.username} updated vulnerability {vuln_id}")
 

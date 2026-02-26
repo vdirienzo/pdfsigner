@@ -126,8 +126,11 @@ class TestKeyGeneration:
 
         info = key_manager._get_key_info_from_db(key_id)
         assert info.expires_at is not None
-        assert info.expires_at > datetime.now()
-        assert info.expires_at < datetime.now() + timedelta(days=31)
+        # expires_at is timezone-aware (UTC), so compare with aware datetime
+        from datetime import UTC
+
+        assert info.expires_at > datetime.now(UTC)
+        assert info.expires_at < datetime.now(UTC) + timedelta(days=31)
 
     def test_generate_key_with_metadata(self, key_manager: KeyManager):
         """Test generating key with custom metadata."""

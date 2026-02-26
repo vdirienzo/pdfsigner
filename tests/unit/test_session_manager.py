@@ -7,7 +7,7 @@ Tests Session model and SessionManager for HIPAA compliance.
 import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -24,9 +24,9 @@ class TestSession:
         session = Session(
             id=str(uuid.uuid4()),
             user_id="user_123",
-            created_at=datetime.now(),
-            last_activity=datetime.now(),
-            expires_at=datetime.now() + timedelta(minutes=15),
+            created_at=datetime.now(UTC),
+            last_activity=datetime.now(UTC),
+            expires_at=datetime.now(UTC) + timedelta(minutes=15),
         )
         assert session.user_id == "user_123"
         assert session.ip_address is None
@@ -37,9 +37,9 @@ class TestSession:
         session = Session(
             id=str(uuid.uuid4()),
             user_id="user_123",
-            created_at=datetime.now(),
-            last_activity=datetime.now(),
-            expires_at=datetime.now() + timedelta(minutes=15),
+            created_at=datetime.now(UTC),
+            last_activity=datetime.now(UTC),
+            expires_at=datetime.now(UTC) + timedelta(minutes=15),
             ip_address="192.168.1.1",
             user_agent="Mozilla/5.0",
         )
@@ -51,9 +51,9 @@ class TestSession:
         session = Session(
             id=str(uuid.uuid4()),
             user_id="user_123",
-            created_at=datetime.now(),
-            last_activity=datetime.now(),
-            expires_at=datetime.now() + timedelta(minutes=15),
+            created_at=datetime.now(UTC),
+            last_activity=datetime.now(UTC),
+            expires_at=datetime.now(UTC) + timedelta(minutes=15),
         )
         assert session.is_active is True
 
@@ -62,16 +62,16 @@ class TestSession:
         session = Session(
             id=str(uuid.uuid4()),
             user_id="user_123",
-            created_at=datetime.now() - timedelta(hours=1),
-            last_activity=datetime.now() - timedelta(minutes=30),
-            expires_at=datetime.now() - timedelta(minutes=1),
+            created_at=datetime.now(UTC) - timedelta(hours=1),
+            last_activity=datetime.now(UTC) - timedelta(minutes=30),
+            expires_at=datetime.now(UTC) - timedelta(minutes=1),
         )
         assert session.is_active is False
 
     def test_session_to_dict(self):
         """Test session serialization to dict."""
         session_id = str(uuid.uuid4())
-        now = datetime.now()
+        now = datetime.now(UTC)
         session = Session(
             id=session_id,
             user_id="user_123",
@@ -87,7 +87,7 @@ class TestSession:
 
     def test_session_from_dict(self):
         """Test session deserialization from dict."""
-        now = datetime.now()
+        now = datetime.now(UTC)
         data = {
             "id": "test-id",
             "user_id": "user_456",

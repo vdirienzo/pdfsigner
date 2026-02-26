@@ -180,7 +180,7 @@ def _scan_phi_for_files(files: list[Path], skip_confirmation: bool = False) -> b
     print(f"Total PHI instances: {total_phi_count}")
     print(f"Overall confidence: {files_with_phi[0][1].overall_confidence.value}")
     print("\nPHI Types detected:")
-    all_types = {}
+    all_types: dict[str, int] = {}
     for _, result in files_with_phi:
         for phi_type, count in result.by_type.items():
             all_types[phi_type] = all_types.get(phi_type, 0) + count
@@ -188,15 +188,19 @@ def _scan_phi_for_files(files: list[Path], skip_confirmation: bool = False) -> b
         print(f"  - {phi_type}: {count}")
 
     # Log audit event
+    from pdfsigner.core.audit.audit_event import AuditEvent
+
     audit_logger.log_event(
-        event_type=AuditEventType.PHI_DETECTED,
-        user_id="cli-user",
-        details={
-            "files_scanned": len(files),
-            "files_with_phi": len(files_with_phi),
-            "total_matches": total_phi_count,
-            "phi_types": list(all_types.keys()),
-        },
+        AuditEvent(
+            event_type=AuditEventType.PHI_DETECTED,
+            user_id="cli-user",
+            details={
+                "files_scanned": len(files),
+                "files_with_phi": len(files_with_phi),
+                "total_matches": total_phi_count,
+                "phi_types": list(all_types.keys()),
+            },
+        )
     )
 
     # Ask for confirmation

@@ -6,7 +6,7 @@ for HIPAA compliance (§164.312(a)(2)(ii)).
 """
 
 import uuid
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
@@ -49,7 +49,7 @@ class TestEmergencyAccessRequest:
             requester_id="user_123",
             reason="Patient emergency",
             status=EmergencyAccessStatus.PENDING,
-            requested_at=datetime.now(),
+            requested_at=datetime.now(UTC),
         )
         assert request.requester_id == "user_123"
         assert request.reason == "Patient emergency"
@@ -64,10 +64,10 @@ class TestEmergencyAccessRequest:
             requester_id="user_123",
             reason="Emergency",
             status=EmergencyAccessStatus.APPROVED,
-            requested_at=datetime.now(),
+            requested_at=datetime.now(UTC),
             approved_by="admin_456",
-            approved_at=datetime.now(),
-            expires_at=datetime.now() + timedelta(hours=4),
+            approved_at=datetime.now(UTC),
+            expires_at=datetime.now(UTC) + timedelta(hours=4),
         )
         assert request.is_active is True
 
@@ -78,7 +78,7 @@ class TestEmergencyAccessRequest:
             requester_id="user_123",
             reason="Emergency",
             status=EmergencyAccessStatus.PENDING,
-            requested_at=datetime.now(),
+            requested_at=datetime.now(UTC),
         )
         assert request.is_active is False
 
@@ -89,9 +89,9 @@ class TestEmergencyAccessRequest:
             requester_id="user_123",
             reason="Emergency",
             status=EmergencyAccessStatus.APPROVED,
-            requested_at=datetime.now() - timedelta(hours=5),
-            approved_at=datetime.now() - timedelta(hours=5),
-            expires_at=datetime.now() - timedelta(hours=1),
+            requested_at=datetime.now(UTC) - timedelta(hours=5),
+            approved_at=datetime.now(UTC) - timedelta(hours=5),
+            expires_at=datetime.now(UTC) - timedelta(hours=1),
         )
         assert request.is_active is False
 
@@ -103,7 +103,7 @@ class TestEmergencyAccessRequest:
             requester_id="user_123",
             reason="Test reason",
             status=EmergencyAccessStatus.PENDING,
-            requested_at=datetime.now(),
+            requested_at=datetime.now(UTC),
             documents_accessed=["/path/to/doc.pdf"],
         )
         data = request.to_dict()
@@ -115,7 +115,7 @@ class TestEmergencyAccessRequest:
 
     def test_request_from_dict(self):
         """Test request deserialization."""
-        now = datetime.now()
+        now = datetime.now(UTC)
         data = {
             "id": "test-id",
             "requester_id": "user_789",
@@ -198,8 +198,8 @@ class TestEmergencyAccessRepository:
         request = repo.create_request("user_123", "Emergency")
         request.status = EmergencyAccessStatus.APPROVED
         request.approved_by = "admin_789"
-        request.approved_at = datetime.now()
-        request.expires_at = datetime.now() + timedelta(hours=4)
+        request.approved_at = datetime.now(UTC)
+        request.expires_at = datetime.now(UTC) + timedelta(hours=4)
 
         repo.update_request(request)
 

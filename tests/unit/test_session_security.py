@@ -5,7 +5,7 @@ Tests session regeneration to prevent Session Fixation attacks.
 """
 
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 
 import pytest
 
@@ -226,7 +226,7 @@ def test_regenerate_expired_session_creates_fresh_session(session_manager):
     with session_manager._get_connection() as conn:
         conn.execute(
             "UPDATE sessions SET expires_at = ? WHERE id = ?",
-            (datetime(2020, 1, 1).isoformat(), original.id),
+            (datetime(2020, 1, 1, tzinfo=UTC).isoformat(), original.id),
         )
 
     # Verify it's expired
@@ -239,7 +239,7 @@ def test_regenerate_expired_session_creates_fresh_session(session_manager):
     # Verify new session is active (not expired)
     assert new_session.is_active
     assert not new_session.is_expired
-    assert new_session.expires_at > datetime.now()
+    assert new_session.expires_at > datetime.now(UTC)
 
 
 # --- Integration with Login Flow ---

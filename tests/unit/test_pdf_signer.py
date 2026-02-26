@@ -269,7 +269,8 @@ class TestPDFSignerCreateSigner:
         )
 
         handler = MagicMock()
-        handler._session = MagicMock()
+        mock_session = MagicMock()
+        handler.get_session.return_value = mock_session
 
         with patch("pyhanko.sign.pkcs11.PKCS11Signer") as mock_pkcs11:
             mock_pkcs11.return_value = MagicMock()
@@ -278,14 +279,15 @@ class TestPDFSignerCreateSigner:
 
             assert result is not None
             mock_pkcs11.assert_called_once_with(
-                pkcs11_session=handler._session,
+                pkcs11_session=mock_session,
                 cert_id=None,
             )
 
     def test_create_signer_with_cert_id(self):
         """Test signer creation with specific cert ID."""
         handler = MagicMock()
-        handler._session = MagicMock()
+        mock_session = MagicMock()
+        handler.get_session.return_value = mock_session
         cert_id = b"test-cert-id"
 
         with patch("pyhanko.sign.pkcs11.PKCS11Signer") as mock_pkcs11:
@@ -295,7 +297,7 @@ class TestPDFSignerCreateSigner:
 
             assert result is not None
             mock_pkcs11.assert_called_once_with(
-                pkcs11_session=handler._session,
+                pkcs11_session=mock_session,
                 cert_id=cert_id,
             )
 

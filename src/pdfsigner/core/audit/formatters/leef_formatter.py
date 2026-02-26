@@ -12,7 +12,6 @@ Example:
 LEEF:2.0|PDFSigner|AuditLogger|1.7.0|1001|src=192.168.1.100\tusrName=john.doe\tresult=success
 """
 
-
 from pdfsigner.core.audit.audit_event import AuditEvent
 
 # Event type to Event ID mapping (same as CEF)
@@ -124,8 +123,8 @@ class LEEFFormatter:
         fields.append(f"cat={cls._escape_extension(event.event_type.value)}")
 
         # Timestamp (ISO 8601 format)
-        devTime = event.timestamp.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-        fields.append(f"devTime={devTime}")
+        dev_time = event.timestamp.strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+        fields.append(f"devTime={dev_time}")
 
         # Event ID
         fields.append(f"eventId={cls._escape_extension(event.event_id)}")

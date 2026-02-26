@@ -117,6 +117,11 @@ class BackupMetadata:
 class BackupManager:
     """Manages backups and recovery for PDFSigner."""
 
+    # Encryption constants
+    _SALT_LENGTH = 16
+    _NONCE_LENGTH = 12
+    _PBKDF2_ITERATIONS = 480000
+
     def __init__(self, backup_dir: Path | None = None):
         """
         Initialize BackupManager.
@@ -274,7 +279,7 @@ class BackupManager:
 
     def _backup_databases(self, tar: tarfile.TarFile) -> int:
         """
-        Backup SQLite databases.
+        Backup SQLite databases using sqlite3.backup() for WAL consistency.
 
         Args:
             tar: Open tarfile to add files to
@@ -282,14 +287,29 @@ class BackupManager:
         Returns:
             Number of files backed up
         """
+        import sqlite3
+
         count = 0
         db_files = ["users.db", "sessions.db", "retention.db", "emergency.db"]
 
         for db_name in db_files:
             db_path = self._config_dir / db_name
             if db_path.exists():
-                tar.add(db_path, arcname=f"databases/{db_name}")
-                count += 1
+                backup_path = db_path.with_suffix(".db.backup")
+                try:
+                    source = sqlite3.connect(str(db_path))
+                    dest = sqlite3.connect(str(backup_path))
+                    source.backup(dest)
+                    dest.close()
+                    source.close()
+                    tar.add(str(backup_path), arcname=f"databases/{db_name}")
+                    count += 1
+                except sqlite3.DatabaseError:
+                    # Fallback: direct copy for non-SQLite files
+                    tar.add(str(db_path), arcname=f"databases/{db_name}")
+                    count += 1
+                finally:
+                    backup_path.unlink(missing_ok=True)
 
         return count
 
@@ -307,6 +327,27 @@ class BackupManager:
         info.size = len(data)
         tar.addfile(info, io.BytesIO(data))
 
+    def _derive_backup_key(self, password: str, salt: bytes) -> bytes:
+        """Derive encryption key from password using PBKDF2.
+
+        Args:
+            password: Password to derive key from
+            salt: Random salt for key derivation
+
+        Returns:
+            32-byte derived key
+        """
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
+        kdf = PBKDF2HMAC(
+            algorithm=hashes.SHA256(),
+            length=32,
+            salt=salt,
+            iterations=self._PBKDF2_ITERATIONS,
+        )
+        return kdf.derive(password.encode())
+
     def _encrypt_backup(self, backup_path: Path, password: str) -> Path:
         """
         Encrypt backup file using AES-256.
@@ -318,23 +359,15 @@ class BackupManager:
         Returns:
             Path to encrypted backup file
         """
-        from cryptography.hazmat.primitives import hashes
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-        from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
         # Derive key from password
-        salt = os.urandom(16)
-        kdf = PBKDF2HMAC(
-            algorithm=hashes.SHA256(),
-            length=32,
-            salt=salt,
-            iterations=480000,
-        )
-        key = kdf.derive(password.encode())
+        salt = os.urandom(self._SALT_LENGTH)
+        key = self._derive_backup_key(password, salt)
 
         # Encrypt
         aesgcm = AESGCM(key)
-        nonce = os.urandom(12)
+        nonce = os.urandom(self._NONCE_LENGTH)
 
         plaintext = backup_path.read_bytes()
         ciphertext = aesgcm.encrypt(nonce, plaintext, None)
@@ -433,23 +466,15 @@ class BackupManager:
         Returns:
             Path to decrypted backup file
         """
-        from cryptography.hazmat.primitives import hashes
         from cryptography.hazmat.primitives.ciphers.aead import AESGCM
-        from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
         with open(encrypted_path, "rb") as f:
-            salt = f.read(16)
-            nonce = f.read(12)
+            salt = f.read(self._SALT_LENGTH)
+            nonce = f.read(self._NONCE_LENGTH)
             ciphertext = f.read()
 
         # Derive key
-        kdf = PBKDF2HMAC(
-            algorithm=hashes.SHA256(),
-            length=32,
-            salt=salt,
-            iterations=480000,
-        )
-        key = kdf.derive(password.encode())
+        key = self._derive_backup_key(password, salt)
 
         # Decrypt
         aesgcm = AESGCM(key)
@@ -488,7 +513,7 @@ class BackupManager:
                             backup_path=str(backup_file),
                             encrypted=True,
                             size_bytes=backup_file.stat().st_size,
-                            created_at=datetime.fromtimestamp(backup_file.stat().st_mtime),
+                            created_at=datetime.fromtimestamp(backup_file.stat().st_mtime, tz=UTC),
                             status=BackupStatus.COMPLETED,
                         )
                 else:

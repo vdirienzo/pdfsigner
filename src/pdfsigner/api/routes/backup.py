@@ -16,7 +16,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from loguru import logger
 
-from pdfsigner.api.middleware.auth import User, get_current_user_or_api_key, require_admin_user
+from pdfsigner.api.middleware.auth import User, get_current_user_or_api_key
 from pdfsigner.api.schemas.backup import (
     BackupCreateRequest,
     BackupDeleteResponse,
@@ -26,6 +26,7 @@ from pdfsigner.api.schemas.backup import (
     BackupRestoreResponse,
 )
 from pdfsigner.core.backup import get_backup_manager
+from pdfsigner.core.rbac import Permission, check_permission
 
 router = APIRouter(prefix="/api/v1/backup", tags=["backup"])
 
@@ -50,11 +51,11 @@ router = APIRouter(prefix="/api/v1/backup", tags=["backup"])
 
     **HIPAA Compliance:** §164.308(a)(7) - Contingency plan (backup)
     """,
-    dependencies=[Depends(require_admin_user)],
 )
 async def create_backup(
     request: BackupCreateRequest,
     current_user: Annotated[User, Depends(get_current_user_or_api_key)],
+    _perm: Annotated[None, Depends(check_permission(Permission.ADMIN_USERS))],
 ) -> BackupResponse:
     """
     Create a new backup.
@@ -103,7 +104,7 @@ async def create_backup(
         logger.error(f"Failed to create backup: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Backup creation failed: {e!s}",
+            detail="Backup creation failed",
         ) from e
 
 
@@ -120,10 +121,10 @@ async def create_backup(
 
     **Note:** Encrypted backups show limited metadata until decrypted.
     """,
-    dependencies=[Depends(require_admin_user)],
 )
 async def list_backups(
     current_user: Annotated[User, Depends(get_current_user_or_api_key)],
+    _perm: Annotated[None, Depends(check_permission(Permission.ADMIN_USERS))],
 ) -> BackupListResponse:
     """
     List all available backups.
@@ -149,7 +150,7 @@ async def list_backups(
         logger.error(f"Failed to list backups: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to list backups: {e!s}",
+            detail="Failed to list backups",
         ) from e
 
 
@@ -171,11 +172,11 @@ async def list_backups(
 
     **HIPAA Compliance:** §164.308(a)(7) - Contingency plan (recovery)
     """,
-    dependencies=[Depends(require_admin_user)],
 )
 async def restore_backup(
     request: BackupRestoreRequest,
     current_user: Annotated[User, Depends(get_current_user_or_api_key)],
+    _perm: Annotated[None, Depends(check_permission(Permission.ADMIN_USERS))],
 ) -> BackupRestoreResponse:
     """
     Restore from a backup.
@@ -244,7 +245,7 @@ async def restore_backup(
         logger.error(f"Failed to restore backup: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Restore failed: {e!s}",
+            detail="Restore failed",
         ) from e
 
 
@@ -259,11 +260,11 @@ async def restore_backup(
 
     **Permissions:** Admin only
     """,
-    dependencies=[Depends(require_admin_user)],
 )
 async def delete_backup(
     backup_id: str,
     current_user: Annotated[User, Depends(get_current_user_or_api_key)],
+    _perm: Annotated[None, Depends(check_permission(Permission.ADMIN_USERS))],
 ) -> BackupDeleteResponse:
     """
     Delete a backup.
@@ -304,5 +305,5 @@ async def delete_backup(
         logger.error(f"Failed to delete backup: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Delete failed: {e!s}",
+            detail="Delete failed",
         ) from e

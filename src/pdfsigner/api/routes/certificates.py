@@ -10,7 +10,7 @@ Provides endpoints for:
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from loguru import logger
 
 from pdfsigner.api.middleware.auth import get_current_user_or_api_key
@@ -102,11 +102,13 @@ async def list_tokens(
     description="""
     List all available X.509 certificates from NSS database or connected token.
 
-    **Authentication Required**: Provide token PIN via query parameter to list certificates.
+    **Authentication Required**: Provide token PIN via X-Token-PIN header to list certificates.
+
+    **Headers**:
+    - `X-Token-PIN`: Required PIN for token authentication
 
     **Query Parameters**:
     - `token_label`: Optional token label to connect to specific token
-    - `pin`: Required PIN for token authentication
 
     **Note**: Returns empty list if NSS database not configured or no token connected.
     """,
@@ -116,7 +118,9 @@ async def list_certificates(
     _perm: Annotated[None, Depends(check_permission(Permission.VIEW))],
     cert_service: Annotated[CertificateService, Depends(get_certificate_service)],
     token_label: str | None = Query(None, description="Token label to connect to"),
-    pin: str | None = Query(None, description="Token PIN for authentication"),
+    pin: Annotated[
+        str | None, Header(alias="X-Token-PIN", description="Token PIN for PKCS#11 authentication")
+    ] = None,
 ) -> list[CertificateInfo]:
     """
     List available certificates.
@@ -175,9 +179,11 @@ async def list_certificates(
 
     **Certificate ID**: SHA-256 fingerprint in hexadecimal format.
 
+    **Headers**:
+    - `X-Token-PIN`: Required PIN for token authentication
+
     **Query Parameters**:
     - `token_label`: Optional token label
-    - `pin`: Required PIN for token authentication
     """,
 )
 async def get_certificate(
@@ -186,7 +192,9 @@ async def get_certificate(
     _perm: Annotated[None, Depends(check_permission(Permission.VIEW))],
     cert_service: Annotated[CertificateService, Depends(get_certificate_service)],
     token_label: str | None = Query(None, description="Token label to connect to"),
-    pin: str | None = Query(None, description="Token PIN for authentication"),
+    pin: Annotated[
+        str | None, Header(alias="X-Token-PIN", description="Token PIN for PKCS#11 authentication")
+    ] = None,
 ) -> CertificateInfo:
     """
     Get certificate details by ID.
@@ -248,9 +256,11 @@ async def get_certificate(
     - Chain completeness status (whether it reaches trusted root)
     - Validation errors/warnings
 
+    **Headers**:
+    - `X-Token-PIN`: Required PIN for token authentication
+
     **Query Parameters**:
     - `token_label`: Optional token label
-    - `pin`: Required PIN for token authentication
     """,
 )
 async def get_certificate_chain(
@@ -259,7 +269,9 @@ async def get_certificate_chain(
     _perm: Annotated[None, Depends(check_permission(Permission.VIEW))],
     cert_service: Annotated[CertificateService, Depends(get_certificate_service)],
     token_label: str | None = Query(None, description="Token label to connect to"),
-    pin: str | None = Query(None, description="Token PIN for authentication"),
+    pin: Annotated[
+        str | None, Header(alias="X-Token-PIN", description="Token PIN for PKCS#11 authentication")
+    ] = None,
 ) -> CertificateChain:
     """
     Get certificate chain by certificate ID.

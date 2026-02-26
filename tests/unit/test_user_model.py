@@ -1,6 +1,6 @@
 """Tests for user models."""
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from pdfsigner.core.users import (
     Department,
@@ -67,7 +67,7 @@ class TestUser:
         user = User(
             username="test",
             status=UserStatus.LOCKED,
-            locked_until=datetime.now() + timedelta(hours=1),
+            locked_until=datetime.now(UTC) + timedelta(hours=1),
         )
 
         assert user.is_active is False
@@ -87,7 +87,7 @@ class TestUser:
 
         assert user.status == UserStatus.LOCKED
         assert user.locked_until is not None
-        assert user.locked_until > datetime.now()
+        assert user.locked_until > datetime.now(UTC)
 
     def test_unlock_user(self):
         """Test user unlock functionality."""

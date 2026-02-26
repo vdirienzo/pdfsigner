@@ -10,7 +10,7 @@ Tests exception paths for:
 """
 
 import uuid
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from unittest.mock import Mock, patch
 
@@ -70,7 +70,7 @@ class TestSessionExpiredError:
         # Create expired session directly in DB
         with manager._get_connection() as conn:
             session_id = str(uuid.uuid4())
-            past_time = datetime.now() - timedelta(hours=2)
+            past_time = datetime.now(UTC) - timedelta(hours=2)
             conn.execute(
                 """
                 INSERT INTO sessions (id, user_id, created_at, last_activity, expires_at)
@@ -105,7 +105,7 @@ class TestSessionExpiredError:
         # Create expired session
         with manager._get_connection() as conn:
             session_id = str(uuid.uuid4())
-            past_time = datetime.now() - timedelta(hours=1)
+            past_time = datetime.now(UTC) - timedelta(hours=1)
             conn.execute(
                 """
                 INSERT INTO sessions (id, user_id, created_at, last_activity, expires_at)

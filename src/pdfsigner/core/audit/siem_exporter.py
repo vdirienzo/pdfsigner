@@ -445,16 +445,10 @@ class SIEMExporter:
         """
         Stream events in real-time to callback.
 
-        This method is intended to be called with each new event
-        as it's logged. The callback will be invoked for each event.
-
         Args:
             callback: Function to call with each event
         """
-        # This is a pass-through method that can be extended
-        # for real-time streaming functionality
-        # In practice, this would be called by AuditLogger for each event
-        pass
+        raise NotImplementedError("Real-time streaming not yet implemented")
 
     def test_connection(self) -> tuple[bool, str]:
         """

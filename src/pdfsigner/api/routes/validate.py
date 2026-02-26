@@ -105,7 +105,7 @@ async def save_upload_to_temp(upload_file: UploadFile) -> Path:
         logger.error(f"Error saving upload: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to save uploaded file: {str(e)}",
+            detail="File upload failed",
         ) from e
 
 
@@ -224,7 +224,7 @@ async def validate_document(
         logger.error(f"Error validating PDF: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Validation failed: {str(e)}",
+            detail="Validation failed",
         ) from e
 
     finally:
@@ -445,7 +445,7 @@ async def validate_eidas(
         logger.error(f"eIDAS validation failed: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"eIDAS validation failed: {str(e)}",
+            detail="eIDAS validation failed",
         ) from e
 
     finally:

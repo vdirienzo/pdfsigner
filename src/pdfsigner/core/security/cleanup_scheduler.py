@@ -21,7 +21,7 @@ class CleanupTask:
     """A scheduled cleanup task."""
 
     path: Path
-    created_at: datetime = field(default_factory=datetime.now)
+    created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
     retention_hours: int = 24
 
     @property

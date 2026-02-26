@@ -90,7 +90,7 @@ async def get_current_user_info(
 async def list_users(
     current_user: Annotated[User, Depends(get_current_user_or_api_key)],
     _perm: Annotated[None, Depends(check_permission(Permission.ADMIN_USERS))],
-    status: str | None = Query(None, description="Filter by status"),
+    status_filter: str | None = Query(None, alias="status", description="Filter by status"),
     role: str | None = Query(None, description="Filter by role"),
     limit: int = Query(100, ge=1, le=500, description="Max results"),
     offset: int = Query(0, ge=0, description="Pagination offset"),
@@ -113,14 +113,15 @@ async def list_users(
         HTTPException: 400 if invalid status or role value
     """
     # Parse filters
-    status_filter = None
-    if status:
+    parsed_status = None
+    if status_filter:
         try:
-            status_filter = UserStatus(status)
+            parsed_status = UserStatus(status_filter)
         except ValueError:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail=f"Invalid status: {status}. Must be: active, inactive, locked, pending",
+                detail=f"Invalid status: {status_filter}. "
+                "Must be: active, inactive, locked, pending",
             )
 
     role_filter = None
@@ -136,17 +137,17 @@ async def list_users(
     # Query users
     user_repo = get_user_repository()
     users = user_repo.list_users(
-        status=status_filter,
+        status=parsed_status,
         role=role_filter,
         limit=limit,
         offset=offset,
     )
 
     # Count total (for pagination)
-    total = user_repo.count_users(status=status_filter)
+    total = user_repo.count_users(status=parsed_status)
 
     logger.debug(
-        f"Listed {len(users)} users (total={total}, filters: status={status}, role={role})"
+        f"Listed {len(users)} users (total={total}, filters: status={status_filter}, role={role})"
     )
 
     return UserListResponse(

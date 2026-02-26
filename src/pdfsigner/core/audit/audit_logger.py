@@ -285,7 +285,8 @@ class AuditLogger:
                             if start_date and event.timestamp < start_date:
                                 continue
                             if end_date and event.timestamp > end_date:
-                                continue
+                                # Events are chronological; stop reading this file
+                                break
                             if event_types and event.event_type not in event_types:
                                 continue
 
@@ -357,7 +358,8 @@ class AuditLogger:
                             if start_date and event.timestamp < start_date:
                                 continue
                             if end_date and event.timestamp > end_date:
-                                continue
+                                # Events are chronological; stop reading this file
+                                break
                             if event_types and event.event_type not in event_types:
                                 continue
                             if user_id and event.user_id != user_id:
@@ -371,21 +373,12 @@ class AuditLogger:
 
                             events.append(event)
 
-                            # Early exit if limit reached
-                            if limit and len(events) >= limit:
-                                break
-
                         except Exception as e:
                             logger.warning(f"Skipping invalid audit entry: {e}")
 
-                # Early exit if limit reached
-                if limit and len(events) >= limit:
-                    break
-
-            # Sort by timestamp
+            # Sort all events first, then apply limit for consistent ordering
             events.sort(key=lambda e: e.timestamp)
 
-            # Apply limit after sorting (to get most recent)
             if limit and len(events) > limit:
                 events = events[:limit]
 
@@ -459,7 +452,7 @@ class AuditLogger:
                 try:
                     # Format: audit_YYYY-MM.jsonl
                     year_month = log_file.stem.replace("audit_", "")
-                    file_date = datetime.strptime(year_month, "%Y-%m")
+                    file_date = datetime.strptime(year_month, "%Y-%m").replace(tzinfo=UTC)
 
                     # Delete if older than cutoff (check end of month)
                     if file_date.replace(day=28) < cutoff_date:

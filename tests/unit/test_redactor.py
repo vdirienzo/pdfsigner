@@ -408,10 +408,11 @@ class TestPDFRedactor:
             try:
                 redactor = PDFRedactor()
 
-                # Mock the import inside the function
-                with patch(
-                    "pdfsigner.core.detection.pii_detector.get_pii_detector",
-                    side_effect=ImportError,
+                # Set the module to None in sys.modules to trigger ImportError
+                # on `from pdfsigner.core.detection.pdf_scanner import PDFScanner`
+                with patch.dict(
+                    "sys.modules",
+                    {"pdfsigner.core.detection.pdf_scanner": None},
                 ):
                     result = redactor.redact_by_pattern(
                         tmp.name,

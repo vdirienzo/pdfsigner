@@ -30,6 +30,21 @@ from pdfsigner.core.compliance.evidence_types import (
 from pdfsigner.core.users.user_repository import UserRepository
 
 
+def _count_events_by_type(events: list, event_type: str) -> int:
+    """Count events matching a specific event_type value."""
+    return sum(1 for e in events if e.event_type.value == event_type)
+
+
+def _count_events_by_types(events: list, event_types: set[str]) -> dict[str, int]:
+    """Count events grouped by event_type for the specified types."""
+    counts: dict[str, int] = {}
+    for e in events:
+        t = e.event_type.value
+        if t in event_types:
+            counts[t] = counts.get(t, 0) + 1
+    return counts
+
+
 class EvidenceCollector:
     """
     Collects compliance evidence for SOC 2 Type II audits.
@@ -62,6 +77,7 @@ class EvidenceCollector:
         self,
         start_date: datetime,
         end_date: datetime,
+        events: list | None = None,
     ) -> Evidence:
         """
         Collect access logs for CC6.1 (Logical Access Controls).
@@ -69,11 +85,13 @@ class EvidenceCollector:
         Args:
             start_date: Start of period
             end_date: End of period
+            events: Pre-loaded events (avoids redundant audit queries)
 
         Returns:
             Evidence with access log data
         """
-        events = self.audit_logger.get_events(start_date=start_date, end_date=end_date)
+        if events is None:
+            events = self.audit_logger.get_events(start_date=start_date, end_date=end_date)
 
         # Summarize access events
         access_summary: dict[str, Any] = {
@@ -118,6 +136,7 @@ class EvidenceCollector:
         self,
         start_date: datetime,
         end_date: datetime,
+        events: list | None = None,
     ) -> Evidence:
         """
         Collect audit logs for CC7.2 (System Monitoring).
@@ -125,11 +144,13 @@ class EvidenceCollector:
         Args:
             start_date: Start of period
             end_date: End of period
+            events: Pre-loaded events (avoids redundant audit queries)
 
         Returns:
             Evidence with audit log data
         """
-        events = self.audit_logger.get_events(start_date=start_date, end_date=end_date)
+        if events is None:
+            events = self.audit_logger.get_events(start_date=start_date, end_date=end_date)
 
         # Analyze audit completeness
         audit_analysis = {
@@ -300,6 +321,7 @@ class EvidenceCollector:
         self,
         start_date: datetime,
         end_date: datetime,
+        events: list | None = None,
     ) -> Evidence:
         """
         Collect security incident logs for CC9 (Risk Mitigation).
@@ -307,16 +329,22 @@ class EvidenceCollector:
         Args:
             start_date: Start of period
             end_date: End of period
+            events: Pre-loaded events (avoids redundant audit queries).
+                    If provided, only FAILURE events will be used.
 
         Returns:
             Evidence with incident log data
         """
-        # Get failure and error events from audit log
-        events = self.audit_logger.get_events_filtered(
-            start_date=start_date,
-            end_date=end_date,
-            status="FAILURE",
-        )
+        if events is not None:
+            # Filter pre-loaded events to failures only
+            events = [e for e in events if e.status == "FAILURE"]
+        else:
+            # Get failure and error events from audit log
+            events = self.audit_logger.get_events_filtered(
+                start_date=start_date,
+                end_date=end_date,
+                status="FAILURE",
+            )
 
         # Categorize incidents
         incidents = []
@@ -449,16 +477,23 @@ class EvidenceCollector:
         )
 
         try:
+            # Load events once to avoid redundant audit queries
+            all_events = self.audit_logger.get_events(start_date=period_start, end_date=period_end)
+
             # CC6 - Logical Access
             logger.debug("Collecting access logs (CC6)")
-            collection.add_evidence(self.collect_access_logs(period_start, period_end))
+            collection.add_evidence(
+                self.collect_access_logs(period_start, period_end, events=all_events)
+            )
 
             logger.debug("Collecting user access review (CC6)")
             collection.add_evidence(self.collect_user_access_review())
 
             # CC7 - System Operations
             logger.debug("Collecting audit logs (CC7)")
-            collection.add_evidence(self.collect_audit_logs(period_start, period_end))
+            collection.add_evidence(
+                self.collect_audit_logs(period_start, period_end, events=all_events)
+            )
 
             # CC5 - Control Activities
             logger.debug("Collecting config snapshot (CC5)")
@@ -466,7 +501,9 @@ class EvidenceCollector:
 
             # CC9 - Risk Mitigation
             logger.debug("Collecting incident logs (CC9)")
-            collection.add_evidence(self.collect_incident_logs(period_start, period_end))
+            collection.add_evidence(
+                self.collect_incident_logs(period_start, period_end, events=all_events)
+            )
 
             # Generate summary
             collection.summary = {

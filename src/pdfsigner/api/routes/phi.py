@@ -6,7 +6,6 @@ and Personally Identifiable Information (PII) in PDF documents
 per HIPAA §164.514 de-identification requirements.
 """
 
-import tempfile
 import time
 from pathlib import Path
 from typing import Annotated
@@ -16,88 +15,14 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 from loguru import logger
 
 from pdfsigner.api.middleware.auth import get_current_user_or_api_key
+from pdfsigner.api.routes.validate import save_upload_to_temp
 from pdfsigner.api.schemas.phi import PIIMatchResponse, PIIScanResponse
-from pdfsigner.api.utils import sanitize_filename
 from pdfsigner.core.audit import AuditEventType, get_audit_logger
 from pdfsigner.core.detection import PDFScanner, get_pii_detector
 from pdfsigner.core.rbac import Permission, check_permission
 from pdfsigner.core.users.user_model import User
 
 router = APIRouter(prefix="/api/v1/phi", tags=["phi"])
-
-
-# --- Helper Functions ---
-
-
-async def save_upload_to_temp(upload_file: UploadFile) -> Path:
-    """
-    Save uploaded file to temporary location.
-
-    Args:
-        upload_file: FastAPI UploadFile object
-
-    Returns:
-        Path to saved temporary file
-
-    Raises:
-        HTTPException: 400 if file is empty or invalid
-    """
-    # Validate file
-    if not upload_file.filename:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="No filename provided",
-        )
-
-    # Sanitize filename to prevent Path Traversal
-    try:
-        safe_filename_str = sanitize_filename(upload_file.filename)
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=f"Invalid filename: {e}",
-        ) from e
-    if not safe_filename_str.lower().endswith(".pdf"):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Only PDF files are accepted",
-        )
-
-    # Create temporary file with .pdf extension
-    temp_file = tempfile.NamedTemporaryFile(
-        delete=False,
-        suffix=".pdf",
-        prefix="pdfsigner_phi_",
-    )
-    temp_path = Path(temp_file.name)
-
-    try:
-        # Write uploaded content to temp file
-        content = await upload_file.read()
-
-        if not content:
-            temp_path.unlink(missing_ok=True)
-            raise HTTPException(
-                status_code=status.HTTP_400_BAD_REQUEST,
-                detail="Uploaded file is empty",
-            )
-
-        temp_file.write(content)
-        temp_file.close()
-
-        logger.debug(f"Saved upload '{safe_filename_str}' to {temp_path}")
-        return temp_path
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        # Clean up on error
-        temp_path.unlink(missing_ok=True)
-        logger.error(f"Error saving upload: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Failed to save uploaded file: {str(e)}",
-        ) from e
 
 
 def cleanup_temp_file(temp_path: Path) -> None:
@@ -190,8 +115,8 @@ def cleanup_temp_file(temp_path: Path) -> None:
     },
 )
 async def scan_for_phi(
+    current_user: Annotated[User, Depends(get_current_user_or_api_key)],
     file: UploadFile = File(..., description="PDF file to scan for PHI/PII"),
-    current_user: Annotated[User, Depends(get_current_user_or_api_key)] = None,
     _perm: None = Depends(check_permission(Permission.VALIDATE)),
 ) -> PIIScanResponse:
     """
@@ -268,19 +193,23 @@ async def scan_for_phi(
         )
 
         # Log audit event
+        from pdfsigner.core.audit.audit_event import AuditEvent
+
         audit_logger.log_event(
-            event_type=AuditEventType.PHI_DETECTED
-            if response.has_pii
-            else AuditEventType.DOCUMENT_VALIDATED,
-            user_id=current_user.username,
-            details={
-                "filename": file.filename or "unknown.pdf",
-                "has_pii": response.has_pii,
-                "total_matches": response.total_matches,
-                "risk_score": risk_score,
-                "pii_types": list(by_type.keys()),
-                "scan_time_ms": scan_time_ms,
-            },
+            AuditEvent(
+                event_type=AuditEventType.PHI_DETECTED
+                if response.has_pii
+                else AuditEventType.DOCUMENT_VALIDATED,
+                user_id=current_user.username,
+                details={
+                    "filename": file.filename or "unknown.pdf",
+                    "has_pii": response.has_pii,
+                    "total_matches": response.total_matches,
+                    "risk_score": risk_score,
+                    "pii_types": list(by_type.keys()),
+                    "scan_time_ms": scan_time_ms,
+                },
+            )
         )
 
         logger.info(

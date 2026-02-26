@@ -12,6 +12,7 @@ from fastapi import (
     BackgroundTasks,
     Depends,
     File,
+    Form,
     HTTPException,
     UploadFile,
     status,
@@ -52,10 +53,7 @@ def get_nss_handler() -> NSSHandler:
     try:
         # In production, you'd pass actual PIN from secure storage
         # For now, using NSS handler without authentication (dry-run mode)
-        handler = NSSHandler(
-            nss_db_path=str(settings.nss_db_path),
-            lib_path=None,  # Auto-detect
-        )
+        handler = NSSHandler(nss_db_path=settings.nss_db_path)
         return handler
     except Exception as e:
         logger.error(f"Failed to initialize NSS handler: {e}")
@@ -80,7 +78,7 @@ def get_lta_handler() -> LTAHandler | None:
         return None
 
     try:
-        return LTAHandler(tsa_url=settings.tsa_url)
+        return LTAHandler()
     except Exception as e:
         logger.warning(f"Failed to initialize LTA handler: {e}")
         return None
@@ -90,12 +88,12 @@ def get_lta_handler() -> LTAHandler | None:
 async def sign_document(
     background_tasks: BackgroundTasks,
     file: UploadFile = File(..., description="PDF file to sign"),
-    reason: str | None = None,
-    location: str | None = None,
-    contact_info: str | None = None,
+    reason: str | None = Form(None, max_length=500),
+    location: str | None = Form(None, max_length=500),
+    contact_info: str | None = Form(None, max_length=500),
     visible_signature: bool = False,
     signature_page: str = "last",
-    tsa_url: str | None = None,
+    tsa_url: str | None = Form(None, max_length=2048),
     embed_ltv: bool = True,
     add_archive_ts: bool = False,
     current_user: User = Depends(get_current_user_or_api_key),

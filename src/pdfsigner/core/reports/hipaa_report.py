@@ -15,6 +15,23 @@ from typing import Any
 
 from loguru import logger
 
+# PDF Layout Constants
+PDF_PAGE_WIDTH = 612
+PDF_PAGE_HEIGHT = 792
+PDF_MARGIN_LEFT = 72
+PDF_INDENT_LEFT = 90
+PDF_INDENT_NESTED = 110
+PDF_TITLE_FONT_SIZE = 24
+PDF_HEADING_FONT_SIZE = 14
+PDF_BODY_FONT_SIZE = 12
+PDF_ITEM_FONT_SIZE = 11
+PDF_DETAIL_FONT_SIZE = 10
+PDF_FOOTER_FONT_SIZE = 9
+PDF_LINE_HEIGHT = 16
+PDF_SECTION_SPACING = 10
+PDF_PAGE_BREAK_Y = 650
+PDF_FOOTER_Y = 750
+
 
 class ReportFormat(str, Enum):
     """Output format for HIPAA reports."""
@@ -240,18 +257,37 @@ class HIPAAReportGenerator:
             period_end=config.end_date,
         )
 
+        # Load audit events once to avoid redundant queries
+        audit_events = None
+        audit_sections = {
+            ReportSection.USER_ACCESS,
+            ReportSection.ENCRYPTION_USAGE,
+            ReportSection.PHI_ACCESS,
+        }
+        if audit_sections & set(config.sections):
+            try:
+                from pdfsigner.core.audit import get_audit_logger
+
+                audit = get_audit_logger()
+                audit_events = audit.get_events(
+                    start_date=config.start_date,
+                    end_date=config.end_date,
+                )
+            except Exception as e:
+                logger.warning(f"Could not pre-load audit events: {e}")
+
         # Generate each requested section
         if ReportSection.USER_ACCESS in config.sections:
-            report.user_access = self._generate_user_access(config)
+            report.user_access = self._generate_user_access(config, audit_events)
 
         if ReportSection.ENCRYPTION_USAGE in config.sections:
-            report.encryption = self._generate_encryption_summary(config)
+            report.encryption = self._generate_encryption_summary(config, audit_events)
 
         if ReportSection.EMERGENCY_ACCESS in config.sections:
             report.emergency_access = self._generate_emergency_summary(config)
 
         if ReportSection.PHI_ACCESS in config.sections:
-            report.phi_access = self._generate_phi_summary(config)
+            report.phi_access = self._generate_phi_summary(config, audit_events)
 
         # Get compliance status if available
         try:
@@ -272,26 +308,28 @@ class HIPAAReportGenerator:
         logger.info(f"Generated HIPAA report: {report.report_id}")
         return report
 
-    def _generate_user_access(self, config: ReportConfig) -> UserAccessSummary:
+    def _generate_user_access(
+        self, config: ReportConfig, events: list | None = None
+    ) -> UserAccessSummary:
         """
         Generate user access summary from audit logs.
 
         Args:
             config: Report configuration with date range
+            events: Pre-loaded audit events (avoids redundant queries)
 
         Returns:
             UserAccessSummary with aggregated statistics
         """
         try:
-            from pdfsigner.core.audit import get_audit_logger
+            if events is None:
+                from pdfsigner.core.audit import get_audit_logger
 
-            audit = get_audit_logger()
-
-            # Get events in date range
-            events = audit.get_events(
-                start_date=config.start_date,
-                end_date=config.end_date,
-            )
+                audit = get_audit_logger()
+                events = audit.get_events(
+                    start_date=config.start_date,
+                    end_date=config.end_date,
+                )
 
             # Count session events
             logins = sum(1 for e in events if e.event_type.value == "session_start")
@@ -327,25 +365,28 @@ class HIPAAReportGenerator:
                 unique_documents_accessed=0,
             )
 
-    def _generate_encryption_summary(self, config: ReportConfig) -> EncryptionSummary:
+    def _generate_encryption_summary(
+        self, config: ReportConfig, events: list | None = None
+    ) -> EncryptionSummary:
         """
         Generate encryption usage summary.
 
         Args:
             config: Report configuration with date range
+            events: Pre-loaded audit events (avoids redundant queries)
 
         Returns:
             EncryptionSummary with encryption statistics
         """
         try:
-            from pdfsigner.core.audit import get_audit_logger
+            if events is None:
+                from pdfsigner.core.audit import get_audit_logger
 
-            audit = get_audit_logger()
-
-            events = audit.get_events(
-                start_date=config.start_date,
-                end_date=config.end_date,
-            )
+                audit = get_audit_logger()
+                events = audit.get_events(
+                    start_date=config.start_date,
+                    end_date=config.end_date,
+                )
 
             encrypted = sum(1 for e in events if e.event_type.value == "encrypt_success")
             decrypted = sum(1 for e in events if e.event_type.value == "decrypt_success")
@@ -421,25 +462,28 @@ class HIPAAReportGenerator:
                 unique_users=0,
             )
 
-    def _generate_phi_summary(self, config: ReportConfig) -> PHIAccessSummary:
+    def _generate_phi_summary(
+        self, config: ReportConfig, events: list | None = None
+    ) -> PHIAccessSummary:
         """
         Generate PHI detection summary.
 
         Args:
             config: Report configuration with date range
+            events: Pre-loaded audit events (avoids redundant queries)
 
         Returns:
             PHIAccessSummary with PHI detection statistics
         """
         try:
-            from pdfsigner.core.audit import get_audit_logger
+            if events is None:
+                from pdfsigner.core.audit import get_audit_logger
 
-            audit = get_audit_logger()
-
-            events = audit.get_events(
-                start_date=config.start_date,
-                end_date=config.end_date,
-            )
+                audit = get_audit_logger()
+                events = audit.get_events(
+                    start_date=config.start_date,
+                    end_date=config.end_date,
+                )
 
             # PHI-related events (if implemented in future)
             phi_detected_events = [
@@ -560,29 +604,37 @@ class HIPAAReportGenerator:
         doc = fitz.open()
 
         # Title page
-        page = doc.new_page(width=612, height=792)
+        page = doc.new_page(width=PDF_PAGE_WIDTH, height=PDF_PAGE_HEIGHT)
 
         # Title
         page.insert_text(
-            (72, 100),
+            (PDF_MARGIN_LEFT, 100),
             report.title,
-            fontsize=24,
+            fontsize=PDF_TITLE_FONT_SIZE,
             fontname="helv",
         )
 
         # Metadata
-        page.insert_text((72, 140), f"Organization: {report.organization}", fontsize=12)
-        page.insert_text((72, 160), f"Report ID: {report.report_id}", fontsize=12)
         page.insert_text(
-            (72, 180),
+            (PDF_MARGIN_LEFT, 140),
+            f"Organization: {report.organization}",
+            fontsize=PDF_BODY_FONT_SIZE,
+        )
+        page.insert_text(
+            (PDF_MARGIN_LEFT, 160),
+            f"Report ID: {report.report_id}",
+            fontsize=PDF_BODY_FONT_SIZE,
+        )
+        page.insert_text(
+            (PDF_MARGIN_LEFT, 180),
             f"Generated: {report.generated_at.strftime('%Y-%m-%d %H:%M:%S')}",
-            fontsize=12,
+            fontsize=PDF_BODY_FONT_SIZE,
         )
         period_text = (
             f"Period: {report.period_start.strftime('%Y-%m-%d')} "
             f"to {report.period_end.strftime('%Y-%m-%d')}"
         )
-        page.insert_text((72, 200), period_text, fontsize=12)
+        page.insert_text((PDF_MARGIN_LEFT, 200), period_text, fontsize=PDF_BODY_FONT_SIZE)
 
         # Compliance Status
         status_color = {
@@ -591,9 +643,9 @@ class HIPAAReportGenerator:
             "non_compliant": (0.8, 0, 0),
         }.get(report.compliance_status, (0.5, 0.5, 0.5))
         page.insert_text(
-            (72, 240),
+            (PDF_MARGIN_LEFT, 240),
             f"Compliance Status: {report.compliance_status.upper()}",
-            fontsize=14,
+            fontsize=PDF_HEADING_FONT_SIZE,
             color=status_color,
         )
 
@@ -601,7 +653,9 @@ class HIPAAReportGenerator:
 
         # User Access Section
         if report.user_access:
-            page.insert_text((72, y), "USER ACCESS SUMMARY", fontsize=14)
+            page.insert_text(
+                (PDF_MARGIN_LEFT, y), "USER ACCESS SUMMARY", fontsize=PDF_HEADING_FONT_SIZE
+            )
             y += 20
             ua = report.user_access
             for label, value in [
@@ -610,13 +664,17 @@ class HIPAAReportGenerator:
                 ("Failed Logins", ua.failed_logins),
                 ("Documents Accessed", ua.unique_documents_accessed),
             ]:
-                page.insert_text((90, y), f"• {label}: {value}", fontsize=11)
-                y += 16
-            y += 10
+                page.insert_text(
+                    (PDF_INDENT_LEFT, y), f"• {label}: {value}", fontsize=PDF_ITEM_FONT_SIZE
+                )
+                y += PDF_LINE_HEIGHT
+            y += PDF_SECTION_SPACING
 
         # Encryption Section
         if report.encryption:
-            page.insert_text((72, y), "ENCRYPTION SUMMARY", fontsize=14)
+            page.insert_text(
+                (PDF_MARGIN_LEFT, y), "ENCRYPTION SUMMARY", fontsize=PDF_HEADING_FONT_SIZE
+            )
             y += 20
             enc = report.encryption
             for label, value in [  # type: ignore[assignment]
@@ -625,13 +683,17 @@ class HIPAAReportGenerator:
                 ("Encryption Method", enc.encryption_method.upper()),
                 ("PHI Documents Encrypted", enc.phi_documents_encrypted),
             ]:
-                page.insert_text((90, y), f"• {label}: {value}", fontsize=11)
-                y += 16
-            y += 10
+                page.insert_text(
+                    (PDF_INDENT_LEFT, y), f"• {label}: {value}", fontsize=PDF_ITEM_FONT_SIZE
+                )
+                y += PDF_LINE_HEIGHT
+            y += PDF_SECTION_SPACING
 
         # Emergency Access Section
         if report.emergency_access:
-            page.insert_text((72, y), "EMERGENCY ACCESS SUMMARY", fontsize=14)
+            page.insert_text(
+                (PDF_MARGIN_LEFT, y), "EMERGENCY ACCESS SUMMARY", fontsize=PDF_HEADING_FONT_SIZE
+            )
             y += 20
             ea = report.emergency_access
             for label, value in [
@@ -640,17 +702,21 @@ class HIPAAReportGenerator:
                 ("Requests Denied", ea.requests_denied),
                 ("Documents Accessed", ea.documents_accessed),
             ]:
-                page.insert_text((90, y), f"• {label}: {value}", fontsize=11)
-                y += 16
-            y += 10
+                page.insert_text(
+                    (PDF_INDENT_LEFT, y), f"• {label}: {value}", fontsize=PDF_ITEM_FONT_SIZE
+                )
+                y += PDF_LINE_HEIGHT
+            y += PDF_SECTION_SPACING
 
         # PHI Access Section
         if report.phi_access:
-            if y > 650:  # New page if needed
-                page = doc.new_page(width=612, height=792)
-                y = 72
+            if y > PDF_PAGE_BREAK_Y:
+                page = doc.new_page(width=PDF_PAGE_WIDTH, height=PDF_PAGE_HEIGHT)
+                y = PDF_MARGIN_LEFT
 
-            page.insert_text((72, y), "PHI DETECTION SUMMARY", fontsize=14)
+            page.insert_text(
+                (PDF_MARGIN_LEFT, y), "PHI DETECTION SUMMARY", fontsize=PDF_HEADING_FONT_SIZE
+            )
             y += 20
             phi = report.phi_access
             for label, value in [
@@ -658,21 +724,29 @@ class HIPAAReportGenerator:
                 ("Documents with PHI", phi.documents_with_phi),
                 ("Blocked Operations", phi.blocked_operations),
             ]:
-                page.insert_text((90, y), f"• {label}: {value}", fontsize=11)
-                y += 16
+                page.insert_text(
+                    (PDF_INDENT_LEFT, y), f"• {label}: {value}", fontsize=PDF_ITEM_FONT_SIZE
+                )
+                y += PDF_LINE_HEIGHT
 
             if phi.phi_types_detected:
-                page.insert_text((90, y), "• PHI Types Detected:", fontsize=11)
-                y += 16
+                page.insert_text(
+                    (PDF_INDENT_LEFT, y), "• PHI Types Detected:", fontsize=PDF_ITEM_FONT_SIZE
+                )
+                y += PDF_LINE_HEIGHT
                 for phi_type, count in phi.phi_types_detected.items():
-                    page.insert_text((110, y), f"- {phi_type}: {count}", fontsize=10)
+                    page.insert_text(
+                        (PDF_INDENT_NESTED, y),
+                        f"- {phi_type}: {count}",
+                        fontsize=PDF_DETAIL_FONT_SIZE,
+                    )
                     y += 14
 
         # Footer
         page.insert_text(
-            (72, 750),
+            (PDF_MARGIN_LEFT, PDF_FOOTER_Y),
             "Generated by PDFSigner HIPAA Compliance Module",
-            fontsize=9,
+            fontsize=PDF_FOOTER_FONT_SIZE,
             color=(0.5, 0.5, 0.5),
         )
 

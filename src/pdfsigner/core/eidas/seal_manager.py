@@ -197,6 +197,7 @@ class SealManager:
                 _ = self.generate_seal_appearance(config)
 
             # Create seal using pyHanko
+            seal_signed = False
             with open(pdf_path, "rb") as f_in:
                 reader = PdfFileReader(f_in)
                 writer = IncrementalPdfFileWriter(f_in)
@@ -491,35 +492,15 @@ class SealManager:
 
         Raises:
             FileNotFoundError: If PDF doesn't exist
+            NotImplementedError: Always — use validate_seal() instead
         """
         if not pdf_path.exists():
             raise FileNotFoundError(f"PDF not found: {pdf_path}")
 
-        logger.info(f"Extracting seal info from {pdf_path}")
-
-        try:
-            with open(pdf_path, "rb") as f:
-                reader = PdfFileReader(f)
-
-                # Check for signature fields
-                if "/AcroForm" not in reader.root or "/Fields" not in reader.root["/AcroForm"]:
-                    return []
-
-                # In production, parse signature fields and extract org info
-                # Mock for now
-                return [
-                    OrganizationInfo(
-                        name="Mock Organization",
-                        country="ES",
-                        organization_id="ESB12345678",
-                        department="IT Department",
-                        email="seal@example.com",
-                    )
-                ]
-
-        except Exception as e:
-            logger.error(f"Failed to extract seal info: {e}")
-            return []
+        raise NotImplementedError(
+            "extract_seal_info requires pyHanko signature extraction. "
+            "Use validate_seal() for seal verification."
+        )
 
     def is_seal_certificate(self, certificate_bytes: bytes) -> bool:
         """Check if certificate is a seal certificate (QcType = eseal).

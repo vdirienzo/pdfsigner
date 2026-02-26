@@ -153,7 +153,7 @@ async def anonymize_user(
     result = service.anonymize_user(request.user_id, requested_by=current_user.id)
 
     if not result.success:
-        if "not found" in result.error_message.lower():
+        if "not found" in (result.error_message or "").lower():
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail=result.error_message,
@@ -245,6 +245,12 @@ async def schedule_user_deletion(
         f"User deletion scheduled: {user_id} "
         f"(by {current_user.username}, date={status_info.deletion_date})"
     )
+
+    if not status_info.deletion_date:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Deletion scheduling failed - no date set",
+        )
 
     return ScheduleDeletionResponse(
         success=True,

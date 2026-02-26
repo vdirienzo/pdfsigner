@@ -496,9 +496,9 @@ class ValidationReportGenerator:
                     "is_modification_allowed": sig.is_modification_allowed,
                     "page_number": sig.page_number,
                 }
-                file_data["signatures"].append(sig_data)
+                signatures_list.append(sig_data)
 
-            report_data["files"].append(file_data)
+            files_list.append(file_data)
 
         return json.dumps(report_data, indent=2)
 

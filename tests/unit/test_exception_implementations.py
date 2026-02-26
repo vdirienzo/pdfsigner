@@ -141,7 +141,7 @@ class TestMaxSessionsExceeded:
         self, session_manager, mock_healthcare_settings, monkeypatch
     ):
         """Test that get_active_session_count excludes expired sessions."""
-        from datetime import datetime, timedelta
+        from datetime import UTC, datetime, timedelta
 
         user_id = "test_user"
 
@@ -152,7 +152,7 @@ class TestMaxSessionsExceeded:
         # Manually expire session1 by updating expires_at in DB
 
         with session_manager._get_connection() as conn:
-            past_time = (datetime.now() - timedelta(hours=1)).isoformat()
+            past_time = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
             conn.execute(
                 "UPDATE sessions SET expires_at = ? WHERE id = ?",
                 (past_time, session1.id),

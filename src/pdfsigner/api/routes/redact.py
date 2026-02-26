@@ -150,7 +150,7 @@ async def redact_regions(
             logger.exception(f"Redaction failed: {e}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Redaction failed: {str(e)}",
+                detail="Redaction failed",
             ) from e
 
 
@@ -239,7 +239,7 @@ async def redact_by_pattern(
             logger.exception(f"Pattern-based redaction failed: {e}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Redaction failed: {str(e)}",
+                detail="Redaction failed",
             ) from e
 
 
@@ -320,5 +320,5 @@ async def preview_redactions(
             logger.exception(f"Preview generation failed: {e}")
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail=f"Preview generation failed: {str(e)}",
+                detail="Preview generation failed",
             ) from e

@@ -387,17 +387,8 @@ class PDFRedactor:
         mat = fitz.Matrix(zoom, zoom)
         pix = page.get_pixmap(matrix=mat)
 
-        # Draw redaction regions as semi-transparent rectangles
-        page_regions = [r for r in regions if r.page == page_num]
-        for region in page_regions:
-            rect = fitz.Rect(region.x0, region.y0, region.x1, region.y1)
-            # Transform rect coordinates to pixel space
-            rect = rect * mat
-
-            # Draw red rectangle outline
-            img_data = pix.samples
-            # Note: This is a simplified preview. For production, consider using PIL/Pillow
-            # to draw semi-transparent overlays
+        # Note: Drawing semi-transparent overlays on the preview would require
+        # PIL/Pillow. For now, return the unmodified page render.
 
         png_data = pix.tobytes("png")
         doc.close()
