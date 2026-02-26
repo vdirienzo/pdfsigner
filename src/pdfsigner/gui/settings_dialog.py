@@ -22,6 +22,7 @@ from pdfsigner.gui.settings_pages import (
     create_appearance_page,
     create_argentina_page,
     create_behavior_page,
+    create_eidas_page,
     create_general_page,
     create_healthcare_page,
     create_ltv_page,
@@ -85,6 +86,9 @@ class SettingsDialog(Adw.PreferencesWindow):
 
         argentina_page = create_argentina_page(self.settings, self)
         self.add(argentina_page)
+
+        eidas_page = create_eidas_page(self.settings, self)
+        self.add(eidas_page)
 
         # Connect auto-save signals after all pages are created
         self._connect_auto_save_signals()
@@ -184,6 +188,38 @@ class SettingsDialog(Adw.PreferencesWindow):
             self.argentine_enabled.connect("notify::active", self._on_setting_changed)
         if hasattr(self, "argentine_strict_mode"):
             self.argentine_strict_mode.connect("notify::active", self._on_setting_changed)
+
+        # eIDAS page
+        if hasattr(self, "eidas_enabled_switch"):
+            self.eidas_enabled_switch.connect("notify::active", self._on_setting_changed)
+        if hasattr(self, "eidas_enforce_qualified_switch"):
+            self.eidas_enforce_qualified_switch.connect("notify::active", self._on_setting_changed)
+        if hasattr(self, "eidas_validation_mode_combo"):
+            self.eidas_validation_mode_combo.connect("notify::selected", self._on_setting_changed)
+        if hasattr(self, "eidas_cache_days_spin"):
+            self.eidas_cache_days_spin.connect("notify::value", self._on_setting_changed)
+        if hasattr(self, "eidas_auto_update_switch"):
+            self.eidas_auto_update_switch.connect("notify::active", self._on_setting_changed)
+        if hasattr(self, "remote_signing_enabled_switch"):
+            self.remote_signing_enabled_switch.connect("notify::active", self._on_setting_changed)
+        if hasattr(self, "remote_signing_preset_combo"):
+            self.remote_signing_preset_combo.connect("notify::selected", self._on_setting_changed)
+        if hasattr(self, "remote_signing_url_entry"):
+            self.remote_signing_url_entry.connect("changed", self._on_setting_changed)
+        if hasattr(self, "remote_signing_timeout_spin"):
+            self.remote_signing_timeout_spin.connect("notify::value", self._on_setting_changed)
+        if hasattr(self, "remote_signing_verify_ssl_switch"):
+            self.remote_signing_verify_ssl_switch.connect(
+                "notify::active", self._on_setting_changed
+            )
+        if hasattr(self, "seal_enabled_switch"):
+            self.seal_enabled_switch.connect("notify::active", self._on_setting_changed)
+        if hasattr(self, "seal_type_combo"):
+            self.seal_type_combo.connect("notify::selected", self._on_setting_changed)
+        if hasattr(self, "seal_appearance_combo"):
+            self.seal_appearance_combo.connect("notify::selected", self._on_setting_changed)
+        if hasattr(self, "seal_include_timestamp_switch"):
+            self.seal_include_timestamp_switch.connect("notify::active", self._on_setting_changed)
 
     def _on_setting_changed(self, *args) -> None:
         """Handle any setting change with debounced auto-save."""
@@ -367,6 +403,82 @@ class SettingsDialog(Adw.PreferencesWindow):
         if hasattr(self, "argentine_strict_mode"):
             lines.append(
                 f"argentine_strict_mode = {str(self.argentine_strict_mode.get_active()).lower()}"
+            )
+
+        # eIDAS Compliance settings
+        lines.append("")
+        lines.append("# eIDAS Compliance (EU 2024/1183)")
+        if hasattr(self, "eidas_enabled_switch"):
+            lines.append(f"eidas_enabled = {str(self.eidas_enabled_switch.get_active()).lower()}")
+        if hasattr(self, "eidas_enforce_qualified_switch"):
+            lines.append(
+                f"eidas_enforce_qualified = "
+                f"{str(self.eidas_enforce_qualified_switch.get_active()).lower()}"
+            )
+        if hasattr(self, "eidas_validation_mode_combo"):
+            modes = ["eutl", "custom", "offline"]
+            idx = self.eidas_validation_mode_combo.get_selected()
+            if idx < len(modes):
+                lines.append(f'eidas_validation_mode = "{modes[idx]}"')
+        if hasattr(self, "eidas_cache_days_spin"):
+            lines.append(f"eidas_cache_days = {int(self.eidas_cache_days_spin.get_value())}")
+        if hasattr(self, "eidas_auto_update_switch"):
+            lines.append(
+                f"eidas_auto_update = {str(self.eidas_auto_update_switch.get_active()).lower()}"
+            )
+        if hasattr(self, "eidas_territory_checks"):
+            selected = [c for c, cb in self.eidas_territory_checks.items() if cb.get_active()]
+            if len(selected) < len(self.eidas_territory_checks):
+                territory_str = ", ".join(f'"{t}"' for t in sorted(selected))
+                lines.append(f"eidas_eutl_territories = [{territory_str}]")
+            else:
+                lines.append("eidas_eutl_territories = []")
+
+        # Remote Signing settings
+        lines.append("")
+        lines.append("# Remote Signing (CSC API v2)")
+        if hasattr(self, "remote_signing_enabled_switch"):
+            lines.append(
+                f"remote_signing_enabled = "
+                f"{str(self.remote_signing_enabled_switch.get_active()).lower()}"
+            )
+        if hasattr(self, "remote_signing_preset_combo") and hasattr(self, "_qtsp_preset_keys"):
+            idx = self.remote_signing_preset_combo.get_selected()
+            if idx < len(self._qtsp_preset_keys):
+                lines.append(f'remote_signing_qtsp_preset = "{self._qtsp_preset_keys[idx]}"')
+        if hasattr(self, "remote_signing_url_entry"):
+            lines.append(
+                f'remote_signing_service_url = "{self.remote_signing_url_entry.get_text()}"'
+            )
+        if hasattr(self, "remote_signing_timeout_spin"):
+            lines.append(
+                f"remote_signing_timeout = {int(self.remote_signing_timeout_spin.get_value())}"
+            )
+        if hasattr(self, "remote_signing_verify_ssl_switch"):
+            lines.append(
+                f"remote_signing_verify_ssl = "
+                f"{str(self.remote_signing_verify_ssl_switch.get_active()).lower()}"
+            )
+
+        # Electronic Seals settings
+        lines.append("")
+        lines.append("# Electronic Seals (eIDAS Art. 35-40)")
+        if hasattr(self, "seal_enabled_switch"):
+            lines.append(f"seal_enabled = {str(self.seal_enabled_switch.get_active()).lower()}")
+        if hasattr(self, "seal_type_combo"):
+            types = ["basic", "advanced", "qualified"]
+            idx = self.seal_type_combo.get_selected()
+            if idx < len(types):
+                lines.append(f'seal_default_type = "{types[idx]}"')
+        if hasattr(self, "seal_appearance_combo"):
+            appearances = ["invisible", "stamp", "banner", "logo"]
+            idx = self.seal_appearance_combo.get_selected()
+            if idx < len(appearances):
+                lines.append(f'seal_appearance = "{appearances[idx]}"')
+        if hasattr(self, "seal_include_timestamp_switch"):
+            lines.append(
+                f"seal_include_timestamp = "
+                f"{str(self.seal_include_timestamp_switch.get_active()).lower()}"
             )
 
         config_path.write_text("\n".join(lines))

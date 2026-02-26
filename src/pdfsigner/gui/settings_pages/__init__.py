@@ -15,6 +15,7 @@ from .appearance_page import (
 )
 from .argentina_page import create_argentina_page
 from .behavior_page import create_behavior_page
+from .eidas_page import create_eidas_page
 from .general_page import create_general_page
 from .healthcare_page import create_healthcare_page
 from .ltv_page import create_ltv_page
@@ -32,6 +33,7 @@ __all__ = [
     "create_appearance_page",
     "create_healthcare_page",
     "create_argentina_page",
+    "create_eidas_page",
     "get_selected_theme",
     "get_selected_language",
     "apply_theme",
