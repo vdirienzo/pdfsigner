@@ -91,6 +91,8 @@ class EUTSPRegistry:
         cache_dir: Path | None = None,
         offline_mode: bool = False,
         use_mock_data: bool = False,
+        territories: list[str] | None = None,
+        progress_callback=None,
     ):
         """Initialize TSP registry with optional cache directory.
 
@@ -98,6 +100,8 @@ class EUTSPRegistry:
             cache_dir: Directory for caching TSL data
             offline_mode: If True, only use cached data
             use_mock_data: If True, use mock data instead of real TSLs (for testing)
+            territories: List of country codes to fetch (empty/None = all EU/EEA)
+            progress_callback: Optional callback(country_code, current, total) for progress
         """
         self._cache_dir = cache_dir or Path.home() / ".pdfsigner" / "eidas_cache"
         self._cache_dir.mkdir(parents=True, exist_ok=True)
@@ -109,6 +113,8 @@ class EUTSPRegistry:
         # Settings
         self._offline_mode = offline_mode
         self._use_mock_data = use_mock_data
+        self._territories = territories
+        self._progress_callback = progress_callback
         self._cache_file = self._cache_dir / "tsl_cache.json"
         self._cache_max_age_days = 7  # eIDAS requires TSL updates weekly
 
@@ -167,15 +173,27 @@ class EUTSPRegistry:
             self._tsps = {}
             self._cert_to_tsp = {}
 
-            # Fetch TSLs for each country (limit to subset for performance)
-            # In production, you might want to fetch all or configure which countries
-            priority_countries = ["DE", "FR", "IT", "ES", "NL", "BE", "AT", "PL"]
+            # Filter pointers by configured territories, or fetch ALL if not set
+            pointers_to_fetch = lotl_data.tsl_pointers
+            if self._territories:
+                territories_upper = [t.upper() for t in self._territories]
+                pointers_to_fetch = [
+                    p for p in lotl_data.tsl_pointers if p.country_code in territories_upper
+                ]
+                logger.info(
+                    "Filtering TSLs to %d territories: %s",
+                    len(pointers_to_fetch),
+                    ", ".join(territories_upper),
+                )
 
-            for pointer in lotl_data.tsl_pointers:
-                # Skip if not in priority list (optional optimization)
-                if pointer.country_code not in priority_countries:
-                    logger.debug("Skipping TSL for %s (not in priority list)", pointer.country_code)
-                    continue
+            total_pointers = len(pointers_to_fetch)
+            for idx, pointer in enumerate(pointers_to_fetch):
+                # Report progress if callback provided
+                if self._progress_callback:
+                    try:
+                        self._progress_callback(pointer.country_code, idx + 1, total_pointers)
+                    except Exception:
+                        pass  # Don't let callback errors break fetching
 
                 try:
                     logger.info("Fetching TSL for %s...", pointer.country_code)
@@ -737,17 +755,35 @@ class EUTSPRegistry:
 _registry: EUTSPRegistry | None = None
 
 
-def get_tsp_registry(use_mock_data: bool = False) -> EUTSPRegistry:
+def get_tsp_registry(
+    use_mock_data: bool = False,
+    territories: list[str] | None = None,
+) -> EUTSPRegistry:
     """Get or create the singleton TSP registry instance.
 
     Args:
         use_mock_data: If True, use mock data instead of real TSLs
+        territories: List of country codes to fetch (None = read from settings)
 
     Returns:
         EUTSPRegistry singleton instance
     """
     global _registry
     if _registry is None:
-        _registry = EUTSPRegistry(use_mock_data=use_mock_data)
+        # Try to read territories from settings if not provided
+        if territories is None:
+            try:
+                from pdfsigner.config.settings import get_settings
+
+                settings = get_settings()
+                if settings.eidas_eutl_territories:
+                    territories = settings.eidas_eutl_territories
+            except Exception:
+                pass  # Settings not available, use default (all)
+
+        _registry = EUTSPRegistry(
+            use_mock_data=use_mock_data,
+            territories=territories,
+        )
         _registry.load_trusted_list(offline=True)
     return _registry

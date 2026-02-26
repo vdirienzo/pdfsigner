@@ -32,8 +32,10 @@ from typing import Any
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
-from cryptography.x509.oid import ExtensionOID
 
+from pdfsigner.config.settings import get_settings
+from pdfsigner.core.certificate.revocation_checker import RevocationChecker, RevocationStatus
+from pdfsigner.core.eidas.qc_statements_parser import parse_qc_statements
 from pdfsigner.core.eidas.tsp_registry import EUTSPRegistry, QualificationStatus
 
 logger = logging.getLogger(__name__)
@@ -282,27 +284,48 @@ class QualifiedSignatureValidator:
 
         return validation
 
-    def _check_revocation(self, cert: x509.Certificate) -> bool:
-        """Check certificate revocation status.
+    def _check_revocation(
+        self, cert: x509.Certificate, issuer_cert: x509.Certificate | None = None
+    ) -> bool:
+        """Check certificate revocation status using OCSP/CRL.
 
         Args:
             cert: X.509 certificate to check
+            issuer_cert: Issuer certificate (needed for OCSP)
 
         Returns:
             True if certificate is not revoked, False otherwise
         """
         try:
-            # Use existing revocation checker
+            settings = get_settings()
+            if not settings.revocation_check_enabled:
+                logger.debug("Revocation check disabled in settings")
+                return True
 
-            # Need issuer certificate for OCSP
-            # For now, assume good if we can't check
-            # In production, you'd extract issuer from signature chain
-            logger.debug("Revocation check skipped (issuer cert needed)")
-            return True
+            checker = RevocationChecker(
+                prefer_ocsp=settings.revocation_prefer_ocsp,
+                ocsp_timeout=settings.revocation_check_timeout,
+                crl_timeout=settings.revocation_check_timeout,
+                ocsp_cache_ttl=settings.revocation_cache_ttl,
+            )
+            result = checker.check_revocation(cert, issuer_cert)
 
+            if result.status == RevocationStatus.GOOD:
+                logger.debug("Certificate revocation check: GOOD (%s)", result.method)
+                return True
+            elif result.status == RevocationStatus.REVOKED:
+                logger.warning("Certificate REVOKED: %s", result.revocation_reason or "no reason")
+                return False
+            else:
+                # UNKNOWN or ERROR - respect fail_open setting
+                if hasattr(settings, "ltv_fail_open") and settings.ltv_fail_open:
+                    logger.debug("Revocation check indeterminate, fail-open: True")
+                    return True
+                logger.warning("Revocation check indeterminate, fail-open: False")
+                return False
         except Exception as e:
-            logger.debug(f"Revocation check failed: {e}")
-            return True  # Fail open
+            logger.debug("Revocation check failed: %s", e)
+            return True  # Fail open on exception
 
     def _generate_recommendations(self, result: QESValidationResult) -> None:
         """Generate recommendations based on validation results.
@@ -422,46 +445,25 @@ class QualifiedSignatureValidator:
         return "Unknown"
 
     def check_qscd(self, certificate_bytes: bytes) -> bool:
-        """Check if certificate indicates QSCD usage.
-
-        Looks for QcSSCD (OID 0.4.0.1862.1.4) in QcStatements extension.
-
-        Args:
-            certificate_bytes: DER-encoded X.509 certificate
-
-        Returns:
-            True if certificate indicates QSCD, False otherwise
-        """
+        """Check if certificate indicates QSCD usage via QcStatements ASN.1."""
         try:
-            qc_statements = self.get_qc_statements(certificate_bytes)
-            return "QcSSCD" in qc_statements
+            result = parse_qc_statements(certificate_bytes)
+            return result.has_qscd
         except Exception as e:
-            logger.debug(f"Failed to check QSCD: {e}")
+            logger.debug("Failed to check QSCD: %s", e)
             return False
 
     def check_qualified_certificate(self, certificate_bytes: bytes) -> bool:
-        """Check if certificate is a Qualified Certificate.
-
-        Looks for QcCompliance (OID 0.4.0.1862.1.1) in QcStatements extension.
-
-        Args:
-            certificate_bytes: DER-encoded X.509 certificate
-
-        Returns:
-            True if certificate is qualified, False otherwise
-        """
+        """Check if certificate is a Qualified Certificate via QcStatements ASN.1."""
         try:
-            qc_statements = self.get_qc_statements(certificate_bytes)
-            return "QcCompliance" in qc_statements
+            result = parse_qc_statements(certificate_bytes)
+            return result.is_qualified
         except Exception as e:
-            logger.debug(f"Failed to check qualified certificate: {e}")
+            logger.debug("Failed to check qualified certificate: %s", e)
             return False
 
     def get_qc_statements(self, certificate_bytes: bytes) -> dict[str, Any]:
-        """Extract QcStatements extension from certificate.
-
-        QcStatements is a standard X.509 extension (OID 1.3.6.1.5.5.7.1.3)
-        defined in RFC 3739 and ETSI EN 319 412-5.
+        """Extract QcStatements from certificate using real ASN.1 parsing.
 
         Args:
             certificate_bytes: DER-encoded X.509 certificate
@@ -469,58 +471,12 @@ class QualifiedSignatureValidator:
         Returns:
             Dictionary mapping QC statement names to their values
         """
-        statements: dict[str, Any] = {}
-
         try:
-            cert = x509.load_der_x509_certificate(certificate_bytes, default_backend())
-
-            # Try to get QcStatements extension
-            # Note: cryptography library doesn't have built-in QcStatements parser
-            # This is a simplified check - production would need ASN.1 parsing
-
-            # Check for common qualified certificate indicators in certificate
-            # 1. Check subject DN for eIDAS indicators
-            subject_dn = cert.subject.rfc4514_string()
-            if any(
-                indicator in subject_dn.lower()
-                for indicator in ["qualified", "qes", "qscd", "esign"]
-            ):
-                statements["QcCompliance"] = True
-
-            # 2. Check extended key usage for signing
-            try:
-                eku = cert.extensions.get_extension_for_oid(ExtensionOID.EXTENDED_KEY_USAGE)
-                # Digital signature usage indicates signing capability
-                eku_str = str(eku.value)
-                if "signature" in eku_str.lower():
-                    statements["QcType"] = "esign"
-            except x509.ExtensionNotFound:
-                pass
-
-            # 3. Check key usage for digital signature
-            try:
-                ku = cert.extensions.get_extension_for_oid(ExtensionOID.KEY_USAGE)
-                ku_value = ku.value
-                if hasattr(ku_value, "digital_signature") and ku_value.digital_signature:
-                    # Certificate can be used for digital signatures
-                    pass
-            except x509.ExtensionNotFound:
-                pass
-
-            # For MVP: Mock some statements based on issuer
-            issuer_dn = cert.issuer.rfc4514_string().lower()
-            if any(
-                qualified_issuer in issuer_dn
-                for qualified_issuer in ["bundesdruckerei", "digicert", "actalis", "accv"]
-            ):
-                statements["QcCompliance"] = True
-                statements["QcSSCD"] = True
-                statements["QcType"] = "esign"
-
+            result = parse_qc_statements(certificate_bytes)
+            return result.raw_statements
         except Exception as e:
-            logger.warning(f"Failed to parse QcStatements: {e}")
-
-        return statements
+            logger.warning("Failed to parse QcStatements: %s", e)
+            return {}
 
     def detect_signature_level(self, pdf_path: str) -> str:
         """Detect eIDAS signature level: Basic, AdES, QES.
@@ -543,17 +499,10 @@ class QualifiedSignatureValidator:
             return "Basic"
 
     def get_qc_type(self, certificate_bytes: bytes) -> str | None:
-        """Get certificate type from QcStatements.
-
-        Args:
-            certificate_bytes: DER-encoded X.509 certificate
-
-        Returns:
-            Certificate type ("esign", "eseal", "web") or None
-        """
+        """Get certificate type from QcStatements ASN.1."""
         try:
-            qc_statements = self.get_qc_statements(certificate_bytes)
-            return qc_statements.get("QcType")
+            result = parse_qc_statements(certificate_bytes)
+            return result.qc_type
         except Exception as e:
-            logger.debug(f"Failed to get QC type: {e}")
+            logger.debug("Failed to get QC type: %s", e)
             return None

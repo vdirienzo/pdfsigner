@@ -581,6 +581,42 @@ class Settings(BaseSettings):
         description="Text color for seal stamp (hex color code)",
     )
 
+    # --- Remote Signing (CSC API v2) ---
+    remote_signing_enabled: bool = Field(
+        default=False,
+        description="Enable remote signing via CSC API v2",
+    )
+    remote_signing_qtsp_preset: str = Field(
+        default="",
+        description="Pre-configured QTSP preset name (empty = manual config)",
+    )
+    remote_signing_service_url: str = Field(
+        default="",
+        description="CSC API v2 service URL",
+    )
+    remote_signing_authorize_url: str = Field(
+        default="",
+        description="OAuth2 authorization endpoint URL",
+    )
+    remote_signing_token_url: str = Field(
+        default="",
+        description="OAuth2 token endpoint URL",
+    )
+    remote_signing_client_id: str = Field(
+        default="",
+        description="OAuth2 client ID for CSC API",
+    )
+    remote_signing_timeout: int = Field(
+        default=30,
+        ge=5,
+        le=120,
+        description="Timeout for remote signing requests in seconds",
+    )
+    remote_signing_verify_ssl: bool = Field(
+        default=True,
+        description="Verify SSL certificates for remote signing connections",
+    )
+
     # --- eIDAS TSP Validation (Qualified Trust Service Providers) ---
     eidas_enabled: bool = Field(
         default=False,
@@ -601,6 +637,18 @@ class Settings(BaseSettings):
     eidas_auto_update: bool = Field(
         default=True,
         description="Automatically update TSL when cache expires",
+    )
+    eidas_eutl_territories: list[str] = Field(
+        default_factory=list,
+        description="EU/EEA territory codes to fetch from EUTL (empty = all)",
+    )
+    eidas_validation_mode: str = Field(
+        default="eutl",
+        description="eIDAS validation mode: eutl (EU Trusted List), custom, or offline",
+    )
+    eidas_eutl_cache_dir: str = Field(
+        default="",
+        description="Directory for EUTL cache files (empty = default cache dir)",
     )
 
     # --- Argentina Compliance (Ley 25.506) ---

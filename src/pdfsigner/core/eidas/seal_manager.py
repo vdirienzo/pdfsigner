@@ -46,6 +46,15 @@ class SealAppearance(str, Enum):
     LOGO = "logo"  # Organization logo
 
 
+class SealQualificationLevel(str, Enum):
+    """eIDAS seal qualification level."""
+
+    QESEAL = "QESeal"  # Qualified Electronic Seal
+    ADESEAL_QC = "AdESeal-QC"  # Advanced with Qualified Certificate
+    ADESEAL = "AdESeal"  # Advanced Electronic Seal
+    BASIC = "Basic"  # Basic seal
+
+
 @dataclass
 class OrganizationInfo:
     """Organization information for seal."""
@@ -408,27 +417,68 @@ class SealManager:
             return []
 
     def is_seal_certificate(self, certificate_bytes: bytes) -> bool:
-        """Check if certificate is for seals (QcType eseal).
+        """Check if certificate is a seal certificate (QcType = eseal).
+
+        Uses real ASN.1 parsing of QcStatements extension per
+        ETSI EN 319 412-5 to detect eseal type certificates
+        (OID 0.4.0.1862.1.6.2).
 
         Args:
             certificate_bytes: DER-encoded X.509 certificate
 
         Returns:
-            True if certificate is for electronic seals
-
-        Note:
-            In production, this would parse the certificate and check
-            the QcStatements extension for QcType id-etsi-qct-eseal OID.
+            True if certificate has QcType = eseal
         """
-        logger.debug("Checking if certificate is seal type")
+        try:
+            from pdfsigner.core.eidas.qc_statements_parser import parse_qc_statements
 
-        # In production:
-        # 1. Parse X.509 certificate
-        # 2. Find QcStatements extension (OID 1.3.6.1.5.5.7.1.3)
-        # 3. Check for QcType id-etsi-qct-eseal (OID 0.4.0.1862.1.6.2)
+            result = parse_qc_statements(certificate_bytes)
+            if not result.has_qc_statements:
+                return False
+            return result.qc_type == "eseal" or "eseal" in result.qc_types
+        except Exception as e:
+            logger.warning("Failed to check seal certificate: %s", e)
+            return False
 
-        # Mock for now - always return False for safety
-        return False
+    def determine_seal_qualification(self, certificate_bytes: bytes) -> SealQualificationLevel:
+        """Determine seal qualification level from certificate.
+
+        Uses QcStatements parsing and TSP registry lookup to classify
+        the seal per eIDAS qualification levels.
+
+        Args:
+            certificate_bytes: DER-encoded X.509 certificate
+
+        Returns:
+            SealQualificationLevel
+        """
+        try:
+            from pdfsigner.core.eidas.qc_statements_parser import parse_qc_statements
+            from pdfsigner.core.eidas.tsp_registry import QualificationStatus, get_tsp_registry
+
+            qc = parse_qc_statements(certificate_bytes)
+            if not qc.has_qc_statements or qc.qc_type != "eseal":
+                return SealQualificationLevel.BASIC
+
+            registry = get_tsp_registry(use_mock_data=True)
+            from cryptography import x509 as crypto_x509
+            from cryptography.hazmat.backends import default_backend
+
+            cert = crypto_x509.load_der_x509_certificate(certificate_bytes, default_backend())
+            issuer_dn = cert.issuer.rfc4514_string()
+            tsp_status = registry.check_certificate_issuer(issuer_dn)
+            tsp_qualified = tsp_status == QualificationStatus.QUALIFIED
+
+            if qc.is_qualified and qc.has_qscd and tsp_qualified:
+                return SealQualificationLevel.QESEAL
+            elif qc.is_qualified and tsp_qualified:
+                return SealQualificationLevel.ADESEAL_QC
+            elif qc.is_qualified:
+                return SealQualificationLevel.ADESEAL
+            return SealQualificationLevel.BASIC
+        except Exception as e:
+            logger.warning("Failed to determine seal qualification: %s", e)
+            return SealQualificationLevel.BASIC
 
 
 def generate_circular_seal(

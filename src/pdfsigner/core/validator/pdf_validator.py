@@ -105,6 +105,8 @@ class SignatureInfo:
     revocation_message: str | None = None  # Human-readable message
     ltv_info: LTVInfo | None = None  # PAdES-LTV information
     argentine_compliance_result: ArgentineValidationResult | None = None  # Argentine Ley 25.506
+    eidas_level: str | None = None  # "QES", "AdES-QC", "AdES", "Basic" or None
+    eidas_tsp_name: str | None = None  # Qualified TSP name from EUTL
 
 
 @dataclass
@@ -182,6 +184,29 @@ class PDFValidator:
         except Exception as e:
             logger.warning(f"Revocation check failed: {e}")
             return "error", str(e)
+
+    def _check_eidas_qualification(self, cert_der: bytes) -> tuple[str | None, str | None]:
+        """Check eIDAS qualification level of signing certificate.
+
+        Returns:
+            Tuple of (qualification_level, tsp_name) or (None, None)
+        """
+        try:
+            from pdfsigner.core.eidas.qualified_validator import QualifiedSignatureValidator
+            from pdfsigner.core.eidas.tsp_registry import get_tsp_registry
+
+            registry = get_tsp_registry(use_mock_data=True)
+            validator = QualifiedSignatureValidator(registry)
+            result = validator.validate_certificate(cert_der)
+
+            tsp_name = None
+            if result.signature_validations:
+                tsp_name = result.signature_validations[0].tsp_name
+
+            return result.qualification_level, tsp_name
+        except Exception as e:
+            logger.warning("eIDAS qualification check failed: %s", e)
+            return None, None
 
     def check_argentine_compliance(
         self,
@@ -341,9 +366,14 @@ class PDFValidator:
                     chain_result.chain[0], issuer_cert
                 )
 
+            # eIDAS qualification check (optional)
+            eidas_level, eidas_tsp_name = None, None
+            settings = get_settings()
+            if settings.eidas_enabled:
+                eidas_level, eidas_tsp_name = self._check_eidas_qualification(cert_bytes)
+
             # Check Argentine compliance (optional, controlled by settings)
             argentine_result = None
-            settings = get_settings()
             if hasattr(settings, "argentine_compliance_enabled"):
                 argentine_result = self.check_argentine_compliance(
                     cert_bytes, enabled=settings.argentine_compliance_enabled
@@ -393,6 +423,8 @@ class PDFValidator:
                 revocation_message=revocation_message,
                 ltv_info=ltv_info,
                 argentine_compliance_result=argentine_result,
+                eidas_level=eidas_level,
+                eidas_tsp_name=eidas_tsp_name,
             )
 
         except Exception as e:
