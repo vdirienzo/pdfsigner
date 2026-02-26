@@ -149,9 +149,10 @@ class RemoteHashSigner:
 
         try:
             b64_hash = base64.b64encode(hash_value).decode()
+            sad = self._sad or ""
             result = self.client.sign_hash(
                 credential_id=self.credential_id,
-                sad=self._sad,
+                sad=sad,
                 hashes=[b64_hash],
                 sign_algo=self.sign_algo,
             )
@@ -177,9 +178,10 @@ class RemoteHashSigner:
 
         try:
             b64_hashes = [base64.b64encode(h).decode() for h in hash_values]
+            sad = self._sad or ""
             signatures = self.client.sign_batch(
                 credential_id=self.credential_id,
-                sad=self._sad,
+                sad=sad,
                 hashes=b64_hashes,
                 sign_algo=self.sign_algo,
             )

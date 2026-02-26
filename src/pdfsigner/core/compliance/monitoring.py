@@ -252,7 +252,7 @@ class MonitoringChecker:
             ]
 
             if all(required_features):
-                if sum(optional_features) >= 2:
+                if sum(bool(f) for f in optional_features) >= 2:
                     status = ControlStatus.PASSED
                     findings.append("Comprehensive deficiency reporting in place")
                 else:

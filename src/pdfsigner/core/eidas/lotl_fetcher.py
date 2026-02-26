@@ -185,23 +185,25 @@ class LOTLFetcher:
 
             # Version and sequence number
             version_elem = scheme_info.find("tsl:TSLVersionIdentifier", NAMESPACES)
-            version = version_elem.text if version_elem is not None else "0"
+            version = version_elem.text or "0" if version_elem is not None else "0"
 
             sequence_elem = scheme_info.find("tsl:TSLSequenceNumber", NAMESPACES)
-            sequence_number = int(sequence_elem.text) if sequence_elem is not None else 0
+            sequence_number = (
+                int(sequence_elem.text) if sequence_elem is not None and sequence_elem.text else 0
+            )
 
             # Dates
             issue_date_elem = scheme_info.find("tsl:ListIssueDateTime", NAMESPACES)
             issue_date = (
                 self._parse_datetime(issue_date_elem.text)
-                if issue_date_elem is not None
+                if issue_date_elem is not None and issue_date_elem.text
                 else datetime.now(UTC)
             )
 
             next_update_elem = scheme_info.find("tsl:NextUpdate/tsl:dateTime", NAMESPACES)
             next_update = (
                 self._parse_datetime(next_update_elem.text)
-                if next_update_elem is not None
+                if next_update_elem is not None and next_update_elem.text
                 else datetime.now(UTC) + timedelta(days=7)
             )
 
@@ -209,11 +211,15 @@ class LOTLFetcher:
             operator_elem = scheme_info.find(
                 ".//tsl:SchemeOperatorName/tsl:Name[@xml:lang='en']", NAMESPACES
             )
-            operator_name = operator_elem.text if operator_elem is not None else "EU Commission"
+            operator_name = (
+                (operator_elem.text or "EU Commission")
+                if operator_elem is not None
+                else "EU Commission"
+            )
 
             # Territory
             territory_elem = scheme_info.find("tsl:SchemeTerritory", NAMESPACES)
-            territory = territory_elem.text if territory_elem is not None else "EU"
+            territory = (territory_elem.text or "EU") if territory_elem is not None else "EU"
 
             # Extract TSL pointers
             pointers = self._extract_tsl_pointers(root)
@@ -265,19 +271,27 @@ class LOTLFetcher:
 
                 # Extract territory (country code)
                 territory_elem = pointer_elem.find(".//tsl:SchemeTerritory", NAMESPACES)
-                country_code = territory_elem.text.strip() if territory_elem is not None else "??"
+                country_code = (
+                    territory_elem.text.strip()
+                    if territory_elem is not None and territory_elem.text
+                    else "??"
+                )
 
                 # Extract scheme operator name (country name)
                 name_elem = pointer_elem.find(
                     ".//tsl:SchemeOperatorName/tsl:Name[@xml:lang='en']", NAMESPACES
                 )
-                country_name = name_elem.text.strip() if name_elem is not None else country_code
+                country_name = (
+                    name_elem.text.strip()
+                    if name_elem is not None and name_elem.text
+                    else country_code
+                )
 
                 # Extract MIME type
                 mime_elem = pointer_elem.find(".//tsl:MimeType", NAMESPACES)
                 mime_type = (
                     mime_elem.text.strip()
-                    if mime_elem is not None
+                    if mime_elem is not None and mime_elem.text
                     else "application/vnd.etsi.tsl+xml"
                 )
 

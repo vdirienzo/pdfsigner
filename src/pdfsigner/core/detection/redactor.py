@@ -263,9 +263,9 @@ class PDFRedactor:
         try:
             # Import PII detector
             try:
-                from pdfsigner.core.detection.pii_detector import get_pii_detector
+                from pdfsigner.core.detection.pdf_scanner import PDFScanner
 
-                detector = get_pii_detector()
+                detector = PDFScanner()
             except ImportError:
                 error_msg = "PII detector not available. Use redact_regions() for manual redaction."
                 logger.error(error_msg)
@@ -297,7 +297,10 @@ class PDFRedactor:
                 )
 
             # Scan document for PII
-            matches = detector.scan_pdf(str(pdf_path), pii_types=pii_type_enums)
+            all_matches = detector.scan_pdf(str(pdf_path))
+
+            # Filter by requested PII types
+            matches = [m for m in all_matches if m.pii_type in pii_type_enums]
 
             # Filter by confidence
             high_confidence_matches = [m for m in matches if m.confidence >= min_confidence]

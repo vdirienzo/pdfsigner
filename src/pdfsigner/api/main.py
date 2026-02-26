@@ -34,6 +34,7 @@ from pdfsigner.api.routes import (
     phi_router,
     redact_router,
     retention_router,
+    seal_router,
     sessions_router,
     sign_router,
     users_router,
@@ -224,6 +225,7 @@ def create_app() -> FastAPI:
     app.include_router(gdpr_router)
     app.include_router(breach_router)
     app.include_router(consent_router)
+    app.include_router(seal_router)
 
     # Vulnerability management (conditional - only if no import errors)
     try:

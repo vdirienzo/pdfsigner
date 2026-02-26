@@ -4,6 +4,7 @@ Authentication middleware for API.
 Provides JWT and API key authentication for FastAPI routes.
 """
 
+import hashlib
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 
@@ -138,7 +139,7 @@ def verify_token(token: str) -> TokenData:
         if jti:
             blacklist = get_jwt_blacklist()
             if blacklist.is_blacklisted(jti):
-                logger.info(f"Rejected blacklisted token {jti[:8]}... for user {username}")
+                logger.debug("Rejected blacklisted token for user")
                 raise HTTPException(
                     status_code=status.HTTP_401_UNAUTHORIZED,
                     detail="Token has been revoked",
@@ -218,9 +219,7 @@ async def get_current_user(
             return user
 
         # User not found in repository
-        logger.warning(
-            f"User '{token_data.username}' authenticated via JWT but not found in repository"
-        )
+        logger.warning("JWT-authenticated user not found in repository")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Authentication failed",
@@ -358,6 +357,11 @@ async def require_mfa_verified(
 # --- API Key Authentication ---
 
 
+def _hash_api_key_id(api_key: str) -> str:
+    """Generate a safe, non-reversible identifier from an API key."""
+    return f"apikey_{hashlib.sha256(api_key.encode()).hexdigest()[:12]}"
+
+
 async def verify_api_key(
     api_key: Annotated[str | None, Security(api_key_header_scheme)] = None,
 ) -> User:
@@ -385,9 +389,10 @@ async def verify_api_key(
     # Check legacy config-based API keys first (backward compatibility)
     if settings.api_keys and api_key in settings.api_keys:
         # Legacy API key from config - return generic user
+        _api_key_id = _hash_api_key_id(api_key)
         return User(
-            id=f"apikey_{api_key[:8]}",
-            username=f"apikey_{api_key[:8]}",
+            id=_api_key_id,
+            username=_api_key_id,
             email=None,
             role=UserRole.SIGNER,
             status=UserStatus.ACTIVE,
@@ -413,11 +418,7 @@ async def verify_api_key(
 
         # Validate key (check revoked, expiration)
         if not api_key_obj.is_valid:
-            logger.warning(
-                f"Rejected API key: id={api_key_obj.id}, "
-                f"revoked={api_key_obj.revoked}, "
-                f"expired={api_key_obj.expires_at}"
-            )
+            logger.warning("Rejected API key: revoked or expired")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="API key is revoked or expired",
@@ -435,7 +436,7 @@ async def verify_api_key(
         user = user_repo.get_user_by_id(api_key_obj.user_id)
 
         if not user:
-            logger.error(f"User not found for API key: user_id={api_key_obj.user_id}")
+            logger.error("User not found for API key")
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="User not found for API key",
@@ -448,7 +449,7 @@ async def verify_api_key(
                 detail="User account is inactive or locked",
             )
 
-        logger.debug(f"API key authenticated: user={user.username}, key_id={api_key_obj.id}")
+        logger.debug("API key authentication successful")
         return user
 
     except HTTPException:
@@ -488,15 +489,15 @@ async def get_current_user_or_api_key(
     if jwt_credentials is not None:
         try:
             return await get_current_user(jwt_credentials)
-        except HTTPException as e:
-            logger.warning(f"JWT auth failed (falling back to API key): {e.detail}")
+        except HTTPException:
+            logger.warning("JWT auth failed, falling back to API key")
 
     # Try API key
     if api_key is not None:
         try:
             return await verify_api_key(api_key)
-        except HTTPException as e:
-            logger.warning(f"API key auth failed: {e.detail}")
+        except HTTPException:
+            logger.warning("API key auth failed")
 
     # Neither auth method worked
     raise HTTPException(

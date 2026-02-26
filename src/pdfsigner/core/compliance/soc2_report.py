@@ -219,7 +219,7 @@ class SOC2Report:
         lines.append(f"Total evidence items collected: {len(self.evidence)}")
         lines.append("")
 
-        by_category = {}
+        by_category: dict[str, int] = {}
         for evidence in self.evidence:
             cat = evidence.category.value
             by_category[cat] = by_category.get(cat, 0) + 1

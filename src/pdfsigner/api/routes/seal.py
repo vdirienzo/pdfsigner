@@ -245,7 +245,7 @@ async def seal_document(
         location=location,
         page=page,
         include_timestamp=include_timestamp,
-        tsa_url=settings.default_tsa_url or "",
+        tsa_url=getattr(settings, "default_tsa_url", "") or "",
     )
 
     # Store job info

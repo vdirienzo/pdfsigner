@@ -259,8 +259,9 @@ class ArchiveTSScheduler:
                 else:
                     # Even if no re-timestamp is needed yet, check SOGIS
                     # deprecation timeline for proactive alerts
-                    reason = self._check_deprecation_reason(manager, pdf_path)
-                    if reason:
+                    deprecation_reason = self._check_deprecation_reason(manager, pdf_path)
+                    if deprecation_reason:
+                        reason = deprecation_reason
                         logger.debug(
                             f"PDF approaching algorithm deprecation: {pdf_path.name} ({reason})"
                         )

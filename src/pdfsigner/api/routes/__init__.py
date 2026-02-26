@@ -36,6 +36,7 @@ from pdfsigner.api.routes.mfa import router as mfa_router
 from pdfsigner.api.routes.phi import router as phi_router
 from pdfsigner.api.routes.redact import router as redact_router
 from pdfsigner.api.routes.retention import router as retention_router
+from pdfsigner.api.routes.seal import router as seal_router
 from pdfsigner.api.routes.sessions import router as sessions_router
 from pdfsigner.api.routes.sign import router as sign_router
 from pdfsigner.api.routes.users import router as users_router
@@ -57,6 +58,7 @@ __all__ = [
     "phi_router",
     "redact_router",
     "retention_router",
+    "seal_router",
     "sessions_router",
     "sign_router",
     "users_router",

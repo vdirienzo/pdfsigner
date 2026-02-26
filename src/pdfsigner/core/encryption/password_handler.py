@@ -109,8 +109,8 @@ class PasswordEncryptionHandler:
                         "permissions": permissions,
                     },
                 )
-            except Exception:
-                pass  # Don't fail encryption if audit fails
+            except Exception as e:
+                logger.warning(f"Audit logging failed for encryption operation: {e}")
 
             return EncryptionResult(
                 success=True,
@@ -134,8 +134,8 @@ class PasswordEncryptionHandler:
                     strength=config.strength.value if hasattr(config, "strength") else "unknown",
                     error=str(e),
                 )
-            except Exception:
-                pass
+            except Exception as audit_err:
+                logger.warning(f"Audit logging failed for encryption operation: {audit_err}")
 
             logger.exception(f"Password encryption failed for {input_path}: {e}")
             raise PDFEncryptionError(str(e)) from e
@@ -201,8 +201,8 @@ class PasswordEncryptionHandler:
                         "output_path": str(output_path),
                     },
                 )
-            except Exception:
-                pass  # Don't fail decryption if audit fails
+            except Exception as e:
+                logger.warning(f"Audit logging failed for encryption operation: {e}")
 
             return EncryptionResult(
                 success=True,
@@ -224,8 +224,8 @@ class PasswordEncryptionHandler:
                     strength="N/A",
                     error=str(e),
                 )
-            except Exception:
-                pass
+            except Exception as audit_err:
+                logger.warning(f"Audit logging failed for encryption operation: {audit_err}")
 
             logger.exception(f"Decryption failed for {input_path}: {e}")
             raise PDFEncryptionError(str(e)) from e

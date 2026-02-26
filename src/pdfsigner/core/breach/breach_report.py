@@ -128,13 +128,15 @@ def generate_summary_report(
     avg_resolution_hours = None
     if resolved:
         resolution_times = [
-            (inc.resolved_at - inc.detected_at).total_seconds() / 3600 for inc in resolved
+            (inc.resolved_at - inc.detected_at).total_seconds() / 3600
+            for inc in resolved
+            if inc.resolved_at is not None
         ]
         avg_resolution_hours = sum(resolution_times) / len(resolution_times)
 
     # Most affected users/IPs
-    user_counts = {}
-    ip_counts = {}
+    user_counts: dict[str, int] = {}
+    ip_counts: dict[str, int] = {}
     for incident in incidents:
         if incident.user_id:
             user_counts[incident.user_id] = user_counts.get(incident.user_id, 0) + 1

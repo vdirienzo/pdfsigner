@@ -167,7 +167,7 @@ class TOTPProvider:
 
             # Convert to PNG bytes
             buffer = io.BytesIO()
-            img.save(buffer, format="PNG")
+            img.save(buffer, format="PNG")  # type: ignore[call-arg]
             return buffer.getvalue()
 
         except Exception as e:

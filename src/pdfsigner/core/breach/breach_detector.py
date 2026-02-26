@@ -4,6 +4,7 @@ breach_detector.py - Breach detection rules and thresholds
 Implements detection rules for various data breach scenarios.
 """
 
+from collections.abc import Callable
 from datetime import datetime
 from uuid import uuid4
 
@@ -343,7 +344,7 @@ class BreachDetector:
         Returns:
             BreachIncident if anomaly detected, None otherwise
         """
-        handlers = {
+        handlers: dict[str, Callable[..., BreachIncident | None]] = {
             "mass_export": self.check_mass_export,
             "failed_auth": self.check_failed_auth,
             "bulk_phi_access": self.check_bulk_phi_access,

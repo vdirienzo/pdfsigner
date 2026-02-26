@@ -260,7 +260,11 @@ class TSLParser:
         )
         if trade_name_elem is None:
             trade_name_elem = info_elem.find(".//tsl:TSPTradeName/tsl:Name", NAMESPACES)
-        trade_name = trade_name_elem.text.strip() if trade_name_elem is not None else None
+        trade_name = (
+            trade_name_elem.text.strip()
+            if trade_name_elem is not None and trade_name_elem.text
+            else None
+        )
 
         # Postal address (optional)
         postal_elem = info_elem.find(".//tsl:PostalAddress", NAMESPACES)
@@ -274,7 +278,9 @@ class TSLParser:
 
         # Electronic address (optional)
         email_elem = info_elem.find(".//tsl:ElectronicAddress/tsl:URI", NAMESPACES)
-        electronic_address = email_elem.text.strip() if email_elem is not None else None
+        electronic_address = (
+            email_elem.text.strip() if email_elem is not None and email_elem.text else None
+        )
 
         # Parse services
         services = self._parse_services(tsp_elem, name)
@@ -345,7 +351,11 @@ class TSLParser:
         if name_elem is None:
             name_elem = info_elem.find(".//tsl:ServiceName/tsl:Name", NAMESPACES)
 
-        name = name_elem.text.strip() if name_elem is not None else "Unnamed Service"
+        name = (
+            name_elem.text.strip()
+            if name_elem is not None and name_elem.text
+            else "Unnamed Service"
+        )
 
         # Service status
         status_elem = info_elem.find(
@@ -364,7 +374,9 @@ class TSLParser:
             NAMESPACES,
         )
         status_start_date = (
-            self._parse_datetime(date_elem.text) if date_elem is not None else datetime.now(UTC)
+            self._parse_datetime(date_elem.text)
+            if date_elem is not None and date_elem.text
+            else datetime.now(UTC)
         )
 
         # Service supply points (OCSP URLs, CRL URLs, etc.)

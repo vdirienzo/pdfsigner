@@ -15,6 +15,7 @@ import hashlib
 import json
 import uuid
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from loguru import logger
 
@@ -75,7 +76,7 @@ class EvidenceCollector:
         events = self.audit_logger.get_events(start_date=start_date, end_date=end_date)
 
         # Summarize access events
-        access_summary = {
+        access_summary: dict[str, Any] = {
             "total_events": len(events),
             "unique_users": len(set(e.user_id for e in events if e.user_id)),
             "success_count": sum(1 for e in events if e.status == "SUCCESS"),
@@ -265,7 +266,7 @@ class EvidenceCollector:
                 }
             )
 
-        summary = {
+        summary: dict[str, Any] = {
             "total_users": len(users),
             "active_users": sum(1 for u in users if u.status.value == "active"),
             "inactive_users": sum(1 for u in users if u.status.value == "inactive"),
@@ -330,7 +331,7 @@ class EvidenceCollector:
             }
             incidents.append(incident)
 
-        summary = {
+        summary: dict[str, Any] = {
             "total_incidents": len(incidents),
             "high_severity": sum(1 for i in incidents if i["severity"] == "high"),
             "medium_severity": sum(1 for i in incidents if i["severity"] == "medium"),

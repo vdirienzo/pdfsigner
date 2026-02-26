@@ -55,7 +55,7 @@ def extract_strings() -> int:
     print(f"Output: {pot_file}")
 
     # Find all Python files in source directories
-    py_files = []
+    py_files: list[Path] = []
     for source_dir in source_dirs:
         if source_dir.exists():
             py_files.extend(source_dir.rglob("*.py"))

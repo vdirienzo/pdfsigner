@@ -13,6 +13,7 @@ import secrets as _secrets
 import threading
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 
 from pdfsigner.core.audit.audit_event import AuditEvent
 
@@ -146,7 +147,7 @@ class AuditIntegrityManager:
         Returns:
             Tuple of (is_valid, detailed_report)
         """
-        report = {
+        report: dict[str, Any] = {
             "file": str(file_path),
             "verified_at": datetime.now(UTC).isoformat(),
             "total_records": 0,

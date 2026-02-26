@@ -202,7 +202,8 @@ class PDFSignatureExtractor:
         try:
             cn_attr = cert.subject.get_attributes_for_oid(x509.oid.NameOID.COMMON_NAME)
             if cn_attr:
-                return cn_attr[0].value
+                value = cn_attr[0].value
+                return value if isinstance(value, str) else value.decode("utf-8", errors="replace")
         except Exception as e:
             logger.debug("Failed to extract CN: %s", e)
 

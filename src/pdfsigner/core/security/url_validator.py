@@ -102,7 +102,7 @@ def resolve_hostname(hostname: str) -> list[str]:
     try:
         # Get all address info
         results = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC)
-        ips = list({result[4][0] for result in results})
+        ips = list({str(result[4][0]) for result in results})
         return ips
     except socket.gaierror as e:
         raise SSRFError(f"Cannot resolve hostname '{hostname}': {e}") from e

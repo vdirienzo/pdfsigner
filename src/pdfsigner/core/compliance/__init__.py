@@ -72,6 +72,9 @@ from pdfsigner.core.compliance.controls import (
     get_all_controls,
     get_controls_for_standard,
 )
+
+# Per-standard sub-checkers
+from pdfsigner.core.compliance.eidas_checker import EIDASChecker
 from pdfsigner.core.compliance.evidence_collector import (
     EvidenceCollector,
     get_evidence_collector,
@@ -82,14 +85,19 @@ from pdfsigner.core.compliance.evidence_types import (
     EvidenceCollection,
     EvidenceType,
 )
+from pdfsigner.core.compliance.fedramp_checker import FedRAMPChecker
+from pdfsigner.core.compliance.gdpr_checker import GDPRChecker
 from pdfsigner.core.compliance.governance import (
     GovernanceChecker,
     get_governance_checker,
 )
+from pdfsigner.core.compliance.hipaa_checker import HIPAAChecker
 from pdfsigner.core.compliance.monitoring import (
     MonitoringChecker,
     get_monitoring_checker,
 )
+from pdfsigner.core.compliance.nist_audit_checker import NISTAuditChecker
+from pdfsigner.core.compliance.nist_checker import NISTChecker
 from pdfsigner.core.compliance.report_generator import (
     ComplianceReportGenerator,
     GeneratedReport,
@@ -101,6 +109,7 @@ from pdfsigner.core.compliance.risk_assessment import (
     RiskAssessmentChecker,
     get_risk_assessment_checker,
 )
+from pdfsigner.core.compliance.soc2_checker import SOC2Checker
 from pdfsigner.core.compliance.soc2_report import (
     ControlAssessment,
     SOC2Report,
@@ -161,4 +170,12 @@ __all__ = [
     "get_risk_assessment_checker",
     "MonitoringChecker",
     "get_monitoring_checker",
+    # Per-standard sub-checkers
+    "HIPAAChecker",
+    "NISTChecker",
+    "NISTAuditChecker",
+    "FedRAMPChecker",
+    "EIDASChecker",
+    "GDPRChecker",
+    "SOC2Checker",
 ]

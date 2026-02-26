@@ -116,11 +116,13 @@ class BackupCodeManager:
                 )
 
             self.db.commit()
-            logger.info(f"Stored {len(codes)} backup codes for user {user_id}")
+            logger.info(f"Stored {len(codes)} backup codes")
+            logger.debug(f"Stored backup codes for user {user_id}")
             return True
 
         except Exception as e:
-            logger.error(f"Failed to store backup codes for user {user_id}: {e}")
+            logger.error("Failed to store backup codes")
+            logger.debug(f"Failed to store backup codes for user {user_id}: {e}")
             self.db.rollback()
             return False
 
@@ -152,7 +154,8 @@ class BackupCodeManager:
             rows = cursor.fetchall()
 
             if not rows:
-                logger.warning(f"No unused backup codes for user {user_id}")
+                logger.warning("No unused backup codes available")
+                logger.debug(f"No unused backup codes for user {user_id}")
                 return False
 
             # Check each code (timing-safe comparison)
@@ -178,14 +181,17 @@ class BackupCodeManager:
                         (datetime.now(UTC).isoformat(), backup_id),
                     )
                     self.db.commit()
-                    logger.info(f"Backup code verified and consumed for user {user_id}")
+                    logger.info("Backup code verified and consumed")
+                    logger.debug(f"Backup code consumed for user {user_id}")
                     return True
 
-            logger.warning(f"Invalid backup code for user {user_id}")
+            logger.warning("Invalid backup code attempted")
+            logger.debug(f"Invalid backup code for user {user_id}")
             return False
 
         except Exception as e:
-            logger.error(f"Failed to verify backup code for user {user_id}: {e}")
+            logger.error("Failed to verify backup code")
+            logger.debug(f"Failed to verify backup code for user {user_id}: {e}")
             self.db.rollback()
             return False
 
@@ -212,7 +218,8 @@ class BackupCodeManager:
             return row[0] if row else 0
 
         except Exception as e:
-            logger.error(f"Failed to get backup code count for user {user_id}: {e}")
+            logger.error("Failed to get backup code count")
+            logger.debug(f"Failed to get backup code count for user {user_id}: {e}")
             return 0
 
 

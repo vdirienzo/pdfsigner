@@ -75,7 +75,7 @@ class MFAManager:
         # Initialize backup code manager
         self.backup_manager = BackupCodeManager(self._get_connection())
 
-        logger.info(f"MFA manager initialized: {db_path}")
+        logger.info("MFA manager initialized")
 
     @classmethod
     def get_instance(cls, db_path: Path | None = None) -> "MFAManager":
@@ -200,7 +200,8 @@ class MFAManager:
             {"action": "enrollment_started"},
         )
 
-        logger.info(f"MFA enrollment started for user {user_id}")
+        logger.info("MFA enrollment started")
+        logger.debug(f"MFA enrollment started for user {user_id}")
 
         return MFAEnrollment(
             secret=secret,
@@ -236,7 +237,8 @@ class MFAManager:
                 "FAILURE",
                 {"reason": "invalid_code"},
             )
-            logger.warning(f"MFA activation failed for user {user_id}: invalid code")
+            logger.warning("MFA activation failed: invalid code")
+            logger.debug(f"MFA activation failed for user {user_id}")
             return False
 
         # Enable MFA
@@ -250,7 +252,8 @@ class MFAManager:
             {"action": "mfa_activated"},
         )
 
-        logger.info(f"MFA activated for user {user_id}")
+        logger.info("MFA activated successfully")
+        logger.debug(f"MFA activated for user {user_id}")
         return True
 
     def verify(self, user_id: str, code: str, is_backup: bool = False) -> bool:
@@ -268,7 +271,8 @@ class MFAManager:
         # Get status
         status = self.get_status(user_id)
         if not status.enabled:
-            logger.warning(f"MFA verification attempted for non-enrolled user {user_id}")
+            logger.warning("MFA verification attempted for non-enrolled user")
+            logger.debug(f"MFA verification attempted for non-enrolled user {user_id}")
             return False
 
         # Verify backup code
@@ -281,7 +285,8 @@ class MFAManager:
                     "SUCCESS",
                     {"remaining_codes": status.backup_codes_remaining - 1},
                 )
-                logger.info(f"Backup code verified for user {user_id}")
+                logger.info("Backup code verified successfully")
+                logger.debug(f"Backup code verified for user {user_id}")
                 return True
             else:
                 self._emit_audit_event(
@@ -339,13 +344,15 @@ class MFAManager:
             details = {"disabled_by": admin_id or user_id}
             self._emit_audit_event(AuditEventType.MFA_DISABLED, user_id, "SUCCESS", details)
 
-            logger.info(
+            logger.info("MFA disabled successfully")
+            logger.debug(
                 f"MFA disabled for user {user_id}" + (f" by admin {admin_id}" if admin_id else "")
             )
             return True
 
         except Exception as e:
-            logger.error(f"Failed to disable MFA for user {user_id}: {e}")
+            logger.error("Failed to disable MFA")
+            logger.debug(f"Failed to disable MFA for user {user_id}: {e}")
             conn.rollback()
             return False
         finally:
@@ -453,7 +460,8 @@ class MFAManager:
             {"new_code_count": len(backup_codes)},
         )
 
-        logger.info(f"Backup codes regenerated for user {user_id}")
+        logger.info("Backup codes regenerated")
+        logger.debug(f"Backup codes regenerated for user {user_id}")
         return backup_codes
 
     def _store_secret(self, user_id: str, secret: str, enabled: bool = False) -> None:
@@ -475,7 +483,7 @@ class MFAManager:
                 encoded_secret = base64.b64encode(encrypted_bytes).decode()
                 key_id = mfa_key_id
 
-                logger.debug(f"MFA secret encrypted with AES-256-GCM for user {user_id}")
+                logger.debug("MFA secret encrypted with AES-256-GCM")
 
             except RuntimeError:
                 raise RuntimeError(
@@ -501,7 +509,8 @@ class MFAManager:
             conn.close()
 
         except Exception as e:
-            logger.error(f"Failed to store MFA secret for user {user_id}: {e}")
+            logger.error("Failed to store MFA secret")
+            logger.debug(f"Failed to store MFA secret for user {user_id}: {e}")
             raise
 
     def _get_secret(self, user_id: str) -> str | None:
@@ -530,7 +539,7 @@ class MFAManager:
             # Handle legacy base64 encoding
             if key_id == "base64":
                 logger.warning(
-                    f"MFA secret for user {user_id} uses legacy base64 encoding. "
+                    "MFA secret uses legacy base64 encoding. "
                     "Consider re-enrolling for AES-256-GCM encryption."
                 )
                 return base64.b64decode(encoded_secret).decode()
@@ -545,14 +554,12 @@ class MFAManager:
                 return decrypted.decode()
 
             except RuntimeError:
-                logger.error(
-                    f"KeyManager not initialized but MFA secret for user {user_id} "
-                    f"requires key {key_id} for decryption"
-                )
+                logger.error("KeyManager not initialized but MFA secret requires decryption key")
                 return None
 
         except Exception as e:
-            logger.error(f"Failed to retrieve MFA secret for user {user_id}: {e}")
+            logger.error("Failed to retrieve MFA secret")
+            logger.debug(f"Failed to retrieve MFA secret for user {user_id}: {e}")
             return None
 
     def _enable_mfa(self, user_id: str) -> None:
