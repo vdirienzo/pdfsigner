@@ -104,8 +104,17 @@ async def trigger_scan(
     """
     logger.info(f"User {current_user.username} triggered {scan_request.scan_type} scan")
 
-    # Determine scan path
-    scan_path = Path(scan_request.path) if scan_request.path else Path.cwd() / "src"
+    # Determine scan path with path traversal protection
+    allowed_base = Path.cwd().resolve()
+    if scan_request.path:
+        scan_path = Path(scan_request.path).resolve()
+        if not scan_path.is_relative_to(allowed_base):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Scan path must be within the project directory",
+            )
+    else:
+        scan_path = allowed_base / "src"
 
     # Run scan
     vulnerabilities = run_all_scans(code_path=scan_path)

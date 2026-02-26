@@ -21,6 +21,7 @@ from pdfsigner.core.audit.audit_event import AuditEvent, AuditEventType
 
 if TYPE_CHECKING:
     from pdfsigner.core.audit.audit_integrity import AuditIntegrityManager
+    from pdfsigner.core.audit.siem_exporter import SIEMExporter
 
 
 class AuditLogger:

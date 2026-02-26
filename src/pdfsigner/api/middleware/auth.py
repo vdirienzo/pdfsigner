@@ -322,9 +322,9 @@ async def require_mfa_verified(
         from pdfsigner.core.auth.mfa import get_mfa_manager
 
         mfa_manager = get_mfa_manager()
-        status = mfa_manager.get_status(current_user.id)
+        mfa_status = mfa_manager.get_status(current_user.id)
 
-        if not status.enabled:
+        if not mfa_status.enabled:
             # MFA required but not enrolled
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
@@ -332,10 +332,14 @@ async def require_mfa_verified(
                 headers={"X-MFA-Required": "true", "X-MFA-Status": "not_enrolled"},
             )
 
+    except HTTPException:
+        raise
     except Exception as e:
-        logger.warning(f"Failed to check MFA status: {e}")
-        # Fail open if MFA check fails (avoid lockout)
-        return current_user
+        logger.error(f"MFA check failed, denying access (fail-closed): {e}")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="MFA verification service unavailable",
+        ) from e
 
     # Verify token has MFA verification flag
     if credentials:

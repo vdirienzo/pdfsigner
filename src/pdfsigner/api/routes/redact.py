@@ -107,8 +107,9 @@ async def redact_regions(
             content = await file.read()
             f.write(content)
 
-        # Determine output path
-        output_filename = request.output_filename or f"{input_path.stem}_redacted.pdf"
+        # Determine output path (sanitize to prevent path traversal)
+        raw_output_name = request.output_filename or f"{input_path.stem}_redacted.pdf"
+        output_filename = sanitize_filename(raw_output_name)
         output_path = temp_dir_path / output_filename
 
         try:
@@ -206,8 +207,9 @@ async def redact_by_pattern(
             content = await file.read()
             f.write(content)
 
-        # Determine output path
-        output_filename = request.output_filename or f"{input_path.stem}_redacted.pdf"
+        # Determine output path (sanitize to prevent path traversal)
+        raw_output_name = request.output_filename or f"{input_path.stem}_redacted.pdf"
+        output_filename = sanitize_filename(raw_output_name)
         output_path = temp_dir_path / output_filename
 
         try:

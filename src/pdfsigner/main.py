@@ -18,6 +18,8 @@ from pdfsigner.cli import (
     cmd_decrypt,
     cmd_encrypt,
     cmd_list_certs,
+    cmd_redact,
+    cmd_scan_pii,
     cmd_sign,
     cmd_validate,
 )
