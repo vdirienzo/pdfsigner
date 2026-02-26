@@ -73,6 +73,7 @@ MainWindow → SigningHandler → BatchManager → PDFSigner → pyHanko
 | `api/` | REST API (FastAPI) |
 | `api/middleware/tls.py` | TLS/HTTPS enforcement, mTLS, redirect middleware |
 | `gui/handlers/` | GUI ↔ Core bridge |
+| `gui/settings_pages/eidas_page.py` | eIDAS 2 settings (EU compliance, EUTL, remote signing, seals) |
 
 ### Patterns
 
@@ -366,6 +367,11 @@ Location: `~/.config/pdfsigner/config.toml`
 | `healthcare_max_sessions` | `3` | Max concurrent sessions per user |
 | `healthcare_emergency_duration_hours` | `4` | Emergency access duration |
 | `healthcare_emergency_require_approval` | `true` | Require admin approval for emergency |
+| `eidas_enabled` | `false` | Enable eIDAS compliance |
+| `eidas_enforce_qualified` | `false` | Reject non-qualified TSPs |
+| `eidas_validation_mode` | `"eutl"` | EUTL, custom, or offline |
+| `remote_signing_enabled` | `false` | Enable CSC API v2 remote signing |
+| `seal_enabled` | `false` | Enable electronic seals |
 | `fips_mode_enabled` | `false` | Enable FIPS 140-2 crypto mode |
 | `fips_strict_mode` | `true` | Raise exception for non-FIPS algorithms |
 | `key_storage_path` | `""` | Path to encrypted key database |
