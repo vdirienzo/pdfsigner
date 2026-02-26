@@ -9,7 +9,7 @@ import base64
 import sqlite3
 import threading
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from loguru import logger
@@ -129,12 +129,19 @@ class MFAManager:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id TEXT NOT NULL,
                 code_hash TEXT NOT NULL,
+                salt TEXT NOT NULL DEFAULT '',
                 used INTEGER DEFAULT 0,
                 used_at TEXT,
                 FOREIGN KEY (user_id) REFERENCES mfa_secrets(user_id)
             )
         """
         )
+
+        # Migration: add salt column if missing (existing databases)
+        try:
+            cursor.execute("ALTER TABLE mfa_backup_codes ADD COLUMN salt TEXT NOT NULL DEFAULT ''")
+        except Exception:
+            pass  # Column already exists
 
         # Indexes
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_mfa_user ON mfa_secrets(user_id)")
@@ -471,19 +478,16 @@ class MFAManager:
                 logger.debug(f"MFA secret encrypted with AES-256-GCM for user {user_id}")
 
             except RuntimeError:
-                # KeyManager not initialized - fall back to base64 (not secure!)
-                logger.warning(
-                    "KeyManager not initialized - using base64 encoding for MFA secret. "
-                    "This is NOT secure! Initialize KeyManager for production use."
+                raise RuntimeError(
+                    "KeyManager not initialized. MFA enrollment requires KeyManager "
+                    "for secure secret storage. Call init_key_manager() first."
                 )
-                encoded_secret = base64.b64encode(secret.encode()).decode()
-                key_id = "base64"
 
             # Store in database
             conn = self._get_connection()
             cursor = conn.cursor()
 
-            enrolled_at = datetime.now().isoformat() if enabled else None
+            enrolled_at = datetime.now(UTC).isoformat() if enabled else None
 
             cursor.execute(
                 """
@@ -562,7 +566,7 @@ class MFAManager:
             SET enabled = 1, enrolled_at = ?
             WHERE user_id = ?
         """,
-            (datetime.now().isoformat(), user_id),
+            (datetime.now(UTC).isoformat(), user_id),
         )
         conn.commit()
         conn.close()
@@ -574,7 +578,7 @@ class MFAManager:
 
         cursor.execute(
             "UPDATE mfa_secrets SET last_used_at = ? WHERE user_id = ?",
-            (datetime.now().isoformat(), user_id),
+            (datetime.now(UTC).isoformat(), user_id),
         )
         conn.commit()
         conn.close()

@@ -9,7 +9,7 @@ import json
 import secrets
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -136,8 +136,8 @@ class KeyManager:
             raise ValueError("Master password cannot be empty")
 
         self.db_path = db_path
-        self._master_password = master_password
         self._fernet = self._init_fernet(master_password)
+        # master_password is NOT stored - Fernet key derived and password discarded
 
         # Create directory if needed
         db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -263,7 +263,7 @@ class KeyManager:
         key_id = secrets.token_urlsafe(32)
 
         # Calculate expiration
-        created_at = datetime.now()
+        created_at = datetime.now(UTC)
         expires_at = created_at + timedelta(days=expires_days) if expires_days else None
 
         # Encrypt key material
@@ -322,7 +322,7 @@ class KeyManager:
             raise KeyRevokedError(f"Key {key_id} has been revoked")
 
         # Check expiration
-        if info.expires_at and datetime.now() > info.expires_at:
+        if info.expires_at and datetime.now(UTC) > info.expires_at:
             # Auto-mark as expired
             self._update_key_status(key_id, KeyStatus.EXPIRED)
             raise KeyExpiredError(f"Key {key_id} has expired")
@@ -360,7 +360,7 @@ class KeyManager:
         # Generate new key with same properties
         expires_days = None
         if old_info.expires_at:
-            days_remaining = (old_info.expires_at - datetime.now()).days
+            days_remaining = (old_info.expires_at - datetime.now(UTC)).days
             expires_days = max(days_remaining, 30)  # At least 30 days
 
         new_key_id = self.generate_key(
@@ -371,15 +371,20 @@ class KeyManager:
             metadata={**old_info.metadata, "rotated_from": key_id},
         )
 
-        # Update rotated_from in new key
+        # Atomic update: set rotated_from and mark old key as rotated
         conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute("UPDATE keys SET rotated_from = ? WHERE key_id = ?", (key_id, new_key_id))
-        conn.commit()
-        conn.close()
-
-        # Mark old key as rotated
-        self._update_key_status(key_id, KeyStatus.ROTATED)
+        try:
+            cursor = conn.cursor()
+            cursor.execute(
+                "UPDATE keys SET rotated_from = ? WHERE key_id = ?", (key_id, new_key_id)
+            )
+            cursor.execute(
+                "UPDATE keys SET status = ? WHERE key_id = ?",
+                (KeyStatus.ROTATED.value, key_id),
+            )
+            conn.commit()
+        finally:
+            conn.close()
 
         # Emit audit event
         self._emit_audit_event("key_rotated", key_id, old_info.algorithm, new_key_id)
@@ -491,7 +496,7 @@ class KeyManager:
             "version": 1,
             "key_info": info.to_dict(),
             "key_material": key_material.hex(),
-            "exported_at": datetime.now().isoformat(),
+            "exported_at": datetime.now(UTC).isoformat(),
         }
 
         # Encrypt with export password
@@ -572,7 +577,7 @@ class KeyManager:
             encrypted_key = self._fernet.encrypt(key_material)
 
             # Store in database
-            created_at = datetime.now()
+            created_at = datetime.now(UTC)
             expires_at = (
                 datetime.fromisoformat(key_info["expires_at"])
                 if key_info.get("expires_at")
@@ -709,7 +714,7 @@ class KeyManager:
         cursor = conn.cursor()
 
         # First, mark expired keys
-        now = datetime.now().isoformat()
+        now = datetime.now(UTC).isoformat()
         cursor.execute(
             "UPDATE keys SET status = ? WHERE expires_at < ? AND status = ?",
             (KeyStatus.EXPIRED.value, now, KeyStatus.ACTIVE.value),
@@ -828,9 +833,14 @@ class KeyManager:
                 },
                 severity="info",
             )
-        except Exception:
-            # Don't fail key operations if audit logging fails
-            pass
+        except Exception as e:
+            # Log audit failure but don't fail key operations
+            import sys
+
+            print(
+                f"WARNING: Audit logging failed for key operation '{action}': {e}",
+                file=sys.stderr,
+            )
 
 
 # Singleton instance

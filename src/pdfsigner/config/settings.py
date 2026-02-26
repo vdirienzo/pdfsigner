@@ -11,7 +11,7 @@ Uses pydantic-settings to load configuration from:
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, field_validator
+from pydantic import Field, SecretStr, field_validator
 from pydantic_settings import BaseSettings, PydanticBaseSettingsSource, SettingsConfigDict
 
 # TOML config file path
@@ -429,8 +429,8 @@ class Settings(BaseSettings):
         default="",
         description="Path to encrypted key storage database (empty = ~/.config/pdfsigner/keys.db)",
     )
-    key_storage_master_password: str = Field(
-        default="",
+    key_storage_master_password: SecretStr = Field(
+        default=SecretStr(""),
         description=(
             "Master password for key encryption "
             "(should be set via PDFSIGNER_KEY_STORAGE_MASTER_PASSWORD env var)"

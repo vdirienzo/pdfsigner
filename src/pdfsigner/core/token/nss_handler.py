@@ -62,6 +62,20 @@ class NSSHandler:
         self._token: pkcs11.Token | None = None
         self._session: pkcs11.Session | None = None
 
+    def get_session(self) -> "pkcs11.Session":
+        """
+        Get the authenticated PKCS#11 session.
+
+        Returns:
+            Active PKCS#11 session
+
+        Raises:
+            RuntimeError: If no session is active (not logged in)
+        """
+        if self._session is None:
+            raise RuntimeError("No active PKCS#11 session. Call login() first.")
+        return self._session
+
     def _find_pkcs11_lib(self) -> str:
         """
         Find available PKCS#11 library.

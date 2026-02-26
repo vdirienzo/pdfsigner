@@ -146,7 +146,7 @@ class PDFSigner:
         # Use pyHanko's PKCS11Signer with our authenticated session
         # This properly handles the PKCS#11 protocol
         signer = PKCS11Signer(
-            pkcs11_session=self.nss_handler._session,
+            pkcs11_session=self.nss_handler.get_session(),
             cert_id=cert_id,
         )
 

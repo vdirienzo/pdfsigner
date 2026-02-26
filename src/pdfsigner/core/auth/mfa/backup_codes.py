@@ -2,12 +2,14 @@
 backup_codes.py - Backup code management for MFA
 
 Provides one-time use backup codes for MFA recovery.
-Codes are hashed before storage (bcrypt) for security.
+Codes are hashed before storage (PBKDF2) for security.
 """
 
 import hashlib
+import hmac
 import secrets
-from datetime import datetime
+import sqlite3
+from datetime import UTC, datetime
 
 from loguru import logger
 
@@ -17,13 +19,12 @@ class BackupCodeManager:
     Manager for MFA backup codes.
 
     Backup codes are one-time use codes for MFA recovery when TOTP is unavailable.
-    Codes are hashed before storage using SHA-256 + salt for security.
+    Codes are hashed before storage using PBKDF2-HMAC-SHA256 + random salt for security.
     """
 
     CODE_LENGTH = 8  # XXXX-XXXX format
-    HASH_ALGORITHM = "sha256"
 
-    def __init__(self, db_connection: any) -> None:
+    def __init__(self, db_connection: sqlite3.Connection) -> None:
         """
         Initialize backup code manager.
 
@@ -58,29 +59,30 @@ class BackupCodeManager:
 
         return codes
 
-    def hash_code(self, code: str) -> str:
+    def hash_code(self, code: str, salt: bytes | None = None) -> tuple[str, str]:
         """
-        Hash backup code for secure storage.
+        Hash backup code with random salt using PBKDF2.
 
         Args:
             code: Backup code to hash (e.g., "1234-5678")
+            salt: Optional salt (generated if None)
 
         Returns:
-            Hex-encoded hash string
-
-        Note:
-            Uses SHA-256 for hashing. In production, consider using bcrypt
-            or argon2 for better security against rainbow tables.
+            Tuple of (hex-encoded hash, hex-encoded salt)
         """
-        # Remove hyphen for hashing
         normalized_code = code.replace("-", "")
 
-        # Add application-specific salt
-        salted = f"pdfsigner_mfa_backup_{normalized_code}"
+        if salt is None:
+            salt = secrets.token_bytes(16)
 
-        # Hash with SHA-256
-        hash_obj = hashlib.sha256(salted.encode())
-        return hash_obj.hexdigest()
+        # Use PBKDF2 with 600k iterations (NIST 2023 recommendation)
+        hash_bytes = hashlib.pbkdf2_hmac(
+            "sha256",
+            normalized_code.encode(),
+            salt,
+            iterations=600_000,
+        )
+        return hash_bytes.hex(), salt.hex()
 
     def store_codes(self, user_id: str, codes: list[str]) -> bool:
         """
@@ -102,15 +104,15 @@ class BackupCodeManager:
             # Delete existing backup codes
             cursor.execute("DELETE FROM mfa_backup_codes WHERE user_id = ?", (user_id,))
 
-            # Insert new codes
+            # Insert new codes with per-code salt
             for code in codes:
-                code_hash = self.hash_code(code)
+                code_hash, salt = self.hash_code(code)
                 cursor.execute(
                     """
-                    INSERT INTO mfa_backup_codes (user_id, code_hash, used, used_at)
-                    VALUES (?, ?, 0, NULL)
+                    INSERT INTO mfa_backup_codes (user_id, code_hash, salt, used, used_at)
+                    VALUES (?, ?, ?, 0, NULL)
                 """,
-                    (user_id, code_hash),
+                    (user_id, code_hash, salt),
                 )
 
             self.db.commit()
@@ -137,37 +139,50 @@ class BackupCodeManager:
             Code is marked as used after successful verification (one-time use).
         """
         try:
-            code_hash = self.hash_code(code)
             cursor = self.db.cursor()
 
-            # Check if code exists and is not used
+            # Get all unused codes with their salts
             cursor.execute(
                 """
-                SELECT id FROM mfa_backup_codes
-                WHERE user_id = ? AND code_hash = ? AND used = 0
+                SELECT id, code_hash, salt FROM mfa_backup_codes
+                WHERE user_id = ? AND used = 0
             """,
-                (user_id, code_hash),
+                (user_id,),
             )
-            row = cursor.fetchone()
+            rows = cursor.fetchall()
 
-            if not row:
-                logger.warning(f"Invalid or already used backup code for user {user_id}")
+            if not rows:
+                logger.warning(f"No unused backup codes for user {user_id}")
                 return False
 
-            # Mark as used
-            backup_id = row[0]
-            cursor.execute(
-                """
-                UPDATE mfa_backup_codes
-                SET used = 1, used_at = ?
-                WHERE id = ?
-            """,
-                (datetime.now().isoformat(), backup_id),
-            )
-            self.db.commit()
+            # Check each code (timing-safe comparison)
+            normalized_code = code.replace("-", "")
+            for row in rows:
+                backup_id, stored_hash, stored_salt = row
+                salt = bytes.fromhex(stored_salt)
+                computed_hash = hashlib.pbkdf2_hmac(
+                    "sha256",
+                    normalized_code.encode(),
+                    salt,
+                    iterations=600_000,
+                ).hex()
 
-            logger.info(f"Backup code verified and consumed for user {user_id}")
-            return True
+                if hmac.compare_digest(computed_hash, stored_hash):
+                    # Mark as used
+                    cursor.execute(
+                        """
+                        UPDATE mfa_backup_codes
+                        SET used = 1, used_at = ?
+                        WHERE id = ?
+                    """,
+                        (datetime.now(UTC).isoformat(), backup_id),
+                    )
+                    self.db.commit()
+                    logger.info(f"Backup code verified and consumed for user {user_id}")
+                    return True
+
+            logger.warning(f"Invalid backup code for user {user_id}")
+            return False
 
         except Exception as e:
             logger.error(f"Failed to verify backup code for user {user_id}: {e}")

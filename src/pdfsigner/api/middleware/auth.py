@@ -222,8 +222,9 @@ async def get_current_user(
             f"User '{token_data.username}' authenticated via JWT but not found in repository"
         )
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"User '{token_data.username}' not found in system",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentication failed",
+            headers={"WWW-Authenticate": "Bearer"},
         )
     else:
         # Healthcare mode disabled: create mock user from token data
@@ -484,18 +485,22 @@ async def get_current_user_or_api_key(
         HTTPException: 401 if neither auth method succeeds
     """
     # Try JWT first
+    jwt_error = None
     if jwt_credentials is not None:
         try:
             return await get_current_user(jwt_credentials)
-        except HTTPException:
-            pass  # Fall through to API key
+        except HTTPException as e:
+            jwt_error = e
+            logger.warning(f"JWT auth failed (falling back to API key): {e.detail}")
 
     # Try API key
+    api_key_error = None
     if api_key is not None:
         try:
             return await verify_api_key(api_key)
-        except HTTPException:
-            pass  # Fall through to error
+        except HTTPException as e:
+            api_key_error = e
+            logger.warning(f"API key auth failed: {e.detail}")
 
     # Neither auth method worked
     raise HTTPException(

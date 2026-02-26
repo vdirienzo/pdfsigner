@@ -8,6 +8,7 @@ import sqlite3
 import tempfile
 from datetime import datetime
 from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
@@ -15,6 +16,17 @@ from fastapi.testclient import TestClient
 from pdfsigner.api.main import app
 from pdfsigner.core.auth.mfa import BackupCodeManager, MFAManager, TOTPProvider
 from pdfsigner.core.auth.mfa.totp_provider import TOTPConfig
+
+
+def _create_mock_key_manager():
+    """Create a mock KeyManager that encrypts/decrypts with base64."""
+    import base64
+
+    mock_km = MagicMock()
+    mock_km.get_or_create_mfa_key.return_value = "test-mfa-key"
+    mock_km.encrypt_data.side_effect = lambda _key_id, data: base64.b64encode(data)
+    mock_km.decrypt_data.side_effect = lambda _key_id, data: base64.b64decode(data)
+    return mock_km
 
 
 @pytest.fixture
@@ -28,8 +40,14 @@ def temp_db():
 
 @pytest.fixture
 def mfa_manager(temp_db):
-    """Create MFA manager with temporary database."""
-    return MFAManager(temp_db)
+    """Create MFA manager with mocked KeyManager for testing."""
+    mock_km = _create_mock_key_manager()
+    with patch(
+        "pdfsigner.core.crypto.key_manager.get_key_manager",
+        return_value=mock_km,
+    ):
+        manager = MFAManager(temp_db)
+        yield manager
 
 
 @pytest.fixture
@@ -42,7 +60,7 @@ def totp_provider():
 def backup_manager(temp_db):
     """Create backup code manager."""
     conn = sqlite3.connect(temp_db)
-    # Initialize schema
+    # Initialize schema (includes salt column for PBKDF2)
     cursor = conn.cursor()
     cursor.execute(
         """
@@ -50,6 +68,7 @@ def backup_manager(temp_db):
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             user_id TEXT NOT NULL,
             code_hash TEXT NOT NULL,
+            salt TEXT NOT NULL DEFAULT '',
             used INTEGER DEFAULT 0,
             used_at TEXT
         )
@@ -178,13 +197,23 @@ def test_backup_generate_codes(backup_manager):
 
 
 def test_backup_hash_code(backup_manager):
-    """Test backup code hashing."""
+    """Test backup code hashing with PBKDF2 + random salt."""
     code = "1234-5678"
-    hash1 = backup_manager.hash_code(code)
-    hash2 = backup_manager.hash_code(code)
+    hash1, salt1 = backup_manager.hash_code(code)
+    hash2, salt2 = backup_manager.hash_code(code)
 
-    assert hash1 == hash2  # Deterministic
-    assert len(hash1) == 64  # SHA-256 hex
+    # Different salts produce different hashes
+    assert salt1 != salt2
+    assert hash1 != hash2
+
+    # Same salt produces same hash (deterministic given same salt)
+    salt_bytes = bytes.fromhex(salt1)
+    hash3, salt3 = backup_manager.hash_code(code, salt=salt_bytes)
+    assert hash3 == hash1
+    assert salt3 == salt1
+
+    # Hash is SHA-256 hex (64 chars)
+    assert len(hash1) == 64
 
 
 def test_backup_store_codes(backup_manager):

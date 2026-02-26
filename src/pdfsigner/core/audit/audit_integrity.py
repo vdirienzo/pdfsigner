@@ -8,7 +8,10 @@ HIPAA compliance: §164.312(b) - Audit controls
 import hashlib
 import hmac
 import json
-from datetime import datetime
+import os
+import secrets as _secrets
+import threading
+from datetime import UTC, datetime
 from pathlib import Path
 
 from pdfsigner.core.audit.audit_event import AuditEvent
@@ -29,7 +32,7 @@ class AuditIntegrityManager:
         Initialize integrity manager.
 
         Args:
-            secret_key: HMAC secret key. If None, generates from machine ID.
+            secret_key: HMAC secret key. If None, loads/generates persistent random secret.
         """
         self._secret_key = secret_key or self._get_default_secret()
         self._last_hash: str | None = None
@@ -145,7 +148,7 @@ class AuditIntegrityManager:
         """
         report = {
             "file": str(file_path),
-            "verified_at": datetime.now().isoformat(),
+            "verified_at": datetime.now(UTC).isoformat(),
             "total_records": 0,
             "valid_records": 0,
             "invalid_records": 0,
@@ -225,15 +228,21 @@ class AuditIntegrityManager:
         return hmac.new(self._secret_key, data.encode(), hashlib.sha256).hexdigest()
 
     def _get_default_secret(self) -> bytes:
-        """Generate default secret from machine-specific data."""
-        import socket
-        import uuid
+        """Load or generate a persistent random HMAC secret."""
+        secret_path = Path.home() / ".config" / "pdfsigner" / ".audit_hmac_key"
 
-        # Combine machine-specific identifiers
-        machine_id = f"{socket.gethostname()}-{uuid.getnode()}"
+        if secret_path.exists():
+            return secret_path.read_bytes()
 
-        # Derive key using SHA-256
-        return hashlib.sha256(machine_id.encode()).digest()
+        # Generate cryptographically secure random secret
+        secret = _secrets.token_bytes(32)
+
+        # Persist with restricted permissions
+        secret_path.parent.mkdir(parents=True, exist_ok=True)
+        secret_path.write_bytes(secret)
+        os.chmod(secret_path, 0o600)
+
+        return secret
 
     def set_last_hash(self, hash_value: str | None) -> None:
         """Set the last hash for chain continuation."""
@@ -244,15 +253,18 @@ class AuditIntegrityManager:
         return self._last_hash
 
 
-# Singleton instance
+# Thread-safe singleton
+_integrity_lock = threading.Lock()
 _integrity_manager: AuditIntegrityManager | None = None
 
 
 def get_audit_integrity_manager() -> AuditIntegrityManager:
-    """Get singleton integrity manager."""
+    """Get singleton integrity manager (thread-safe)."""
     global _integrity_manager
     if _integrity_manager is None:
-        _integrity_manager = AuditIntegrityManager()
+        with _integrity_lock:
+            if _integrity_manager is None:
+                _integrity_manager = AuditIntegrityManager()
     return _integrity_manager
 
 
