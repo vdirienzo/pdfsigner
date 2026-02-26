@@ -650,6 +650,14 @@ class Settings(BaseSettings):
         default="",
         description="Directory for EUTL cache files (empty = default cache dir)",
     )
+    eidas_prefer_qualified_tsa: bool = Field(
+        default=True,
+        description="Auto-select qualified TSA from EUTL for timestamping (requires eidas_enabled)",
+    )
+    eidas_preferred_tsa_country: str = Field(
+        default="",
+        description="Prefer TSAs from this ISO 3166-1 alpha-2 country code (e.g., 'DE', 'FR')",
+    )
 
     # --- Argentina Compliance (Ley 25.506) ---
     argentine_compliance_enabled: bool = Field(

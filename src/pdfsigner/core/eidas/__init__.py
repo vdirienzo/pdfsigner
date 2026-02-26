@@ -33,6 +33,13 @@ from pdfsigner.core.eidas.pdf_signature_extractor import (
     PDFSignatureExtractor,
     get_signature_extractor,
 )
+from pdfsigner.core.eidas.qualified_tsa_selector import (
+    QualifiedTSA,
+    TSASelectionResult,
+    get_qualified_tsa_urls,
+    get_qualified_tsas_from_registry,
+    select_best_tsa,
+)
 from pdfsigner.core.eidas.qualified_validator import (
     QESValidationResult,
     QualifiedSignatureValidator,
@@ -100,6 +107,12 @@ __all__ = [
     "TSLServiceType",
     "ServiceInfo",
     "TSLTSPInfo",
+    # Qualified TSA Selector
+    "QualifiedTSA",
+    "TSASelectionResult",
+    "get_qualified_tsas_from_registry",
+    "select_best_tsa",
+    "get_qualified_tsa_urls",
     # Signature Extractor
     "PDFSignatureExtractor",
     "ExtractedSignature",

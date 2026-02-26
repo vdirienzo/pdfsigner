@@ -33,7 +33,9 @@ class PendingPDF:
     """PDF that needs a new archive timestamp."""
 
     pdf_path: Path
-    reason: str  # "no_timestamp", "expired", "weak_algorithm", "not_found"
+    # Reason: "no_timestamp", "expired", "weak_algorithm",
+    # "algorithm_approaching_deprecation", "not_found"
+    reason: str
 
 
 class ArchiveTSScheduler:
@@ -254,6 +256,16 @@ class ArchiveTSScheduler:
                     logger.debug(f"PDF needs archive timestamp: {pdf_path.name} ({reason})")
                     pending.append(PendingPDF(pdf_path=pdf_path, reason=reason))
 
+                else:
+                    # Even if no re-timestamp is needed yet, check SOGIS
+                    # deprecation timeline for proactive alerts
+                    reason = self._check_deprecation_reason(manager, pdf_path)
+                    if reason:
+                        logger.debug(
+                            f"PDF approaching algorithm deprecation: {pdf_path.name} ({reason})"
+                        )
+                        pending.append(PendingPDF(pdf_path=pdf_path, reason=reason))
+
             except Exception as e:
                 logger.error(f"Error checking {pdf_path.name}: {e}")
                 # Don't add to pending if we can't determine status
@@ -400,3 +412,140 @@ class ArchiveTSScheduler:
                 conn.commit()
             finally:
                 conn.close()
+
+    def _check_deprecation_reason(
+        self,
+        manager: ArchiveTimestampManager,
+        pdf_path: Path,
+    ) -> str | None:
+        """Check if a PDF's signatures use algorithms approaching SOGIS deprecation.
+
+        Inspects archive timestamps for hash algorithm deprecation and
+        attempts to read the signature's key size to detect RSA-2048
+        deprecation (expired 2025-12-31 per SOGIS v1.3).
+
+        Args:
+            manager: ArchiveTimestampManager instance for reading timestamps.
+            pdf_path: Path to the PDF to check.
+
+        Returns:
+            ``"algorithm_approaching_deprecation"`` if any algorithm is
+            within 365 days of deprecation or already deprecated,
+            otherwise ``None``.
+        """
+        from pdfsigner.core.crypto.algorithm_policy import check_algorithm_deprecation
+
+        try:
+            timestamps = manager.get_archive_timestamps(pdf_path)
+
+            # Check timestamp hash algorithms for deprecation
+            for ts in timestamps:
+                hash_alg = ts.hash_algorithm.lower()
+                # Use a default RSA-2048 assumption for timestamp-only checks
+                warnings = check_algorithm_deprecation(
+                    hash_alg=hash_alg,
+                    sig_alg="rsa",
+                    key_size=2048,
+                )
+                for w in warnings:
+                    if w.severity in ("critical", "warning"):
+                        logger.info(
+                            "Algorithm deprecation detected in %s: %s",
+                            pdf_path.name,
+                            w.message,
+                        )
+                        return "algorithm_approaching_deprecation"
+
+            # Try to inspect signature fields for RSA key size
+            from pyhanko.pdf_utils.reader import PdfFileReader
+
+            with open(pdf_path, "rb") as f:
+                reader = PdfFileReader(f, strict=False)
+
+                if "/AcroForm" not in reader.root:
+                    return None
+
+                acro_form = reader.root["/AcroForm"]
+                if "/Fields" not in acro_form:
+                    return None
+
+                for field_ref in acro_form["/Fields"]:
+                    field_obj = field_ref.get_object()
+                    if field_obj.get("/FT") != "/Sig":
+                        continue
+
+                    sig_value = field_obj.get("/V")
+                    if sig_value is None:
+                        continue
+
+                    sig_dict = (
+                        sig_value.get_object() if hasattr(sig_value, "get_object") else sig_value
+                    )
+
+                    # Only check actual signatures (not timestamps)
+                    subfilter = sig_dict.get("/SubFilter")
+                    if subfilter in ("/ETSI.RFC3161", "/adbe.x509.rfc3161"):
+                        continue
+
+                    # Try to extract certificate and check key size
+                    contents = sig_dict.get("/Contents")
+                    if not contents:
+                        continue
+
+                    try:
+                        from asn1crypto import cms
+
+                        content_info = cms.ContentInfo.load(contents)
+                        signed_data = content_info["content"]
+                        certs = signed_data["certificates"]
+
+                        for cert_choice in certs:
+                            cert = cert_choice.chosen
+                            pub_key_info = cert["tbs_certificate"]["subject_public_key_info"]
+                            alg_oid = pub_key_info["algorithm"]["algorithm"].native
+
+                            key_size = 0
+                            if alg_oid == "rsa":
+                                # RSA key size from public key bit string
+                                key_bits = pub_key_info["public_key"].parsed
+                                if key_bits is not None:
+                                    modulus = key_bits["modulus"].native
+                                    key_size = modulus.bit_length()
+
+                            sig_hash = cert["tbs_certificate"]["signature"]["algorithm"].native
+                            # Map OID name to hash
+                            hash_name = "sha256"  # default
+                            if "sha384" in str(sig_hash):
+                                hash_name = "sha384"
+                            elif "sha512" in str(sig_hash):
+                                hash_name = "sha512"
+                            elif "sha1" in str(sig_hash):
+                                hash_name = "sha1"
+
+                            if key_size > 0:
+                                warnings = check_algorithm_deprecation(
+                                    hash_alg=hash_name,
+                                    sig_alg="rsa",
+                                    key_size=key_size,
+                                )
+                                for w in warnings:
+                                    if w.severity in ("critical", "warning"):
+                                        logger.info(
+                                            "Algorithm deprecation in %s: %s",
+                                            pdf_path.name,
+                                            w.message,
+                                        )
+                                        return "algorithm_approaching_deprecation"
+
+                    except Exception as e:
+                        logger.debug(
+                            "Could not parse signature cert in %s: %s",
+                            pdf_path.name,
+                            e,
+                        )
+                        continue
+
+        except Exception as e:
+            logger.debug("Deprecation check failed for %s: %s", pdf_path.name, e)
+
+        return None

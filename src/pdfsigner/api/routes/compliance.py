@@ -300,10 +300,10 @@ async def download_compliance_report(
 
     Currently supports:
     - HIPAA: Health Insurance Portability and Accountability Act
+    - eIDAS: Electronic Identification, Authentication and Trust Services (EU 910/2014)
 
     Future standards may include:
     - NIST 800-53: Security and Privacy Controls
-    - eIDAS: Electronic Identification, Authentication and Trust Services
     - GDPR: General Data Protection Regulation
     """,
 )
@@ -321,9 +321,7 @@ async def list_available_standards(
     Returns:
         List of available standards
     """
-    # For now, only HIPAA is implemented
-    # Future: add NIST, eIDAS, GDPR
-    return AvailableStandardsResponse(standards=["HIPAA"])
+    return AvailableStandardsResponse(standards=["HIPAA", "eIDAS"])
 
 
 __all__ = ["router"]

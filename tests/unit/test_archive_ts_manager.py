@@ -243,11 +243,12 @@ class TestArchiveTimestampManager:
 
         with patch("builtins.open", create=True):
             with patch.object(manager, "_parse_timestamp_token") as mock_parse:
-                mock_parse.return_value = {
-                    "timestamp": datetime(2024, 1, 1, 12, 0, 0),
-                    "tsa_url": "https://tsa.example.com",
-                    "hash_algorithm": "sha256",
-                }
+                mock_parse.return_value = ArchiveTimestampInfo(
+                    timestamp=datetime(2024, 1, 1, 12, 0, 0),
+                    tsa_url="https://tsa.example.com",
+                    hash_algorithm="sha256",
+                    covers_dss=False,
+                )
 
                 result = manager.get_archive_timestamps(mock_pdf_path)
 
@@ -479,15 +480,16 @@ class TestArchiveTimestampManager:
         assert result_5y is True
         assert result_10y is False
 
-    def test_parse_timestamp_token_placeholder(self, manager):
-        """Test _parse_timestamp_token returns placeholder data."""
+    def test_parse_timestamp_token_returns_archive_info(self, manager):
+        """Test _parse_timestamp_token returns ArchiveTimestampInfo on invalid input."""
+        # Invalid bytes should trigger fallback with sensible defaults
         result = manager._parse_timestamp_token(b"mock_token_bytes")
 
-        assert "timestamp" in result
-        assert "tsa_url" in result
-        assert "hash_algorithm" in result
-        assert isinstance(result["timestamp"], datetime)
-        assert result["hash_algorithm"] == "sha256"
+        assert isinstance(result, ArchiveTimestampInfo)
+        assert isinstance(result.timestamp, datetime)
+        assert isinstance(result.hash_algorithm, str)
+        # Fallback returns "unknown" for unparseable tokens
+        assert result.hash_algorithm == "unknown"
 
     def test_manager_timeout_stored(self, manager):
         """Test manager stores timeout value."""

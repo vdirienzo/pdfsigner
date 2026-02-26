@@ -14,9 +14,30 @@ Algorithm requirements:
 
 import logging
 from dataclasses import dataclass
+from datetime import date
 from enum import Enum
 
 logger = logging.getLogger(__name__)
+
+# ---------------------------------------------------------------------------
+# SOGIS v1.3 deprecation timeline (official dates)
+# ---------------------------------------------------------------------------
+
+RSA_DEPRECATION: dict[str, date | None] = {
+    "rsa_1024": date(2013, 12, 31),  # Long expired
+    "rsa_2048": date(2025, 12, 31),  # EXPIRED per SOGIS v1.3
+    "rsa_3072": None,  # No expiry date
+    "rsa_4096": None,  # No expiry date
+}
+
+HASH_DEPRECATION: dict[str, date | None] = {
+    "md5": date(2009, 12, 31),  # Long expired
+    "sha1": date(2016, 12, 31),  # Expired for creation
+    "sha224": date(2025, 12, 31),  # Legacy
+    "sha256": None,  # No expiry date
+    "sha384": None,  # No expiry date
+    "sha512": None,  # No expiry date
+}
 
 
 class AlgorithmStrength(str, Enum):
@@ -171,3 +192,172 @@ def assess_algorithm(
         issues=issues,
         recommendations=recommendations,
     )
+
+
+# ---------------------------------------------------------------------------
+# SOGIS Deprecation Detection
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class AlgorithmDeprecationWarning:
+    """Warning about an algorithm approaching or past deprecation."""
+
+    algorithm: str
+    key_size: int | None
+    deprecation_date: date | None
+    is_deprecated: bool
+    days_until_deprecation: int | None  # None if no date, negative if past
+    severity: str  # "critical", "warning", "info"
+    message: str
+    recommendation: str
+
+
+def _rsa_deprecation_key(key_size: int) -> str:
+    """Map RSA key size to its deprecation lookup key."""
+    if key_size <= 1024:
+        return "rsa_1024"
+    elif key_size <= 2048:
+        return "rsa_2048"
+    elif key_size <= 3072:
+        return "rsa_3072"
+    else:
+        return "rsa_4096"
+
+
+def _classify_severity(
+    dep_date: date | None,
+    today: date,
+) -> tuple[str, bool, int | None]:
+    """Classify severity based on deprecation date distance.
+
+    Returns:
+        Tuple of (severity, is_deprecated, days_until_deprecation).
+    """
+    if dep_date is None:
+        return "info", False, None
+
+    delta_days = (dep_date - today).days
+
+    if delta_days < 0:
+        return "critical", True, delta_days
+    elif delta_days <= 365:
+        return "warning", False, delta_days
+    else:
+        return "info", False, delta_days
+
+
+def check_algorithm_deprecation(
+    hash_alg: str,
+    sig_alg: str,
+    key_size: int,
+    reference_date: date | None = None,
+) -> list[AlgorithmDeprecationWarning]:
+    """Check algorithms against SOGIS v1.3 deprecation timeline.
+
+    Args:
+        hash_alg: Hash algorithm name (e.g., "sha256", "sha1")
+        sig_alg: Signature algorithm (e.g., "rsa", "ecdsa", "eddsa")
+        key_size: Key size in bits
+        reference_date: Date to check against (default: today)
+
+    Returns:
+        List of deprecation warnings, ordered by severity
+        (critical first, then warning, then info).
+    """
+    today = reference_date or date.today()
+    warnings: list[AlgorithmDeprecationWarning] = []
+
+    severity_order = {"critical": 0, "warning": 1, "info": 2}
+
+    # Check hash algorithm deprecation
+    hash_lower = hash_alg.lower().replace("-", "")
+    hash_dep_date = HASH_DEPRECATION.get(hash_lower)
+
+    # Only generate a warning if the algorithm has a deprecation date
+    # (algorithms with None are considered safe indefinitely)
+    if hash_dep_date is not None:
+        severity, is_deprecated, days = _classify_severity(hash_dep_date, today)
+        if is_deprecated:
+            msg = (
+                f"Hash algorithm {hash_alg} deprecated since "
+                f"{hash_dep_date.isoformat()} (SOGIS v1.3)"
+            )
+            rec = "Migrate to SHA-256 or stronger and re-timestamp"
+        elif days is not None and days <= 365:
+            msg = (
+                f"Hash algorithm {hash_alg} will be deprecated on "
+                f"{hash_dep_date.isoformat()} ({days} days remaining)"
+            )
+            rec = "Plan migration to SHA-256 or stronger before deprecation"
+        else:
+            msg = (
+                f"Hash algorithm {hash_alg} scheduled for deprecation on "
+                f"{hash_dep_date.isoformat()}"
+            )
+            rec = "No immediate action needed"
+
+        warnings.append(
+            AlgorithmDeprecationWarning(
+                algorithm=hash_alg,
+                key_size=None,
+                deprecation_date=hash_dep_date,
+                is_deprecated=is_deprecated,
+                days_until_deprecation=days,
+                severity=severity,
+                message=msg,
+                recommendation=rec,
+            )
+        )
+    elif hash_lower not in HASH_DEPRECATION:
+        # Unknown hash algorithm - warn
+        warnings.append(
+            AlgorithmDeprecationWarning(
+                algorithm=hash_alg,
+                key_size=None,
+                deprecation_date=None,
+                is_deprecated=False,
+                days_until_deprecation=None,
+                severity="warning",
+                message=f"Unknown hash algorithm: {hash_alg}",
+                recommendation="Verify algorithm is approved per SOGIS v1.3",
+            )
+        )
+
+    # Check RSA key size deprecation
+    sig_lower = sig_alg.lower()
+    if "rsa" in sig_lower:
+        rsa_key = _rsa_deprecation_key(key_size)
+        rsa_dep_date = RSA_DEPRECATION.get(rsa_key)
+
+        if rsa_dep_date is not None:
+            severity, is_deprecated, days = _classify_severity(rsa_dep_date, today)
+            if is_deprecated:
+                msg = f"RSA-{key_size} deprecated since {rsa_dep_date.isoformat()} (SOGIS v1.3)"
+                rec = "Migrate to RSA-3072+ or ECDSA P-256+ and re-timestamp"
+            elif days is not None and days <= 365:
+                msg = (
+                    f"RSA-{key_size} will be deprecated on "
+                    f"{rsa_dep_date.isoformat()} ({days} days remaining)"
+                )
+                rec = "Plan migration to RSA-3072+ or ECDSA P-256+ before deprecation"
+            else:
+                msg = f"RSA-{key_size} scheduled for deprecation on {rsa_dep_date.isoformat()}"
+                rec = "No immediate action needed"
+
+            warnings.append(
+                AlgorithmDeprecationWarning(
+                    algorithm=sig_alg,
+                    key_size=key_size,
+                    deprecation_date=rsa_dep_date,
+                    is_deprecated=is_deprecated,
+                    days_until_deprecation=days,
+                    severity=severity,
+                    message=msg,
+                    recommendation=rec,
+                )
+            )
+
+    # Sort by severity: critical > warning > info
+    warnings.sort(key=lambda w: severity_order.get(w.severity, 3))
+    return warnings

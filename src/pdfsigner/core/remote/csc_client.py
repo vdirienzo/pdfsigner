@@ -331,6 +331,88 @@ class CSCClient:
             },
         )
 
+    # --- Batch Signing ---
+
+    def sign_batch(
+        self,
+        credential_id: str,
+        sad: str,
+        hashes: list[str],
+        sign_algo: str = CSCSignAlgo.RSA_SHA256.value,
+    ) -> list[str]:
+        """Sign multiple hashes in a single batch operation.
+
+        Uses CSC API v2 batch signing: one authorization (PIN/OTP)
+        for multiple document hashes. The number of hashes must not
+        exceed the credential's ``multisign`` limit.
+
+        Args:
+            credential_id: ID of the credential
+            sad: Signature Activation Data (valid for N signatures)
+            hashes: List of Base64-encoded hash values
+            sign_algo: Signature algorithm OID
+
+        Returns:
+            List of Base64-encoded signatures (same order as hashes)
+
+        Raises:
+            CSCError: If signing fails or batch limit exceeded
+        """
+        result = self.sign_hash(credential_id, sad, hashes, sign_algo)
+        return result.signatures
+
+    def authorize_and_sign_batch(
+        self,
+        credential_id: str,
+        hashes: list[str],
+        sign_algo: str = CSCSignAlgo.RSA_SHA256.value,
+        pin: str | None = None,
+        otp: str | None = None,
+    ) -> list[str]:
+        """Complete batch signing flow: authorize once, sign N hashes.
+
+        Combines credential authorization and batch hash signing into
+        a single operation. The user provides PIN/OTP once for all
+        documents.
+
+        Args:
+            credential_id: Credential to use
+            hashes: List of Base64-encoded document hashes
+            sign_algo: Signature algorithm OID
+            pin: User PIN (if required by QTSP)
+            otp: One-time password (if required by QTSP)
+
+        Returns:
+            List of Base64-encoded signatures
+        """
+        # 1. Authorize for N signatures
+        auth = self.authorize_credential(
+            credential_id=credential_id,
+            num_signatures=len(hashes),
+            pin=pin,
+            otp=otp,
+        )
+
+        if not auth.sad:
+            raise CSCError("Authorization failed: no SAD received")
+
+        # 2. Sign all hashes with single SAD
+        return self.sign_batch(
+            credential_id=credential_id,
+            sad=auth.sad,
+            hashes=hashes,
+            sign_algo=sign_algo,
+        )
+
+    def get_batch_limit(self, credential_id: str) -> int:
+        """Get maximum batch size for a credential.
+
+        Returns:
+            Maximum number of signatures per authorization (multisign value)
+        """
+        info = self.get_credential_info(credential_id)
+        return info.multisign
+
 
 class CSCError(Exception):
     """CSC API error."""

@@ -1,5 +1,7 @@
 """Archive Timestamp manager for PAdES-LTA signatures."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -166,17 +168,14 @@ class ArchiveTimestampManager:
                         # Get timestamp token
                         contents = sig_dict.get("/Contents")
                         if contents:
-                            # Parse timestamp to get date and algorithm
-                            # This is a simplified version - full parsing would require ASN.1
                             ts_info = self._parse_timestamp_token(contents)
-                            timestamps.append(
-                                ArchiveTimestampInfo(
-                                    timestamp=ts_info.get("timestamp", datetime.now()),
-                                    tsa_url=ts_info.get("tsa_url"),
-                                    hash_algorithm=ts_info.get("hash_algorithm", "sha256"),
-                                    covers_dss=has_dss,
-                                )
+                            ts_info = ArchiveTimestampInfo(
+                                timestamp=ts_info.timestamp,
+                                tsa_url=ts_info.tsa_url,
+                                hash_algorithm=ts_info.hash_algorithm,
+                                covers_dss=has_dss,
                             )
+                            timestamps.append(ts_info)
 
                     except Exception as e:
                         logger.warning(f"Failed to parse timestamp: {e}")
@@ -247,23 +246,72 @@ class ArchiveTimestampManager:
             # Conservative: assume timestamp is needed if we can't determine status
             return True
 
-    def _parse_timestamp_token(self, contents: bytes) -> dict:
-        """
-        Parse timestamp token to extract information.
+    def _parse_timestamp_token(self, token_bytes: bytes) -> ArchiveTimestampInfo:
+        """Parse RFC 3161 timestamp token from DER bytes.
 
-        This is a simplified parser. Full implementation would use
-        pyasn1 or cryptography library to parse RFC 3161 timestamp tokens.
+        Extracts timestamp, hash algorithm, and TSA name from a
+        TimeStampToken per RFC 3161 / IETF RFC 5652 (CMS).
+
+        Uses ``asn1crypto`` for inner ASN.1 parsing of the TSTInfo
+        structure, since the ``cryptography`` library does not expose
+        TSTInfo fields directly.
 
         Args:
-            contents: Raw timestamp token bytes
+            token_bytes: Raw DER-encoded timestamp token bytes.
 
         Returns:
-            Dict with timestamp, tsa_url, and hash_algorithm
+            ArchiveTimestampInfo with parsed data.
         """
-        # Placeholder implementation
-        # In production, this would parse the ASN.1 structure
-        return {
-            "timestamp": datetime.now(),
-            "tsa_url": None,
-            "hash_algorithm": "sha256",
-        }
+        from datetime import UTC
+
+        from asn1crypto import cms, tsp
+
+        try:
+            # The token is a CMS ContentInfo wrapping a SignedData
+            content_info = cms.ContentInfo.load(token_bytes)
+            signed_data = content_info["content"]
+
+            # The TSTInfo is inside the encapsulated content
+            encap_content = signed_data["encap_content_info"]
+            tst_info = tsp.TSTInfo.load(encap_content["content"].native)
+
+            # Extract generation time
+            gen_time: datetime = tst_info["gen_time"].native
+            if gen_time.tzinfo is None:
+                gen_time = gen_time.replace(tzinfo=UTC)
+
+            # Extract hash algorithm from MessageImprint
+            msg_imprint = tst_info["message_imprint"]
+            hash_oid = msg_imprint["hash_algorithm"]["algorithm"].native
+            # asn1crypto returns human-readable names like 'sha256'
+            hash_algorithm = str(hash_oid) if hash_oid else "unknown"
+
+            # Try to extract TSA name from signer certificate
+            tsa_name: str | None = None
+            try:
+                signer_infos = signed_data["signer_infos"]
+                if signer_infos and len(signer_infos) > 0:
+                    # Try to get TSA name from the signer's issuer
+                    sid = signer_infos[0]["sid"]
+                    if sid.name == "issuer_and_serial_number":
+                        issuer = sid.chosen["issuer"]
+                        tsa_name = issuer.human_friendly
+            except Exception:
+                # TSA name extraction is best-effort
+                pass
+
+            return ArchiveTimestampInfo(
+                timestamp=gen_time,
+                tsa_url=tsa_name,
+                hash_algorithm=hash_algorithm,
+                covers_dss=False,
+            )
+
+        except Exception as e:
+            logger.warning("Failed to parse timestamp token: %s", e)
+            return ArchiveTimestampInfo(
+                timestamp=datetime.now(UTC),
+                hash_algorithm="unknown",
+                tsa_url="",
+                covers_dss=False,
+            )

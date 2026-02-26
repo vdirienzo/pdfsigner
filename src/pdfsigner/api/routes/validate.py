@@ -354,6 +354,105 @@ async def validate_batch(
             cleanup_temp_files(temp_paths)
 
 
+@router.post(
+    "/eidas",
+    response_model=dict,
+    summary="Validate PDF with eIDAS report",
+    description="""
+    Validate PDF signatures with eIDAS qualification detection.
+
+    Returns a structured validation report per ETSI TS 119 102-2
+    including eIDAS qualification level (QES/AdES-QC/AdES/Basic),
+    algorithm strength assessment, and revocation freshness.
+
+    Report fields include:
+    - **MainIndication**: TOTAL_PASSED, TOTAL_FAILED, INDETERMINATE
+    - **SubIndication**: Detailed failure reason (FORMAT_FAILURE, REVOKED, etc.)
+    - **SignatureQuality**: QES, AdES-QC, AdES, Basic
+    - **AlgorithmAssessment**: SOGIS strength (strong/acceptable/legacy/weak)
+    - **RevocationStatus**: OCSP/CRL result with CIR 2025/1945 freshness check
+    - **TrustServiceProvider**: Qualified TSP info from EUTL
+
+    **Authentication:** Requires JWT token or API key.
+    """,
+    responses={
+        200: {
+            "description": "eIDAS validation report generated",
+            "content": {
+                "application/json": {
+                    "example": {
+                        "report_version": "1.0",
+                        "standard": "ETSI TS 119 102-2 V1.4.1",
+                        "overall": {
+                            "main_indication": "TOTAL-PASSED",
+                            "sub_indication": None,
+                            "eidas_level": "QES",
+                        },
+                    }
+                }
+            },
+        },
+        400: {"description": "Invalid file or file not provided"},
+        401: {"description": "Authentication required"},
+        500: {"description": "Internal server error"},
+    },
+)
+async def validate_eidas(
+    file: UploadFile = File(..., description="PDF file to validate"),
+    current_user: User = Depends(get_current_user_or_api_key),
+    _perm: None = Depends(check_permission(Permission.VALIDATE)),
+) -> dict:
+    """
+    Validate PDF signatures with eIDAS qualification detection.
+
+    Generates a structured validation report per ETSI TS 119 102-2
+    including eIDAS qualification level (QES/AdES-QC/AdES/Basic),
+    algorithm strength assessment, and revocation freshness.
+
+    Args:
+        file: Uploaded PDF file to validate
+        current_user: Authenticated user (from JWT or API key)
+
+    Returns:
+        eIDAS validation report dictionary
+
+    Raises:
+        HTTPException: 400 if file is invalid, 500 if validation fails
+    """
+    from pdfsigner.core.validator.pdf_validator import PDFValidator
+    from pdfsigner.core.validator.validation_report import generate_eidas_report
+
+    temp_path: Path | None = None
+
+    try:
+        temp_path = await save_upload_to_temp(file)
+
+        logger.info(f"User '{current_user.username}' eIDAS validating: {file.filename}")
+
+        validator = PDFValidator()
+        validation_result = validator.validate(temp_path)
+
+        report = generate_eidas_report(validation_result, temp_path)
+
+        # Use original filename in report
+        report["document"]["filename"] = file.filename or "unknown.pdf"
+
+        return report
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"eIDAS validation failed: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"eIDAS validation failed: {str(e)}",
+        ) from e
+
+    finally:
+        if temp_path:
+            cleanup_temp_files([temp_path])
+
+
 # --- Public Exports ---
 
 __all__ = ["router"]
