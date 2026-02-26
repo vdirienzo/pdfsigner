@@ -9,6 +9,7 @@ with USB token support via PKCS#11/NSS.
 
 from dataclasses import dataclass
 from datetime import datetime
+from enum import Enum
 from pathlib import Path
 
 from loguru import logger
@@ -55,29 +56,87 @@ class SigningResult:
     signed_at: datetime | None = None
 
 
+class SigningMode(str, Enum):
+    """Signing mode for PDFSigner."""
+
+    LOCAL_PKCS11 = "local_pkcs11"  # Default: PKCS#11 hardware token
+    REMOTE_CSC = "remote_csc"  # Remote QTSP via CSC API v2
+
+
 class PDFSigner:
     """
     PDF signer with PAdES-LTV.
 
     Uses pyHanko to create valid digital signatures
     according to the PAdES-LTV standard.
+
+    Supports two signing modes:
+    - LOCAL_PKCS11: Traditional PKCS#11 hardware token (default)
+    - REMOTE_CSC: Remote QTSP via CSC API v2
     """
 
     def __init__(
         self,
-        nss_handler: NSSHandler,
+        nss_handler: NSSHandler | None = None,
         lta_handler: LTAHandler | None = None,
+        signing_mode: SigningMode | None = None,
     ):
         """
         Initializes the signer.
 
         Args:
-            nss_handler: Authenticated NSS handler
+            nss_handler: Authenticated NSS handler (required for LOCAL_PKCS11)
             lta_handler: LTA handler for timestamp (optional)
+            signing_mode: Signing mode (default: LOCAL_PKCS11)
         """
         self.nss_handler = nss_handler
         self.lta_handler = lta_handler
+        self.signing_mode = signing_mode or SigningMode.LOCAL_PKCS11
         self._signer: signers.Signer | None = None
+        self._remote_signer = None  # Set by create_remote()
+
+    @classmethod
+    def create_remote(
+        cls,
+        service_url: str,
+        credential_id: str,
+        access_token: str,
+        lta_handler: LTAHandler | None = None,
+        **kwargs,
+    ) -> "PDFSigner":
+        """Create a PDFSigner configured for remote signing via CSC API.
+
+        Args:
+            service_url: QTSP CSC API base URL
+            credential_id: Remote credential ID
+            access_token: OAuth2 access token
+            lta_handler: LTA handler for timestamp (optional)
+            **kwargs: Additional args for RemoteSigningConfig
+                (pin, otp, sign_algo, timeout, verify_ssl)
+
+        Returns:
+            PDFSigner in REMOTE_CSC mode
+        """
+        from pdfsigner.core.remote.remote_signer import (
+            RemoteSigningConfig,
+            create_remote_signer,
+        )
+
+        config = RemoteSigningConfig(
+            service_url=service_url,
+            credential_id=credential_id,
+            access_token=access_token,
+            **kwargs,
+        )
+        remote_signer = create_remote_signer(config)
+
+        instance = cls(
+            nss_handler=None,
+            lta_handler=lta_handler,
+            signing_mode=SigningMode.REMOTE_CSC,
+        )
+        instance._remote_signer = remote_signer
+        return instance
 
     def _create_signer(self, cert_id: bytes | None = None) -> signers.Signer:
         """Creates the pyHanko signer with the token certificate."""

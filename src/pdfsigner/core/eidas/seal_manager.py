@@ -133,6 +133,16 @@ class SealManager:
             settings: Application settings
         """
         self.settings = settings
+        self._pkcs11_signer = None
+
+    def set_pkcs11_signer(self, signer) -> None:
+        """Set PKCS#11 signer for real seal creation.
+
+        Args:
+            signer: pyHanko PKCS11Signer instance configured with seal certificate
+        """
+        self._pkcs11_signer = signer
+        logger.info("PKCS#11 signer configured for seal creation")
 
     def create_seal(
         self,
@@ -217,13 +227,50 @@ class SealManager:
                     ),
                 )
 
-                # In production, this would use actual PKCS#11 signer
-                # For now, create a mock signer for the seal
-                logger.warning("Using mock signer - production requires PKCS#11 seal certificate")
+                # Try to sign with PKCS#11 seal certificate
+                try:
+                    from pyhanko.sign import signers as seal_signers
+                    from pyhanko.sign.fields import SigSeedSubFilter
+                    from pyhanko.sign.timestamps import HTTPTimeStamper
 
-                # Write output
-                with open(output_path, "wb") as f_out:
-                    writer.write(f_out)
+                    if self._pkcs11_signer is not None:
+                        # Build timestamper if configured
+                        timestamper = None
+                        if config.include_timestamp and config.tsa_url:
+                            timestamper = HTTPTimeStamper(url=config.tsa_url, timeout=30)
+
+                        sig_metadata = seal_signers.PdfSignatureMetadata(
+                            field_name=sig_field_name,
+                            md_algorithm="sha256",
+                            subfilter=SigSeedSubFilter.PADES,
+                            reason=config.reason or "Organization seal",
+                            location=config.location or None,
+                        )
+
+                        pdf_signer_obj = seal_signers.PdfSigner(
+                            sig_metadata,
+                            signer=self._pkcs11_signer,
+                            timestamper=timestamper,
+                        )
+
+                        with open(output_path, "wb") as f_out:
+                            pdf_signer_obj.sign_pdf(writer, output=f_out)
+
+                        logger.info("Seal created with PKCS#11 certificate")
+                    else:
+                        # Fallback: write unsigned field (no token available)
+                        logger.warning(
+                            "No PKCS#11 seal certificate available. "
+                            "Writing unsigned seal field "
+                            "(use set_pkcs11_signer() to enable real seals)"
+                        )
+                        with open(output_path, "wb") as f_out:
+                            writer.write(f_out)
+                except Exception as sign_err:
+                    logger.error("PKCS#11 seal signing failed: %s", sign_err)
+                    # Fallback: write unsigned field
+                    with open(output_path, "wb") as f_out:
+                        writer.write(f_out)
 
             # Log audit event (seal creation as a special type of signing event)
             log_signing_event(
@@ -261,13 +308,11 @@ class SealManager:
             )
 
     def validate_seal(self, pdf_path: Path) -> SealValidationResult:
-        """Validate electronic seal on PDF.
+        """Validate electronic seal on a PDF document.
 
-        Checks:
-        1. Certificate is eseal type
-        2. Organization info matches certificate
-        3. Timestamp is valid (if present)
-        4. Document integrity intact
+        Performs real cryptographic verification of the seal signature
+        using pyHanko's validation engine, then checks if the signing
+        certificate is a seal certificate (QcType = eseal).
 
         Args:
             pdf_path: Path to sealed PDF
@@ -284,58 +329,116 @@ class SealManager:
         logger.info(f"Validating seal on {pdf_path}")
 
         try:
-            with open(pdf_path, "rb") as f:
-                reader = PdfFileReader(f)
+            from pyhanko.sign.validation import validate_pdf_signature
 
-                # Check for signature fields
-                if "/AcroForm" not in reader.root or "/Fields" not in reader.root["/AcroForm"]:
+            with open(pdf_path, "rb") as f:
+                reader = PdfFileReader(f, strict=False)
+
+                if not reader.embedded_signatures:
                     return SealValidationResult(
                         valid=False,
                         seal_type=SealType.BASIC,
-                        organization=OrganizationInfo(name="Unknown", country="XX"),
+                        organization=OrganizationInfo(name="Unknown", country=""),
                         sealed_at=datetime.now(),
                         certificate_valid=False,
                         timestamp_valid=False,
-                        integrity_intact=True,
-                        issues=["No signature fields found in PDF"],
+                        integrity_intact=False,
+                        issues=["No signatures found in PDF"],
                     )
 
-                # In production, this would:
-                # 1. Parse signature fields
-                # 2. Extract certificate
-                # 3. Verify certificate type (eseal)
-                # 4. Validate signature cryptographically
-                # 5. Check timestamp
-                # 6. Verify organization info
+                # Validate the last signature (most likely the seal)
+                last_sig = list(reader.embedded_signatures)[-1]
+                status = validate_pdf_signature(embedded_sig=last_sig)
 
-                # Mock validation for now
-                logger.warning("Using mock validation - production requires full crypto validation")
+                # Extract certificate info
+                cert = last_sig.signer_cert
+                cert_der = cert.dump()
+
+                # Check if it's a seal certificate
+                is_eseal = self.is_seal_certificate(cert_der)
+
+                # Determine seal type and qualification
+                seal_type = SealType.BASIC
+                if is_eseal:
+                    qual = self.determine_seal_qualification(cert_der)
+                    if qual.value == "QESeal":
+                        seal_type = SealType.QUALIFIED
+                    elif qual.value in ("AdESeal-QC", "AdESeal"):
+                        seal_type = SealType.ADVANCED
+
+                # Extract organization info from certificate
+                org = self._extract_org_from_cert(cert)
+
+                # Check timestamp
+                has_timestamp = (
+                    status.timestamp_validity is not None and status.timestamp_validity.valid
+                )
+
+                sealed_at = (
+                    status.timestamp_validity.timestamp
+                    if status.timestamp_validity
+                    else datetime.now()
+                )
+
+                issues = []
+                if not status.valid:
+                    issues.append("Seal signature is cryptographically invalid")
+                if not is_eseal:
+                    issues.append("Signing certificate is not an eseal type (QcType != eseal)")
+                if not has_timestamp:
+                    issues.append("Seal lacks qualified timestamp")
 
                 return SealValidationResult(
-                    valid=True,
-                    seal_type=SealType.ADVANCED,
-                    organization=OrganizationInfo(
-                        name="Mock Organization", country="ES", organization_id="ESB12345678"
-                    ),
-                    sealed_at=datetime.now(),
-                    certificate_valid=True,
-                    timestamp_valid=True,
-                    integrity_intact=True,
-                    issues=[],
+                    valid=status.valid and status.intact,
+                    seal_type=seal_type,
+                    organization=org,
+                    sealed_at=sealed_at,
+                    certificate_valid=status.valid,
+                    timestamp_valid=has_timestamp,
+                    integrity_intact=status.intact,
+                    issues=issues,
                 )
 
         except Exception as e:
-            logger.error(f"Failed to validate seal: {e}")
+            logger.error("Seal validation failed: %s", e)
             return SealValidationResult(
                 valid=False,
                 seal_type=SealType.BASIC,
-                organization=OrganizationInfo(name="Unknown", country="XX"),
+                organization=OrganizationInfo(name="Unknown", country=""),
                 sealed_at=datetime.now(),
                 certificate_valid=False,
                 timestamp_valid=False,
                 integrity_intact=False,
-                issues=[str(e)],
+                issues=[f"Validation error: {e}"],
             )
+
+    def _extract_org_from_cert(self, cert) -> OrganizationInfo:
+        """Extract organization info from pyHanko certificate object.
+
+        Parses the certificate subject to extract organization name and
+        country code using the human-friendly representation.
+
+        Args:
+            cert: asn1crypto Certificate object (from pyHanko signer_cert)
+
+        Returns:
+            OrganizationInfo with extracted data
+        """
+        try:
+            subject = cert.subject.human_friendly
+            name = "Unknown"
+            country = ""
+
+            for part in subject.split(","):
+                part = part.strip()
+                if part.startswith("O="):
+                    name = part[2:]
+                elif part.startswith("C="):
+                    country = part[2:]
+
+            return OrganizationInfo(name=name, country=country)
+        except Exception:
+            return OrganizationInfo(name="Unknown", country="")
 
     def generate_seal_appearance(self, config: SealConfig) -> bytes:
         """Generate seal stamp image (PNG).

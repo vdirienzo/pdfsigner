@@ -195,7 +195,7 @@ class PDFValidator:
             from pdfsigner.core.eidas.qualified_validator import QualifiedSignatureValidator
             from pdfsigner.core.eidas.tsp_registry import get_tsp_registry
 
-            registry = get_tsp_registry(use_mock_data=True)
+            registry = get_tsp_registry(use_mock_data=False)
             validator = QualifiedSignatureValidator(registry)
             result = validator.validate_certificate(cert_der)
 

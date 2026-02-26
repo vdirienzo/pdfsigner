@@ -117,6 +117,38 @@ class EUTSPRegistry:
         self._progress_callback = progress_callback
         self._cache_file = self._cache_dir / "tsl_cache.json"
         self._cache_max_age_days = 7  # eIDAS requires TSL updates weekly
+        self._pyhanko_trust_manager = None  # Set by _try_pyhanko_eutl if available
+
+    def _try_pyhanko_eutl(self) -> bool:
+        """Try to load TSP data via pyHanko's EUTL (with XML signature validation).
+
+        Falls back to custom parser if pyHanko EUTL is not available.
+
+        Returns:
+            True if loaded successfully
+        """
+        try:
+            from pdfsigner.core.eidas.eutl_adapter import get_eutl_adapter
+
+            adapter = get_eutl_adapter()
+            if not adapter.is_available:
+                logger.info("pyHanko EUTL not available, using custom parser")
+                return False
+
+            if not adapter.is_initialized:
+                success = adapter.initialize_sync()
+                if not success:
+                    logger.warning("pyHanko EUTL initialization failed, using custom parser")
+                    return False
+
+            # pyHanko EUTL loaded with XML signature validation
+            logger.info("Using pyHanko EUTL (with XML signature validation)")
+            self._pyhanko_trust_manager = adapter.trust_manager
+            return True
+
+        except Exception as e:
+            logger.debug("pyHanko EUTL not available: %s", e)
+            return False
 
     def load_trusted_list(self, offline: bool = False) -> bool:
         """Load EU Trusted List from real EU data or cache.
@@ -127,6 +159,11 @@ class EUTSPRegistry:
         Returns:
             True if trusted list loaded successfully, False otherwise
         """
+        # Try pyHanko EUTL first (with XML signature validation)
+        if not self._use_mock_data and not offline and not self._offline_mode:
+            if self._try_pyhanko_eutl():
+                return True
+
         # Use mock data if requested (for testing)
         if self._use_mock_data:
             logger.info("Loading mock EU Trusted List data (testing mode)")

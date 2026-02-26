@@ -210,30 +210,52 @@ def test_validate_seal_no_signatures(seal_manager, test_pdf):
     result = seal_manager.validate_seal(test_pdf)
 
     assert result.valid is False
-    # The error can be either "No signature fields found" or a PDF parsing error
+    # The error can be either "No signatures found" or a PDF parsing/validation error
     assert len(result.issues) > 0
     assert any(
         phrase in result.issues[0]
-        for phrase in ["No signature fields found", "Dictionary read error", "read error"]
+        for phrase in [
+            "No signatures found",
+            "Dictionary read error",
+            "read error",
+            "Validation error",
+        ]
     )
 
 
-def test_validate_seal_mock_validation(seal_manager, test_pdf):
-    """Test seal validation with mocked signature fields."""
-    # Create a PDF with signature fields (mock)
-    with patch("pdfsigner.core.eidas.seal_manager.PdfFileReader") as mock_reader_class:
+def test_validate_seal_with_embedded_signature(seal_manager, test_pdf):
+    """Test seal validation with mocked embedded signature and crypto validation."""
+    with (
+        patch("pdfsigner.core.eidas.seal_manager.PdfFileReader") as mock_reader_class,
+        patch("pyhanko.sign.validation.validate_pdf_signature") as mock_validate,
+    ):
+        # Mock reader with embedded signatures
+        mock_cert = MagicMock()
+        mock_cert.dump.return_value = b"MOCK_DER_CERT"
+        mock_cert.subject.human_friendly = "O=Test Corp, C=ES"
+
+        mock_sig = MagicMock()
+        mock_sig.signer_cert = mock_cert
+
         mock_reader = MagicMock()
-        mock_reader.root = {"/AcroForm": {"/Fields": [{"Type": "/Sig"}]}}
+        mock_reader.embedded_signatures = [mock_sig]
         mock_reader_class.return_value = mock_reader
+
+        # Mock validation status
+        mock_status = MagicMock()
+        mock_status.valid = True
+        mock_status.intact = True
+        mock_status.timestamp_validity = None
+        mock_validate.return_value = mock_status
 
         result = seal_manager.validate_seal(test_pdf)
 
         assert result.valid is True
-        assert result.seal_type == SealType.ADVANCED
         assert result.certificate_valid is True
-        assert result.timestamp_valid is True
         assert result.integrity_intact is True
-        assert len(result.issues) == 0
+        assert result.organization.name == "Test Corp"
+        assert result.organization.country == "ES"
+        mock_validate.assert_called_once_with(embedded_sig=mock_sig)
 
 
 def test_validate_seal_exception_handling(seal_manager, test_pdf):
