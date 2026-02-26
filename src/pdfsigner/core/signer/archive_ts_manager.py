@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from loguru import logger
@@ -220,7 +220,11 @@ class ArchiveTimestampManager:
 
             # Check if the last timestamp is too old
             latest_timestamp = max(ts.timestamp for ts in timestamps)
-            age = datetime.now() - latest_timestamp
+            # Ensure both are aware for comparison (pyHanko may return naive)
+            now = datetime.now(UTC)
+            if latest_timestamp.tzinfo is None:
+                latest_timestamp = latest_timestamp.replace(tzinfo=UTC)
+            age = now - latest_timestamp
 
             threshold = timedelta(days=algorithm_threshold_years * 365)
 

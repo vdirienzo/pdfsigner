@@ -5,7 +5,7 @@ Links X.509 certificates to user accounts for authentication.
 HIPAA: §164.312(d) - Person or entity authentication
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from loguru import logger
 
@@ -88,7 +88,7 @@ class CertificateBindingService:
         user.certificate_serial = serial
         user.certificate_issuer = issuer
         user.certificate_cn = common_name
-        user.updated_at = datetime.now()
+        user.updated_at = datetime.now(UTC)
 
         self.repository.update_user(user)
         logger.info(f"Bound certificate to user {user.username}")
@@ -112,7 +112,7 @@ class CertificateBindingService:
         user.certificate_serial = None
         user.certificate_issuer = None
         user.certificate_cn = None
-        user.updated_at = datetime.now()
+        user.updated_at = datetime.now(UTC)
 
         self.repository.update_user(user)
         logger.info(f"Unbound certificate from user {user.username}")

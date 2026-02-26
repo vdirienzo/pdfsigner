@@ -8,7 +8,7 @@ with USB token support via PKCS#11/NSS.
 """
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 
@@ -218,7 +218,7 @@ class PDFSigner:
             # Prepare variables for substitution
             variables = {
                 "signer_name": signer_name or "Digital Signature",
-                "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+                "date": datetime.now(UTC).strftime("%Y-%m-%d %H:%M"),
                 "org": organization or "",
             }
 
@@ -394,7 +394,7 @@ class PDFSigner:
                 # Compose stamp with QR
                 stamp_image_path = compose_stamp_with_qr(
                     signer_name=name,
-                    timestamp=datetime.now(),
+                    timestamp=datetime.now(UTC),
                     qr_data=qr_data,
                     qr_position=appearance.qr_position,
                 )
@@ -863,7 +863,7 @@ class PDFSigner:
                 success=True,
                 input_path=input_path,
                 output_path=output_path,
-                signed_at=datetime.now(),
+                signed_at=datetime.now(UTC),
             )
 
         except (PDFCorruptedError, PDFProtectedError) as e:

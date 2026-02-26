@@ -12,7 +12,7 @@ from __future__ import annotations
 
 import re
 import tempfile
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -278,7 +278,7 @@ def render_template(
 
     # Add default variables if not provided
     if "date" not in variables:
-        variables["date"] = datetime.now().strftime("%Y-%m-%d %H:%M")
+        variables["date"] = datetime.now(UTC).strftime("%Y-%m-%d %H:%M")
 
     # Calculate dimensions in pixels (300 DPI)
     width_px = _mm_to_px(template.width_mm)
@@ -357,7 +357,7 @@ def render_preview(
     # Sample variables for preview
     variables = {
         "signer_name": "Juan Pérez García",
-        "date": datetime.now().strftime("%Y-%m-%d %H:%M"),
+        "date": datetime.now(UTC).strftime("%Y-%m-%d %H:%M"),
         "org": "Empresa S.A.",
     }
 

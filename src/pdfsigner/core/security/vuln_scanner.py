@@ -63,6 +63,7 @@ class SemgrepScanner:
                 capture_output=True,
                 text=True,
                 timeout=300,  # 5 minutes timeout
+                shell=False,
             )
 
             if result.returncode in (0, 1):  # 0=no findings, 1=findings
@@ -173,6 +174,7 @@ class PipAuditScanner:
                 capture_output=True,
                 text=True,
                 timeout=300,  # 5 minutes timeout
+                shell=False,
             )
 
             if result.returncode in (0, 1):  # 0=no findings, 1=findings

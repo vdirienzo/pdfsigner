@@ -515,14 +515,14 @@ class PasswordHistoryRepository:
             user_id: User ID
             password_hash: Argon2 hash of password
         """
-        from datetime import datetime
+        from datetime import UTC, datetime
 
         with self._get_connection() as conn:
             try:
                 conn.execute(
                     "INSERT INTO password_history (user_id, password_hash, created_at) "
                     "VALUES (?, ?, ?)",
-                    (user_id, password_hash, datetime.now().isoformat()),
+                    (user_id, password_hash, datetime.now(UTC).isoformat()),
                 )
                 logger.debug(f"Added password to history for user: {user_id}")
             except sqlite3.IntegrityError:

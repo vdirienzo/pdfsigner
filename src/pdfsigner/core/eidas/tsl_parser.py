@@ -14,7 +14,7 @@ Based on ETSI TS 119 612 V2.2.1 specification for Trust Service Status Lists.
 import base64
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import TYPE_CHECKING
 
@@ -47,7 +47,7 @@ class ServiceStatus(str, Enum):
     SUSPENDED = "http://uri.etsi.org/TrstSvc/TrustedList/Svcstatus/suspended"
 
     @classmethod
-    def from_uri(cls, uri: str) -> "ServiceStatus":
+    def from_uri(cls, uri: str) -> ServiceStatus:
         """Parse service status from URI, defaulting to WITHDRAWN if unknown."""
         try:
             return cls(uri)
@@ -78,7 +78,7 @@ class ServiceType(str, Enum):
     VALIDATION_QC = "http://uri.etsi.org/TrstSvc/Svctype/AdesValidation/QC"  # Qualified validation
 
     @classmethod
-    def from_uri(cls, uri: str) -> "ServiceType | None":
+    def from_uri(cls, uri: str) -> ServiceType | None:
         """Parse service type from URI, returning None if unknown."""
         try:
             return cls(uri)
@@ -364,7 +364,7 @@ class TSLParser:
             NAMESPACES,
         )
         status_start_date = (
-            self._parse_datetime(date_elem.text) if date_elem is not None else datetime.now()
+            self._parse_datetime(date_elem.text) if date_elem is not None else datetime.now(UTC)
         )
 
         # Service supply points (OCSP URLs, CRL URLs, etc.)
@@ -459,4 +459,4 @@ class TSLParser:
             return datetime.fromisoformat(dt_string.replace("Z", "+00:00"))
         except ValueError:
             logger.warning("Failed to parse datetime: %s, using current time", dt_string)
-            return datetime.now()
+            return datetime.now(UTC)

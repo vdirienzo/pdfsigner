@@ -9,7 +9,7 @@ for government and healthcare compliance documentation.
 
 import hashlib
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -146,7 +146,7 @@ class ComplianceReportGenerator:
             path=output_path,
             format=ReportFormat.PDF,
             size_bytes=size,
-            generated_at=datetime.now(),
+            generated_at=datetime.now(UTC),
             checksum=checksum,
         )
 
@@ -185,7 +185,7 @@ class ComplianceReportGenerator:
             path=output_path,
             format=ReportFormat.JSON,
             size_bytes=size,
-            generated_at=datetime.now(),
+            generated_at=datetime.now(UTC),
             checksum=checksum,
         )
 
@@ -224,7 +224,7 @@ class ComplianceReportGenerator:
             path=output_path,
             format=ReportFormat.CSV,
             size_bytes=size,
-            generated_at=datetime.now(),
+            generated_at=datetime.now(UTC),
             checksum=checksum,
         )
 
@@ -263,7 +263,7 @@ class ComplianceReportGenerator:
             path=output_path,
             format=ReportFormat.CEF,
             size_bytes=size,
-            generated_at=datetime.now(),
+            generated_at=datetime.now(UTC),
             checksum=checksum,
         )
 

@@ -9,7 +9,7 @@ import json
 import sqlite3
 from collections.abc import Generator
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from loguru import logger
@@ -183,7 +183,7 @@ class UserRepository:
 
     def update_user(self, user: User) -> User:
         """Update existing user."""
-        user.updated_at = datetime.now()
+        user.updated_at = datetime.now(UTC)
 
         with self._get_connection() as conn:
             conn.execute(
@@ -235,7 +235,7 @@ class UserRepository:
         with self._get_connection() as conn:
             cursor = conn.execute(
                 "UPDATE users SET status = ?, updated_at = ? WHERE id = ?",
-                (UserStatus.INACTIVE.value, datetime.now().isoformat(), user_id),
+                (UserStatus.INACTIVE.value, datetime.now(UTC).isoformat(), user_id),
             )
             return cursor.rowcount > 0
 
@@ -347,7 +347,7 @@ class UserRepository:
             if not user:
                 return False
 
-            now = datetime.now().isoformat()
+            now = datetime.now(UTC).isoformat()
             # Insert or update credentials
             conn.execute(
                 """

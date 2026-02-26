@@ -9,7 +9,7 @@ progress, partial errors, and reports.
 
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from loguru import logger
@@ -153,11 +153,11 @@ class BatchManager:
             total=total,
             successful=0,
             failed=0,
-            started_at=datetime.now(),
+            started_at=datetime.now(UTC),
         )
 
         if total == 0:
-            result.finished_at = datetime.now()
+            result.finished_at = datetime.now(UTC)
             return result
 
         signer = self._get_signer()
@@ -198,7 +198,7 @@ class BatchManager:
                 result.failed += 1
                 logger.warning(f"Error in {pdf_path.name}: {signing_result.error}")
 
-        result.finished_at = datetime.now()
+        result.finished_at = datetime.now(UTC)
 
         # Notify final progress
         if progress_callback:

@@ -11,7 +11,7 @@ import csv
 import io
 import json
 import threading
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -420,8 +420,8 @@ class AuditLogger:
         year_months = set()
 
         # Use current month as default end
-        current = start_date or datetime.now()
-        end = end_date or datetime.now()
+        current = start_date or datetime.now(UTC)
+        end = end_date or datetime.now(UTC)
 
         while current <= end:
             year_months.add(current.strftime("%Y-%m"))
@@ -451,7 +451,7 @@ class AuditLogger:
             return 0
 
         deleted_count = 0
-        cutoff_date = datetime.now() - timedelta(days=self.retention_days)
+        cutoff_date = datetime.now(UTC) - timedelta(days=self.retention_days)
 
         try:
             for log_file in self.log_dir.glob("audit_*.jsonl"):

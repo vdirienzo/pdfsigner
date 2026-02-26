@@ -17,7 +17,7 @@ References:
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 
@@ -187,7 +187,7 @@ class SealManager:
                     output_path=output_path,
                     seal_type=config.seal_type,
                     organization=config.organization.name,
-                    timestamp=datetime.now() if config.include_timestamp else None,
+                    timestamp=datetime.now(UTC) if config.include_timestamp else None,
                     signature_id="DRY_RUN_SEAL_001",
                 )
 
@@ -202,7 +202,7 @@ class SealManager:
                 writer = IncrementalPdfFileWriter(f_in)
 
                 # Add signature field for seal
-                sig_field_name = f"Seal_{datetime.now().strftime('%Y%m%d_%H%M%S')}"
+                sig_field_name = f"Seal_{datetime.now(UTC).strftime('%Y%m%d_%H%M%S')}"
 
                 # Calculate field position (convert mm to PDF points: 1mm = 2.834645669 pt)
                 mm_to_pt = 2.834645669
@@ -295,7 +295,7 @@ class SealManager:
                 output_path=output_path,
                 seal_type=config.seal_type,
                 organization=config.organization.name,
-                timestamp=datetime.now() if config.include_timestamp else None,
+                timestamp=datetime.now(UTC) if config.include_timestamp else None,
                 signature_id=sig_field_name,
             )
 
@@ -341,7 +341,7 @@ class SealManager:
                         valid=False,
                         seal_type=SealType.BASIC,
                         organization=OrganizationInfo(name="Unknown", country=""),
-                        sealed_at=datetime.now(),
+                        sealed_at=datetime.now(UTC),
                         certificate_valid=False,
                         timestamp_valid=False,
                         integrity_intact=False,
@@ -379,7 +379,7 @@ class SealManager:
                 sealed_at = (
                     status.timestamp_validity.timestamp
                     if status.timestamp_validity
-                    else datetime.now()
+                    else datetime.now(UTC)
                 )
 
                 issues = []
@@ -407,7 +407,7 @@ class SealManager:
                 valid=False,
                 seal_type=SealType.BASIC,
                 organization=OrganizationInfo(name="Unknown", country=""),
-                sealed_at=datetime.now(),
+                sealed_at=datetime.now(UTC),
                 certificate_valid=False,
                 timestamp_valid=False,
                 integrity_intact=False,
@@ -470,7 +470,7 @@ class SealManager:
         return generate_circular_seal(
             organization=config.organization.name,
             country=config.organization.country,
-            date=datetime.now(),
+            date=datetime.now(UTC),
             size=(
                 int(config.size[0] * 10),
                 int(config.size[1] * 10),

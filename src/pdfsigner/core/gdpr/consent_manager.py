@@ -4,7 +4,7 @@ consent_manager.py - GDPR consent management orchestration
 Implements GDPR Article 7 consent requirements with audit trail.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from loguru import logger
 
@@ -66,7 +66,7 @@ class ConsentManager:
             user_id=user_id,
             consent_type=consent_type,
             granted=True,
-            granted_at=datetime.now(),
+            granted_at=datetime.now(UTC),
             withdrawn_at=None,
             ip_address=ip_address,
             user_agent=user_agent,
@@ -127,7 +127,7 @@ class ConsentManager:
             )
 
         # Record withdrawal
-        withdrawn_at = datetime.now()
+        withdrawn_at = datetime.now(UTC)
         withdrawal_record = self.consent_repo.withdraw_consent(
             user_id=user_id,
             consent_type=consent_type,

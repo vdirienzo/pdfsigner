@@ -9,7 +9,7 @@ Uses stamp_simulator for visual stamp generation.
 
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from loguru import logger
@@ -182,7 +182,7 @@ class MockBatchManager:
                         success=True,
                         input_path=pdf_path,
                         output_path=output_path,
-                        signed_at=datetime.now(),
+                        signed_at=datetime.now(UTC),
                     )
                 )
 

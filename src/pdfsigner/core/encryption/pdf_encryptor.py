@@ -35,14 +35,14 @@ class PDFEncryptor:
         # Password-based
         config = EncryptionConfig(
             method=EncryptionMethod.PASSWORD,
-            user_password="user123",
-            owner_password="admin456",
+            user_password="<user-password>",
+            owner_password="<owner-password>",
         )
         encryptor = PDFEncryptor()
         result = encryptor.encrypt(Path("document.pdf"), config)
 
         # Decrypt
-        result = encryptor.decrypt(Path("encrypted.pdf"), password="user123")
+        result = encryptor.decrypt(Path("encrypted.pdf"), password="<user-password>")
     """
 
     def __init__(self):

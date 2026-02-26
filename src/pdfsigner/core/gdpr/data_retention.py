@@ -13,7 +13,7 @@ GDPR: Article 17 - Right to erasure ("right to be forgotten")
 import hashlib
 import sqlite3
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from loguru import logger
@@ -174,7 +174,7 @@ class DataRetentionService:
                 fields_anonymized.append("certificate_cn")
 
             # Update metadata
-            user.metadata["anonymized_at"] = datetime.now().isoformat()
+            user.metadata["anonymized_at"] = datetime.now(UTC).isoformat()
             user.metadata["anonymized_by"] = requested_by
             user.metadata["original_username"] = original_username
             fields_anonymized.append("metadata")
@@ -252,7 +252,7 @@ class DataRetentionService:
                 return False
 
             # Calculate deletion date
-            scheduled_at = datetime.now()
+            scheduled_at = datetime.now(UTC)
             deletion_date = scheduled_at + timedelta(days=days)
 
             # Update database
@@ -366,7 +366,7 @@ class DataRetentionService:
                     WHERE deletion_date IS NOT NULL
                     AND deletion_date <= ?
                     """,
-                    (datetime.now().isoformat(),),
+                    (datetime.now(UTC).isoformat(),),
                 )
                 expired_users = cursor.fetchall()
 
@@ -471,7 +471,7 @@ class DataRetentionService:
 
                 if deletion_date:
                     deletion_date_obj = datetime.fromisoformat(deletion_date)
-                    days_until_deletion = (deletion_date_obj - datetime.now()).days
+                    days_until_deletion = (deletion_date_obj - datetime.now(UTC)).days
 
                 scheduled_at_obj = None
                 if deletion_scheduled_at:

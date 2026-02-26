@@ -16,7 +16,7 @@ Control Mappings:
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -253,7 +253,7 @@ def generate_report(
     report = SOC2Report(
         period_start=period_start,
         period_end=period_end,
-        generated_at=datetime.now(),
+        generated_at=datetime.now(UTC),
         evidence=evidence_list,
     )
 

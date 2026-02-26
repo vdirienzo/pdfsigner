@@ -10,7 +10,7 @@ import threading
 from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -79,7 +79,7 @@ class RetentionPolicy:
             created_at=(
                 datetime.fromisoformat(data["created_at"])
                 if data.get("created_at")
-                else datetime.now()
+                else datetime.now(UTC)
             ),
         )
 
@@ -406,14 +406,14 @@ class RetentionManager:
         Returns:
             RetentionResult with operation details
         """
-        started_at = datetime.now()
+        started_at = datetime.now(UTC)
         errors: list[str] = []
         deleted = 0
         archived = 0
         failed = 0
         processed = 0
 
-        cutoff_date = datetime.now() - timedelta(days=policy.retention_days)
+        cutoff_date = datetime.now(UTC) - timedelta(days=policy.retention_days)
 
         try:
             if policy.target == RetentionTarget.AUDIT_LOGS:
@@ -436,7 +436,7 @@ class RetentionManager:
             errors.append(str(e))
             logger.error(f"Error executing policy {policy.name}: {e}")
 
-        completed_at = datetime.now()
+        completed_at = datetime.now(UTC)
 
         result = RetentionResult(
             policy_id=policy.id,

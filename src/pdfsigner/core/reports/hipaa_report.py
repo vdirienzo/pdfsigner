@@ -8,7 +8,7 @@ Supports PDF, JSON, and CSV export formats.
 import csv
 import json
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -235,7 +235,7 @@ class HIPAAReportGenerator:
             report_id=str(uuid4()),
             title="HIPAA Compliance Audit Report",
             organization="PDFSigner",
-            generated_at=datetime.now(),
+            generated_at=datetime.now(UTC),
             period_start=config.start_date,
             period_end=config.end_date,
         )
@@ -698,8 +698,8 @@ def generate_hipaa_report(
         Generated HIPAAReport object
     """
     config = ReportConfig(
-        start_date=datetime.now() - timedelta(days=days),
-        end_date=datetime.now(),
+        start_date=datetime.now(UTC) - timedelta(days=days),
+        end_date=datetime.now(UTC),
         sections=list(ReportSection),
         format=format,
     )

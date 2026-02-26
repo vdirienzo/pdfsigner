@@ -5,7 +5,7 @@ Implements HIPAA §164.312(a)(2)(ii) emergency access procedure.
 Manages approval workflow, access expiration, and audit logging.
 """
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from loguru import logger
@@ -130,8 +130,8 @@ class BreakGlassService:
         # Update request
         request.status = EmergencyAccessStatus.APPROVED
         request.approved_by = admin_id
-        request.approved_at = datetime.now()
-        request.expires_at = datetime.now() + timedelta(
+        request.approved_at = datetime.now(UTC)
+        request.expires_at = datetime.now(UTC) + timedelta(
             hours=self.settings.healthcare_emergency_duration_hours
         )
 
@@ -191,7 +191,7 @@ class BreakGlassService:
         # Update request
         request.status = EmergencyAccessStatus.DENIED
         request.approved_by = admin_id  # Track who made the decision
-        request.approved_at = datetime.now()
+        request.approved_at = datetime.now(UTC)
 
         # Save to database
         self.repository.update_request(request)
@@ -250,7 +250,7 @@ class BreakGlassService:
         # Update request
         request.status = EmergencyAccessStatus.REVOKED
         request.revoked_by = admin_id
-        request.revoked_at = datetime.now()
+        request.revoked_at = datetime.now(UTC)
 
         # Save to database
         self.repository.update_request(request)

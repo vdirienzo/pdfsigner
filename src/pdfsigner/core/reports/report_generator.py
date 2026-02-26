@@ -12,7 +12,7 @@ import io
 import json
 from collections import Counter
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 
 from reportlab.lib import colors
@@ -143,7 +143,7 @@ class ValidationReportGenerator:
         # Report metadata
         metadata_text = f"""
         <para>
-        <b>Generated:</b> {datetime.now().strftime("%Y-%m-%d %H:%M:%S")}<br/>
+        <b>Generated:</b> {datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")}<br/>
         <b>Total Files:</b> {len(results)}
         </para>
         """
@@ -448,7 +448,7 @@ class ValidationReportGenerator:
         report_data = {
             "metadata": {
                 "title": self.options.title,
-                "generated_at": datetime.now().isoformat(),
+                "generated_at": datetime.now(UTC).isoformat(),
                 "total_files": len(results),
             },
             "summary": self._generate_summary_dict(results),

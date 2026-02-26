@@ -9,7 +9,7 @@ not just visual overlays.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import fitz  # PyMuPDF
@@ -133,7 +133,7 @@ class PDFRedactor:
                     redaction_count=0,
                     pages_affected=[],
                     input_path=str(pdf_path),
-                    redacted_at=datetime.now(),
+                    redacted_at=datetime.now(UTC),
                 )
 
             # Open PDF
@@ -218,7 +218,7 @@ class PDFRedactor:
                 pages_affected=sorted(pages_affected),
                 errors=errors,
                 input_path=str(pdf_path),
-                redacted_at=datetime.now(),
+                redacted_at=datetime.now(UTC),
             )
 
         except (PDFCorruptedError, FileNotFoundError):
@@ -232,7 +232,7 @@ class PDFRedactor:
                 pages_affected=[],
                 errors=[str(e)],
                 input_path=str(pdf_path),
-                redacted_at=datetime.now(),
+                redacted_at=datetime.now(UTC),
             )
 
     def redact_by_pattern(
@@ -275,7 +275,7 @@ class PDFRedactor:
                     redaction_count=0,
                     errors=[error_msg],
                     input_path=str(pdf_path),
-                    redacted_at=datetime.now(),
+                    redacted_at=datetime.now(UTC),
                 )
 
             # Convert string types to PIIType enum
@@ -293,7 +293,7 @@ class PDFRedactor:
                     redaction_count=0,
                     errors=["No valid PII types specified"],
                     input_path=str(pdf_path),
-                    redacted_at=datetime.now(),
+                    redacted_at=datetime.now(UTC),
                 )
 
             # Scan document for PII
@@ -310,7 +310,7 @@ class PDFRedactor:
                     redaction_count=0,
                     pages_affected=[],
                     input_path=str(pdf_path),
-                    redacted_at=datetime.now(),
+                    redacted_at=datetime.now(UTC),
                 )
 
             # Convert matches to redaction regions
@@ -338,7 +338,7 @@ class PDFRedactor:
                 redaction_count=0,
                 errors=[str(e)],
                 input_path=str(pdf_path),
-                redacted_at=datetime.now(),
+                redacted_at=datetime.now(UTC),
             )
 
     def preview_redactions(

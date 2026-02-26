@@ -10,7 +10,7 @@ import uuid
 from collections.abc import Generator
 from contextlib import contextmanager
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from loguru import logger
@@ -38,7 +38,7 @@ class Session:
     @property
     def is_active(self) -> bool:
         """Check if session is still active (not expired)."""
-        return datetime.now() < self.expires_at
+        return datetime.now(UTC) < self.expires_at
 
     @property
     def is_expired(self) -> bool:
@@ -160,7 +160,7 @@ class SessionManager:
             If healthcare_mode=False, session is still created but not enforced.
             Enforces maximum concurrent sessions if healthcare_mode=True.
         """
-        now = datetime.now()
+        now = datetime.now(UTC)
         timeout_minutes = self._get_timeout_minutes()
         expires_at = now + timedelta(minutes=timeout_minutes)
 
@@ -279,7 +279,7 @@ class SessionManager:
         if session.is_expired:
             raise SessionExpiredError(session_id)
 
-        now = datetime.now()
+        now = datetime.now(UTC)
         timeout_minutes = self._get_timeout_minutes()
         new_expires_at = now + timedelta(minutes=timeout_minutes)
 
@@ -325,7 +325,7 @@ class SessionManager:
             raise ValueError(f"Session {old_session_id} not found")
 
         # Create new session with same user_id and metadata but new ID
-        now = datetime.now()
+        now = datetime.now(UTC)
         timeout_minutes = self._get_timeout_minutes()
         expires_at = now + timedelta(minutes=timeout_minutes)
 
@@ -438,7 +438,7 @@ class SessionManager:
         Returns:
             Number of sessions deleted
         """
-        now = datetime.now().isoformat()
+        now = datetime.now(UTC).isoformat()
 
         with self._get_connection() as conn:
             cursor = conn.execute("DELETE FROM sessions WHERE expires_at < ?", (now,))

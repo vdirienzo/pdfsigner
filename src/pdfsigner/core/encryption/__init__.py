@@ -15,8 +15,8 @@ Usage:
     # Encrypt with password
     config = EncryptionConfig(
         method=EncryptionMethod.PASSWORD,
-        user_password="secret123",
-        owner_password="admin456",
+        user_password="<user-password>",
+        owner_password="<owner-password>",
     )
 
     encryptor = PDFEncryptor()

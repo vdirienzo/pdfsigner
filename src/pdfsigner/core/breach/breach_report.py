@@ -4,7 +4,7 @@ breach_report.py - Breach incident reporting
 Generates detailed reports and summaries for breach incidents.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from loguru import logger
 
@@ -68,7 +68,7 @@ def generate_incident_report(incident_id: str) -> dict:
         # Additional context
         "metadata": incident.metadata,
         # Report generation
-        "report_generated_at": datetime.now().isoformat(),
+        "report_generated_at": datetime.now(UTC).isoformat(),
     }
 
     logger.info(f"Generated incident report: {incident_id}")
@@ -149,7 +149,7 @@ def generate_summary_report(
         "report_type": "breach_summary",
         "start_date": start_date.isoformat(),
         "end_date": end_date.isoformat(),
-        "generated_at": datetime.now().isoformat(),
+        "generated_at": datetime.now(UTC).isoformat(),
         # Overall statistics
         "total_incidents": len(incidents),
         "total_affected_users": total_affected_users,

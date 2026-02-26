@@ -5,7 +5,7 @@ Defines breach incident data structures for GDPR and HIPAA compliance.
 """
 
 from dataclasses import asdict, dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 from uuid import uuid4
@@ -135,13 +135,13 @@ class BreachIncident:
             {
                 "from_status": old_status.value,
                 "to_status": new_status.value,
-                "timestamp": datetime.now().isoformat(),
+                "timestamp": datetime.now(UTC).isoformat(),
                 "note": note,
             }
         )
 
         # Update resolved/notified timestamps
         if new_status == BreachStatus.RESOLVED:
-            self.resolved_at = datetime.now()
+            self.resolved_at = datetime.now(UTC)
         elif new_status == BreachStatus.NOTIFIED:
-            self.notified_at = datetime.now()
+            self.notified_at = datetime.now(UTC)

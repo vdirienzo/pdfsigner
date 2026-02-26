@@ -8,7 +8,7 @@ import json
 import sqlite3
 from collections.abc import Generator
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from loguru import logger
@@ -93,7 +93,7 @@ class BreachRepository:
         Returns:
             Saved incident
         """
-        now = datetime.now().isoformat()
+        now = datetime.now(UTC).isoformat()
 
         with self._get_connection() as conn:
             conn.execute(
@@ -181,7 +181,7 @@ class BreachRepository:
                 (
                     incident.status.value,
                     json.dumps(incident.status_history),
-                    datetime.now().isoformat(),
+                    datetime.now(UTC).isoformat(),
                     incident.resolved_at.isoformat() if incident.resolved_at else None,
                     incident.notified_at.isoformat() if incident.notified_at else None,
                     incident_id,

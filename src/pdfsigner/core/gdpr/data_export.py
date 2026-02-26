@@ -9,7 +9,7 @@ import csv
 import io
 import json
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from loguru import logger
@@ -113,7 +113,7 @@ class UserDataExporter:
                 certificates=certificates,
                 audit_events=audit_events,
                 sessions=sessions,
-                generated_at=datetime.now(),
+                generated_at=datetime.now(UTC),
                 format=format,
                 metadata={
                     "user_id": user_id,

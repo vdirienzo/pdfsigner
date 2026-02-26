@@ -4,7 +4,7 @@ notification_service.py - Breach notification service
 Handles notification generation and delivery per GDPR and HIPAA requirements.
 """
 
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 
 from loguru import logger
@@ -242,7 +242,7 @@ REGULATORY REPORTING
    as required by HIPAA regulations.
 
 ---
-Notification Date: {datetime.now().strftime("%B %d, %Y")}
+Notification Date: {datetime.now(UTC).strftime("%B %d, %Y")}
 """
 
 

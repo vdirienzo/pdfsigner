@@ -5,7 +5,7 @@ Provides endpoints for breach detection, tracking, and notification
 per GDPR Art. 33-34 and HIPAA §164.404, §164.408.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -410,7 +410,7 @@ async def send_notifications(
         return BreachNotificationResponse(
             incident_id=incident_id,
             results=results,
-            sent_at=datetime.now(),
+            sent_at=datetime.now(UTC),
         )
 
     except ValueError as e:

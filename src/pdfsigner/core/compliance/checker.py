@@ -6,7 +6,7 @@ inspecting current Settings configuration.
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from loguru import logger
@@ -226,7 +226,7 @@ class ComplianceChecker:
             failed_controls=failed,
             partial_controls=partial,
             recommendations=all_recommendations,
-            generated_at=datetime.now(),
+            generated_at=datetime.now(UTC),
         )
 
     def _calculate_score(

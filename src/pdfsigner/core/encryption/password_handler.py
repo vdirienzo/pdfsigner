@@ -4,7 +4,7 @@ password_handler.py - Password-based PDF encryption
 Implements password-based encryption using PyMuPDF (AES-256).
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import fitz
@@ -116,7 +116,7 @@ class PasswordEncryptionHandler:
                 success=True,
                 input_path=input_path,
                 output_path=output_path,
-                encrypted_at=datetime.now(),
+                encrypted_at=datetime.now(UTC),
                 method_used=EncryptionMethod.PASSWORD,
                 strength_used=config.strength,
                 permissions_applied=config.permissions,
@@ -208,7 +208,7 @@ class PasswordEncryptionHandler:
                 success=True,
                 input_path=input_path,
                 output_path=output_path,
-                encrypted_at=datetime.now(),
+                encrypted_at=datetime.now(UTC),
                 method_used=EncryptionMethod.PASSWORD,
             )
 
@@ -285,7 +285,7 @@ class PasswordEncryptionHandler:
                 success=True,
                 input_path=pdf_path,
                 output_path=final_output,
-                encrypted_at=datetime.now(),
+                encrypted_at=datetime.now(UTC),
                 method_used=EncryptionMethod.PASSWORD,
                 strength_used=EncryptionStrength.AES_256,
             )

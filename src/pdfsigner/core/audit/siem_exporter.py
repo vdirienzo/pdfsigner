@@ -13,7 +13,7 @@ import threading
 import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 
@@ -181,7 +181,7 @@ class SIEMExporter:
             success=len(errors) == 0,
             events_exported=exported,
             errors=errors,
-            timestamp=datetime.now(),
+            timestamp=datetime.now(UTC),
         )
 
     def export_to_syslog(self, event: AuditEvent) -> bool:
@@ -360,7 +360,7 @@ class SIEMExporter:
 
         if self._current_file_size >= max_size_bytes:
             # Rotate file
-            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
             rotated_path = file_path.with_suffix(f".{timestamp}{file_path.suffix}")
             file_path.rename(rotated_path)
             self._current_file_size = 0
@@ -379,7 +379,7 @@ class SIEMExporter:
         # Pattern: filename.TIMESTAMP.ext (e.g., siem_export.20200101_120000.log)
         pattern = f"{file_path.stem}.*{file_path.suffix}"
 
-        cutoff = datetime.now().timestamp() - (self.config.file_retention_days * 86400)
+        cutoff = datetime.now(UTC).timestamp() - (self.config.file_retention_days * 86400)
 
         for old_file in file_path.parent.glob(pattern):
             if old_file == file_path:

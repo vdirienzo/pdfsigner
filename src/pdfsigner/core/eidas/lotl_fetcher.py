@@ -15,7 +15,7 @@ Official EU LOTL: https://ec.europa.eu/tools/lotl/eu-lotl.xml
 
 import logging
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -154,8 +154,8 @@ class LOTLFetcher:
         if not cache_file.exists():
             return False
 
-        mtime = datetime.fromtimestamp(cache_file.stat().st_mtime)
-        age = datetime.now() - mtime
+        mtime = datetime.fromtimestamp(cache_file.stat().st_mtime, tz=UTC)
+        age = datetime.now(UTC) - mtime
         is_valid = age < self.cache_ttl
 
         if not is_valid:
@@ -195,14 +195,14 @@ class LOTLFetcher:
             issue_date = (
                 self._parse_datetime(issue_date_elem.text)
                 if issue_date_elem is not None
-                else datetime.now()
+                else datetime.now(UTC)
             )
 
             next_update_elem = scheme_info.find("tsl:NextUpdate/tsl:dateTime", NAMESPACES)
             next_update = (
                 self._parse_datetime(next_update_elem.text)
                 if next_update_elem is not None
-                else datetime.now() + timedelta(days=7)
+                else datetime.now(UTC) + timedelta(days=7)
             )
 
             # Operator name
@@ -326,7 +326,7 @@ class LOTLFetcher:
             return datetime.fromisoformat(dt_string.replace("Z", "+00:00"))
         except ValueError:
             logger.warning("Failed to parse datetime: %s, using current time", dt_string)
-            return datetime.now()
+            return datetime.now(UTC)
 
     def _parse_cached_lotl(self, cache_file: Path) -> LOTLData:
         """Parse cached LOTL file.

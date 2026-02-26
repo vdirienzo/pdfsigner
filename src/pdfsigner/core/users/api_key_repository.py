@@ -10,7 +10,7 @@ import secrets
 import sqlite3
 from collections.abc import Generator
 from contextlib import contextmanager
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from loguru import logger
@@ -44,7 +44,7 @@ class APIKey:
         """Check if API key is valid (not revoked and not expired)."""
         if self.revoked:
             return False
-        if self.expires_at and datetime.now() > self.expires_at:
+        if self.expires_at and datetime.now(UTC) > self.expires_at:
             return False
         return True
 
@@ -170,7 +170,7 @@ class APIKeyRepository:
         key_hash = self.hash_api_key(plaintext_key)
         key_id = secrets.token_urlsafe(16)
 
-        now = datetime.now()
+        now = datetime.now(UTC)
         expires_at = now + timedelta(days=expires_in_days) if expires_in_days else None
 
         with self._get_connection() as conn:
@@ -290,7 +290,7 @@ class APIKeyRepository:
         with self._get_connection() as conn:
             cursor = conn.execute(
                 "UPDATE api_keys SET last_used_at = ? WHERE key_hash = ?",
-                (datetime.now().isoformat(), key_hash),
+                (datetime.now(UTC).isoformat(), key_hash),
             )
             return cursor.rowcount > 0
 

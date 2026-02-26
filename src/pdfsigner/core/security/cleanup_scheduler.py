@@ -10,7 +10,7 @@ periods and audit logging for HIPAA compliance.
 import atexit
 import threading
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from loguru import logger
@@ -32,7 +32,7 @@ class CleanupTask:
     @property
     def is_expired(self) -> bool:
         """Check if task has expired."""
-        return datetime.now() >= self.expires_at
+        return datetime.now(UTC) >= self.expires_at
 
 
 class CleanupScheduler:

@@ -6,7 +6,7 @@ Electronic seals are for organizations (legal persons), not individuals.
 
 import tempfile
 import uuid
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from fastapi import (
@@ -109,7 +109,7 @@ async def _process_seal_job(
             _seal_jobs[job_id].update(
                 {
                     "status": "completed",
-                    "completed_at": datetime.now().isoformat(),
+                    "completed_at": datetime.now(UTC).isoformat(),
                     "output_path": str(result.output_path),
                     "signature_id": result.signature_id,
                     "download_url": f"/api/v1/seal/{job_id}/download",
@@ -120,7 +120,7 @@ async def _process_seal_job(
             _seal_jobs[job_id].update(
                 {
                     "status": "failed",
-                    "completed_at": datetime.now().isoformat(),
+                    "completed_at": datetime.now(UTC).isoformat(),
                     "error": "; ".join(result.errors),
                 }
             )
@@ -131,7 +131,7 @@ async def _process_seal_job(
         _seal_jobs[job_id].update(
             {
                 "status": "failed",
-                "completed_at": datetime.now().isoformat(),
+                "completed_at": datetime.now(UTC).isoformat(),
                 "error": str(e),
             }
         )
@@ -255,7 +255,7 @@ async def seal_document(
         "filename": file.filename,
         "organization": organization_name,
         "seal_type": seal_type,
-        "created_at": datetime.now().isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
         "input_path": str(input_path),
         "completed_at": None,
         "error": None,

@@ -7,7 +7,7 @@ HIPAA: §164.312(a)(2)(i) - Unique user identification
 
 import uuid
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from typing import Any
 
@@ -66,7 +66,7 @@ class Department:
             code=data.get("code", ""),
             description=data.get("description", ""),
             parent_id=data.get("parent_id"),
-            created_at=created_at or datetime.now(),
+            created_at=created_at or datetime.now(UTC),
         )
 
 
@@ -115,7 +115,7 @@ class User:
         """Check if user is active and not locked."""
         if self.status != UserStatus.ACTIVE:
             return False
-        if self.locked_until and self.locked_until > datetime.now():
+        if self.locked_until and self.locked_until > datetime.now(UTC):
             return False
         return True
 
@@ -129,27 +129,27 @@ class User:
         from datetime import timedelta
 
         self.status = UserStatus.LOCKED
-        self.locked_until = datetime.now() + timedelta(minutes=duration_minutes)
-        self.updated_at = datetime.now()
+        self.locked_until = datetime.now(UTC) + timedelta(minutes=duration_minutes)
+        self.updated_at = datetime.now(UTC)
 
     def unlock(self) -> None:
         """Unlock user account."""
         self.status = UserStatus.ACTIVE
         self.locked_until = None
         self.failed_login_attempts = 0
-        self.updated_at = datetime.now()
+        self.updated_at = datetime.now(UTC)
 
     def record_login(self, success: bool) -> None:
         """Record login attempt."""
         if success:
-            self.last_login_at = datetime.now()
+            self.last_login_at = datetime.now(UTC)
             self.failed_login_attempts = 0
         else:
             self.failed_login_attempts += 1
             # Auto-lock after 5 failed attempts
             if self.failed_login_attempts >= 5:
                 self.lock(duration_minutes=30)
-        self.updated_at = datetime.now()
+        self.updated_at = datetime.now(UTC)
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
@@ -194,8 +194,8 @@ class User:
             role=UserRole(data.get("role", "viewer")),
             department_id=data.get("department_id"),
             status=UserStatus(data.get("status", "active")),
-            created_at=parse_datetime(data.get("created_at")) or datetime.now(),
-            updated_at=parse_datetime(data.get("updated_at")) or datetime.now(),
+            created_at=parse_datetime(data.get("created_at")) or datetime.now(UTC),
+            updated_at=parse_datetime(data.get("updated_at")) or datetime.now(UTC),
             last_login_at=parse_datetime(data.get("last_login_at")),
             failed_login_attempts=data.get("failed_login_attempts", 0),
             locked_until=parse_datetime(data.get("locked_until")),

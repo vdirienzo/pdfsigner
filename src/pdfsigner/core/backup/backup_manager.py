@@ -14,7 +14,7 @@ import os
 import tarfile
 import threading
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -171,7 +171,7 @@ class BackupManager:
         )
 
         # Generate backup filename
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         backup_name = f"pdfsigner_backup_{backup_type.value}_{timestamp}"
         backup_path = self.backup_dir / f"{backup_name}.tar.gz"
 
@@ -216,7 +216,7 @@ class BackupManager:
                 metadata_path.write_text(json.dumps(metadata.to_dict(), indent=2))
 
             metadata.status = BackupStatus.COMPLETED
-            metadata.completed_at = datetime.now()
+            metadata.completed_at = datetime.now(UTC)
 
             logger.info(
                 f"Backup created: {metadata.backup_id} "

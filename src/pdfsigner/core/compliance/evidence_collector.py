@@ -14,7 +14,7 @@ Evidence Sources:
 import hashlib
 import json
 import uuid
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from loguru import logger
 
@@ -106,7 +106,7 @@ class EvidenceCollector:
                 f"System access logs showing {len(events)} events from "
                 f"{access_summary['unique_users']} users"
             ),
-            collected_at=datetime.now(),
+            collected_at=datetime.now(UTC),
             period_start=start_date,
             period_end=end_date,
             data=evidence_data,
@@ -160,7 +160,7 @@ class EvidenceCollector:
                 f"Complete audit trail with {len(events)} events over "
                 f"{audit_analysis['date_range_days']} days"
             ),
-            collected_at=datetime.now(),
+            collected_at=datetime.now(UTC),
             period_start=start_date,
             period_end=end_date,
             data=evidence_data,
@@ -207,7 +207,7 @@ class EvidenceCollector:
         checksum = hashlib.sha256(config_json.encode()).hexdigest()
 
         evidence_id = str(uuid.uuid4())
-        now = datetime.now()
+        now = datetime.now(UTC)
 
         return Evidence(
             id=evidence_id,
@@ -233,7 +233,7 @@ class EvidenceCollector:
         if not self.user_repository:
             # Create empty evidence if no user repository
             evidence_id = str(uuid.uuid4())
-            now = datetime.now()
+            now = datetime.now(UTC)
             return Evidence(
                 id=evidence_id,
                 category=EvidenceCategory.CC6_LOGICAL_ACCESS,
@@ -280,7 +280,7 @@ class EvidenceCollector:
             summary["roles"][role] = summary["roles"].get(role, 0) + 1
 
         evidence_id = str(uuid.uuid4())
-        now = datetime.now()
+        now = datetime.now(UTC)
 
         return Evidence(
             id=evidence_id,
@@ -352,7 +352,7 @@ class EvidenceCollector:
             evidence_type=EvidenceType.INCIDENT_LOG,
             title=f"Security Incidents ({start_date.date()} to {end_date.date()})",
             description=f"Security incident log with {len(incidents)} incidents",
-            collected_at=datetime.now(),
+            collected_at=datetime.now(UTC),
             period_start=start_date,
             period_end=end_date,
             data={"incidents": incidents, "summary": summary},
@@ -375,7 +375,7 @@ class EvidenceCollector:
             Evidence with quarterly access review
         """
         if year is None:
-            year = datetime.now().year
+            year = datetime.now(UTC).year
 
         # Calculate quarter dates
         quarter_start_months = {1: 1, 2: 4, 3: 7, 4: 10}
@@ -412,7 +412,7 @@ class EvidenceCollector:
             evidence_type=EvidenceType.USER_ACCESS_REVIEW,
             title=f"Q{quarter} {year} User Access Review",
             description=f"Quarterly access review for Q{quarter} {year}",
-            collected_at=datetime.now(),
+            collected_at=datetime.now(UTC),
             period_start=period_start,
             period_end=period_end,
             data=quarterly_data,
@@ -444,7 +444,7 @@ class EvidenceCollector:
         collection = EvidenceCollection(
             period_start=period_start,
             period_end=period_end,
-            collected_at=datetime.now(),
+            collected_at=datetime.now(UTC),
         )
 
         try:

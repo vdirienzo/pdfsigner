@@ -37,9 +37,9 @@ Usage:
 
     # SOC 2 evidence collection
     >>> from pdfsigner.core.compliance import get_evidence_collector
-    >>> from datetime import datetime, timedelta
+    >>> from datetime import UTC, datetime, timedelta
     >>> collector = get_evidence_collector()
-    >>> end = datetime.now()
+    >>> end = datetime.now(UTC)
     >>> start = end - timedelta(days=90)
     >>> collection = collector.collect_all_evidence(start, end)
 

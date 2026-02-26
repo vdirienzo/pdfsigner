@@ -20,7 +20,7 @@ import hashlib
 import json
 import logging
 from dataclasses import asdict, dataclass, field
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from enum import Enum
 from pathlib import Path
 from typing import Any
@@ -574,7 +574,9 @@ class EUTSPRegistry:
 
         try:
             # Check cache age
-            cache_age = datetime.now() - datetime.fromtimestamp(self._cache_file.stat().st_mtime)
+            cache_age = datetime.now(UTC) - datetime.fromtimestamp(
+                self._cache_file.stat().st_mtime, tz=UTC
+            )
             if cache_age > timedelta(days=self._cache_max_age_days):
                 logger.info(f"TSL cache expired (age: {cache_age.days} days)")
                 return False
@@ -784,8 +786,8 @@ class EUTSPRegistry:
         # Create list info
         self._list_info = TrustedListInfo(
             version="5.5.1",
-            issue_date=datetime.now(),
-            next_update=datetime.now() + timedelta(days=7),
+            issue_date=datetime.now(UTC),
+            next_update=datetime.now(UTC) + timedelta(days=7),
             total_tsps=len(mock_tsps),
             countries=sorted(set(tsp.country for tsp in mock_tsps)),
         )

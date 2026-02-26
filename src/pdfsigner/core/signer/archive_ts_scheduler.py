@@ -8,7 +8,7 @@ import hashlib
 import sqlite3
 import threading
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from loguru import logger
@@ -134,7 +134,7 @@ class ArchiveTSScheduler:
             raise ValueError(f"Invalid check_interval_days: {check_interval_days}")
 
         pdf_path = pdf_path.resolve()
-        registered_at = datetime.now()
+        registered_at = datetime.now(UTC)
         hash_sha256 = self._compute_hash(pdf_path)
 
         with self._lock:
@@ -217,7 +217,7 @@ class ArchiveTSScheduler:
             return pending
 
         manager = ArchiveTimestampManager(tsa_urls=tsa_urls)
-        now = datetime.now()
+        now = datetime.now(UTC)
 
         for reg_pdf in registered:
             pdf_path = reg_pdf.pdf_path
@@ -306,7 +306,7 @@ class ArchiveTSScheduler:
             raise ValueError("No TSA URLs provided")
 
         manager = ArchiveTimestampManager(tsa_urls=tsa_urls)
-        now = datetime.now()
+        now = datetime.now(UTC)
 
         # Check if timestamp needed
         needs_ts = manager.needs_archive_timestamp(pdf_path)

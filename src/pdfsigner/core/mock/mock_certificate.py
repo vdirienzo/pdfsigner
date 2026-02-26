@@ -7,7 +7,7 @@ Simulates certificate information without real hardware.
 """
 
 from dataclasses import dataclass
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 
 @dataclass
@@ -42,7 +42,7 @@ def create_mock_certificate(name: str = "Test User") -> MockCertificate:
     Returns:
         Simulated certificate
     """
-    now = datetime.now()
+    now = datetime.now(UTC)
     info = MockCertificateInfo(
         subject=f"CN={name}, O=Test Organization, C=AR",
         issuer="CN=Test CA, O=Certificate Authority, C=AR",

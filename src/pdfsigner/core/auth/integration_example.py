@@ -7,7 +7,7 @@ with PDFSigner's user management and audit systems.
 NOT FOR PRODUCTION - This is example code only.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 
 from loguru import logger
 
@@ -90,7 +90,7 @@ class PasswordService:
         self.validator.history_repo.add_password(user_id, password_hash)
 
         # Update user record (in production, store password_hash)
-        user.password_changed_at = datetime.now()
+        user.password_changed_at = datetime.now(UTC)
         self.user_repo.update_user(user)
 
         # Log success
@@ -136,7 +136,7 @@ class PasswordService:
         if policy.max_age_days == 0:
             return False  # Never expire
 
-        age_days = (datetime.now() - user.password_changed_at).days
+        age_days = (datetime.now(UTC) - user.password_changed_at).days
         return age_days >= policy.max_age_days
 
     def _get_strength_label(self, score: int) -> str:
@@ -193,8 +193,8 @@ def example_password_change():
     # Simulate password change
     success, errors = service.change_password(
         user_id="user-123",
-        old_password="OldP@ssw0rd123",
-        new_password="NewSecur3P@ssw0rd!2024",
+        old_password="<old-password>",
+        new_password="<new-password>",
         session_id="session-456",
     )
 

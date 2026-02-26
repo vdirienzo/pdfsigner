@@ -10,7 +10,7 @@ import sqlite3
 import uuid
 from collections.abc import Generator
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
 
@@ -82,14 +82,14 @@ class EmergencyAccessRequest:
         """Check if emergency access is currently active."""
         if self.status != EmergencyAccessStatus.APPROVED:
             return False
-        if self.expires_at and datetime.now() > self.expires_at:
+        if self.expires_at and datetime.now(UTC) > self.expires_at:
             return False
         return True
 
     @property
     def is_expired(self) -> bool:
         """Check if emergency access has expired."""
-        return self.expires_at is not None and datetime.now() > self.expires_at
+        return self.expires_at is not None and datetime.now(UTC) > self.expires_at
 
     def to_dict(self) -> dict:
         """Convert to dictionary for serialization."""
@@ -216,7 +216,7 @@ class EmergencyAccessRepository:
             requester_id=requester_id,
             reason=reason,
             status=EmergencyAccessStatus.PENDING,
-            requested_at=datetime.now(),
+            requested_at=datetime.now(UTC),
         )
 
         with self._get_connection() as conn:
@@ -365,7 +365,7 @@ class EmergencyAccessRepository:
                 ORDER BY approved_at DESC
                 LIMIT 1
                 """,
-                (user_id, EmergencyAccessStatus.APPROVED.value, datetime.now().isoformat()),
+                (user_id, EmergencyAccessStatus.APPROVED.value, datetime.now(UTC).isoformat()),
             ).fetchall()
 
             if not rows:
@@ -397,7 +397,7 @@ class EmergencyAccessRepository:
                 (
                     EmergencyAccessStatus.EXPIRED.value,
                     EmergencyAccessStatus.APPROVED.value,
-                    datetime.now().isoformat(),
+                    datetime.now(UTC).isoformat(),
                 ),
             )
             count = cursor.rowcount

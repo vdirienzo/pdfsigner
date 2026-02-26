@@ -6,7 +6,7 @@ Author: Homero Thompson del Lago del Terror
 GTK4 popover that displays recent PDF files with click-to-open functionality.
 """
 
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 import gi
@@ -180,7 +180,7 @@ class RecentFilesPopover(Gtk.Popover):
         Returns:
             Relative time string (e.g., "2 hours ago")
         """
-        now = datetime.now()
+        now = datetime.now(UTC)
         diff = now - dt
 
         if diff.days > 0:

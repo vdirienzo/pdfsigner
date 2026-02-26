@@ -159,7 +159,7 @@ async def generate_compliance_report(
         HTTPException: 400 if format is invalid
         HTTPException: 500 if report generation fails
     """
-    from datetime import datetime
+    from datetime import UTC, datetime
 
     from pdfsigner.core.compliance.report_generator import (
         ReportConfig,
@@ -190,7 +190,7 @@ async def generate_compliance_report(
         generator = get_report_generator()
 
         # Create temp file for report
-        timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         report_id = f"{timestamp}_{report_format.value}"
         temp_dir = Path(tempfile.gettempdir()) / "pdfsigner_reports"
         temp_dir.mkdir(parents=True, exist_ok=True)
