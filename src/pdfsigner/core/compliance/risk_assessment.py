@@ -28,6 +28,19 @@ class RiskAssessmentCheckResult:
     recommendations: list[str] = field(default_factory=list)
 
 
+def _make_error_result(
+    control_id: str, error: Exception, recommendation: str
+) -> RiskAssessmentCheckResult:
+    """Build a FAILED result from an exception."""
+    return RiskAssessmentCheckResult(
+        control_id=control_id,
+        status=ControlStatus.FAILED,
+        findings=[f"Check failed: {str(error)}"],
+        evidence={},
+        recommendations=[recommendation],
+    )
+
+
 class RiskAssessmentChecker:
     """
     Check CC3 Risk Assessment controls.
@@ -53,48 +66,84 @@ class RiskAssessmentChecker:
                 return parent
         return Path.cwd()
 
-    def check_risk_identification(self) -> RiskAssessmentCheckResult:
-        """
-        CC3.1 - Verify threat model exists.
+    # ------------------------------------------------------------------
+    # CC3.1 - Risk Identification
+    # ------------------------------------------------------------------
 
-        Checks:
-        - Threat assessment documented
-        - SECURITY.md documents known risks
-        - Risk register maintained
-        """
-        findings = []
+    def _find_security_md(
+        self,
+        findings: list[str],
+        evidence: dict[str, Any],
+    ) -> bool:
+        """Locate SECURITY.md and analyse threat content. Returns True if found."""
+        security_md_paths = [
+            self.project_root / "docs" / "SECURITY.md",
+            self.project_root / "SECURITY.md",
+        ]
+
+        for security_md_path in security_md_paths:
+            if security_md_path.exists():
+                evidence["security_md_path"] = str(security_md_path)
+                content = security_md_path.read_text()
+                has_threat_section = any(
+                    keyword in content.lower() for keyword in ["threat", "risk", "vulnerability"]
+                )
+                evidence["has_threat_section"] = has_threat_section
+
+                if has_threat_section:
+                    findings.append("SECURITY.md documents known risks")
+                else:
+                    findings.append("SECURITY.md exists but lacks threat analysis")
+                return True
+
+        findings.append("SECURITY.md not found")
+        return False
+
+    def _check_threat_model_docs(
+        self,
+        findings: list[str],
+        evidence: dict[str, Any],
+        recommendations: list[str],
+    ) -> ControlStatus:
+        """Check for threat model and incident response plan."""
+        threat_docs = [
+            self.project_root / "docs" / "security" / "threat-model.md",
+            self.project_root / "docs" / "SECURITY_AUDIT_REPORT.md",
+        ]
+
+        threat_doc_found = False
+        for threat_doc in threat_docs:
+            if threat_doc.exists():
+                threat_doc_found = True
+                evidence["threat_model_path"] = str(threat_doc)
+                findings.append(f"Threat model documented in {threat_doc.name}")
+                break
+
+        status = ControlStatus.PASSED if threat_doc_found else ControlStatus.PARTIAL
+        if not threat_doc_found:
+            recommendations.append("Create formal threat model in docs/security/threat-model.md")
+
+        # Check for incident response plan
+        irp_path = self.project_root / "docs" / "security" / "incident-response-plan.md"
+        if irp_path.exists():
+            findings.append("Incident response plan documented")
+            evidence["incident_response_plan"] = True
+        else:
+            evidence["incident_response_plan"] = False
+            if status == ControlStatus.PASSED:
+                status = ControlStatus.PARTIAL
+            recommendations.append("Document incident response procedures")
+
+        return status
+
+    def check_risk_identification(self) -> RiskAssessmentCheckResult:
+        """CC3.1 - Verify threat model exists."""
+        findings: list[str] = []
         evidence: dict[str, Any] = {}
-        recommendations = []
+        recommendations: list[str] = []
 
         try:
-            # Check for SECURITY.md
-            security_md_paths = [
-                self.project_root / "docs" / "SECURITY.md",
-                self.project_root / "SECURITY.md",
-            ]
-
-            security_md_found = False
-            for security_md_path in security_md_paths:
-                if security_md_path.exists():
-                    security_md_found = True
-                    evidence["security_md_path"] = str(security_md_path)
-
-                    # Read and analyze content
-                    content = security_md_path.read_text()
-                    has_threat_section = any(
-                        keyword in content.lower()
-                        for keyword in ["threat", "risk", "vulnerability"]
-                    )
-                    evidence["has_threat_section"] = has_threat_section
-
-                    if has_threat_section:
-                        findings.append("SECURITY.md documents known risks")
-                    else:
-                        findings.append("SECURITY.md exists but lacks threat analysis")
-                    break
-
-            if not security_md_found:
-                findings.append("SECURITY.md not found")
+            if not self._find_security_md(findings, evidence):
                 return RiskAssessmentCheckResult(
                     control_id="CC3.1",
                     status=ControlStatus.FAILED,
@@ -103,39 +152,7 @@ class RiskAssessmentChecker:
                     recommendations=["Create SECURITY.md with threat model and risk assessment"],
                 )
 
-            # Check for threat model documentation
-            threat_docs = [
-                self.project_root / "docs" / "security" / "threat-model.md",
-                self.project_root / "docs" / "SECURITY_AUDIT_REPORT.md",
-            ]
-
-            threat_doc_found = False
-            for threat_doc in threat_docs:
-                if threat_doc.exists():
-                    threat_doc_found = True
-                    evidence["threat_model_path"] = str(threat_doc)
-                    findings.append(f"Threat model documented in {threat_doc.name}")
-                    break
-
-            if threat_doc_found:
-                status = ControlStatus.PASSED
-            else:
-                status = ControlStatus.PARTIAL
-                recommendations.append(
-                    "Create formal threat model in docs/security/threat-model.md"
-                )
-
-            # Check for incident response plan
-            irp_path = self.project_root / "docs" / "security" / "incident-response-plan.md"
-            if irp_path.exists():
-                findings.append("Incident response plan documented")
-                evidence["incident_response_plan"] = True
-            else:
-                evidence["incident_response_plan"] = False
-                if status == ControlStatus.PASSED:
-                    status = ControlStatus.PARTIAL
-                recommendations.append("Document incident response procedures")
-
+            status = self._check_threat_model_docs(findings, evidence, recommendations)
             return RiskAssessmentCheckResult(
                 control_id="CC3.1",
                 status=status,
@@ -146,81 +163,80 @@ class RiskAssessmentChecker:
 
         except Exception as e:
             logger.exception(f"Error checking risk identification: {e}")
-            return RiskAssessmentCheckResult(
-                control_id="CC3.1",
-                status=ControlStatus.FAILED,
-                findings=[f"Check failed: {str(e)}"],
-                evidence={},
-                recommendations=["Review threat model documentation"],
-            )
+            return _make_error_result("CC3.1", e, "Review threat model documentation")
+
+    # ------------------------------------------------------------------
+    # CC3.2 - Risk Analysis
+    # ------------------------------------------------------------------
+
+    def _check_preventive_controls(
+        self,
+        findings: list[str],
+        evidence: dict[str, Any],
+    ) -> None:
+        """Check pre-commit hooks and CI security scanning."""
+        precommit_path = self.project_root / ".pre-commit-config.yaml"
+        if precommit_path.exists():
+            findings.append("Pre-commit hooks configured for code quality")
+            evidence["precommit_hooks"] = True
+        else:
+            evidence["precommit_hooks"] = False
+
+        github_workflows = self.project_root / ".github" / "workflows"
+        ci_files: list[Path] = []
+        if github_workflows.exists():
+            ci_files = list(github_workflows.glob("*.yml")) + list(github_workflows.glob("*.yaml"))
+            evidence["ci_files"] = [f.name for f in ci_files]
+
+        has_security_scanning = False
+        for ci_file in ci_files:
+            content = ci_file.read_text()
+            if any(tool in content.lower() for tool in ["bandit", "safety", "snyk", "trivy"]):
+                has_security_scanning = True
+                findings.append(f"Security scanning configured in {ci_file.name}")
+                break
+
+        evidence["security_scanning"] = has_security_scanning
+
+    def _check_audit_and_coverage(
+        self,
+        findings: list[str],
+        evidence: dict[str, Any],
+        recommendations: list[str],
+    ) -> ControlStatus:
+        """Check audit reports and test coverage configuration."""
+        audit_report_path = self.project_root / "docs" / "SECURITY_AUDIT_REPORT.md"
+        if audit_report_path.exists():
+            findings.append("Security audit report available")
+            evidence["audit_report"] = True
+            status = ControlStatus.PASSED
+        else:
+            evidence["audit_report"] = False
+            status = ControlStatus.PARTIAL
+            recommendations.append("Conduct and document regular security audits")
+
+        pyproject = self.project_root / "pyproject.toml"
+        if pyproject.exists():
+            content = pyproject.read_text()
+            if "pytest" in content or "coverage" in content:
+                findings.append("Test coverage tracking enabled")
+                evidence["test_coverage"] = True
+
+        if not evidence.get("security_scanning") and status == ControlStatus.PASSED:
+            status = ControlStatus.PARTIAL
+            recommendations.append("Implement automated dependency vulnerability scanning")
+
+        return status
 
     def check_risk_analysis(self) -> RiskAssessmentCheckResult:
-        """
-        CC3.2 - Verify vulnerability analysis.
-
-        Checks:
-        - Vulnerability tracking system exists
-        - CVSS scores assigned to vulnerabilities
-        - Regular security assessments performed
-        """
-        findings = []
+        """CC3.2 - Verify vulnerability analysis."""
+        findings: list[str] = []
         evidence: dict[str, Any] = {}
-        recommendations = []
+        recommendations: list[str] = []
 
         try:
-            # Check for vulnerability tracking
-            # Note: PDFSigner doesn't have a formal vuln_tracker module yet,
-            # but we can check for related security infrastructure
-
-            # Check for pre-commit hooks (preventive controls)
-            precommit_path = self.project_root / ".pre-commit-config.yaml"
-            if precommit_path.exists():
-                findings.append("Pre-commit hooks configured for code quality")
-                evidence["precommit_hooks"] = True
-            else:
-                evidence["precommit_hooks"] = False
-
-            # Check for dependency scanning in CI
-            github_workflows = self.project_root / ".github" / "workflows"
-            ci_files = []
-            if github_workflows.exists():
-                ci_files = list(github_workflows.glob("*.yml")) + list(
-                    github_workflows.glob("*.yaml")
-                )
-                evidence["ci_files"] = [f.name for f in ci_files]
-
-            has_security_scanning = False
-            for ci_file in ci_files:
-                content = ci_file.read_text()
-                if any(tool in content.lower() for tool in ["bandit", "safety", "snyk", "trivy"]):
-                    has_security_scanning = True
-                    findings.append(f"Security scanning configured in {ci_file.name}")
-                    break
-
-            evidence["security_scanning"] = has_security_scanning
-
-            # Check for audit reports
-            audit_report_path = self.project_root / "docs" / "SECURITY_AUDIT_REPORT.md"
-            if audit_report_path.exists():
-                findings.append("Security audit report available")
-                evidence["audit_report"] = True
-                status = ControlStatus.PASSED
-            else:
-                evidence["audit_report"] = False
-                status = ControlStatus.PARTIAL
-                recommendations.append("Conduct and document regular security audits")
-
-            # Check test coverage (indicator of code quality)
-            pyproject = self.project_root / "pyproject.toml"
-            if pyproject.exists():
-                content = pyproject.read_text()
-                if "pytest" in content or "coverage" in content:
-                    findings.append("Test coverage tracking enabled")
-                    evidence["test_coverage"] = True
-
-            if not has_security_scanning and status == ControlStatus.PASSED:
-                status = ControlStatus.PARTIAL
-                recommendations.append("Implement automated dependency vulnerability scanning")
+            self._check_preventive_controls(findings, evidence)
+            status = self._check_audit_and_coverage(findings, evidence, recommendations)
 
             return RiskAssessmentCheckResult(
                 control_id="CC3.2",
@@ -232,78 +248,83 @@ class RiskAssessmentChecker:
 
         except Exception as e:
             logger.exception(f"Error checking risk analysis: {e}")
-            return RiskAssessmentCheckResult(
-                control_id="CC3.2",
-                status=ControlStatus.FAILED,
-                findings=[f"Check failed: {str(e)}"],
-                evidence={},
-                recommendations=["Implement vulnerability tracking system"],
-            )
+            return _make_error_result("CC3.2", e, "Implement vulnerability tracking system")
+
+    # ------------------------------------------------------------------
+    # CC3.3 - Risk Mitigation
+    # ------------------------------------------------------------------
+
+    def _check_sla_documentation(
+        self,
+        findings: list[str],
+        evidence: dict[str, Any],
+        recommendations: list[str],
+    ) -> ControlStatus:
+        """Check for SLA definitions in security docs."""
+        sla_docs = [
+            self.project_root / "docs" / "security" / "SSP.md",
+            self.project_root / "docs" / "security" / "change-management.md",
+        ]
+
+        for sla_doc in sla_docs:
+            if sla_doc.exists():
+                content = sla_doc.read_text()
+                if "sla" in content.lower() or "response time" in content.lower():
+                    findings.append(f"SLA defined in {sla_doc.name}")
+                    evidence[f"sla_doc_{sla_doc.name}"] = True
+                    return ControlStatus.PASSED
+
+        findings.append("Vulnerability remediation SLAs not documented")
+        recommendations.append(
+            "Define SLAs for vulnerability remediation (e.g., Critical: 7 days, High: 30 days)"
+        )
+        return ControlStatus.PARTIAL
+
+    def _check_change_management_and_changelog(
+        self,
+        findings: list[str],
+        evidence: dict[str, Any],
+        recommendations: list[str],
+        current_status: ControlStatus,
+    ) -> ControlStatus:
+        """Check change management docs and security fixes in changelog."""
+        status = current_status
+
+        change_mgmt_path = self.project_root / "docs" / "security" / "change-management.md"
+        if change_mgmt_path.exists():
+            findings.append("Change management procedures documented")
+            evidence["change_management"] = True
+        else:
+            evidence["change_management"] = False
+            if status == ControlStatus.PASSED:
+                status = ControlStatus.PARTIAL
+            recommendations.append("Document change management and remediation procedures")
+
+        changelog_path = self.project_root / "CHANGELOG.md"
+        if changelog_path.exists():
+            content = changelog_path.read_text()
+            has_security_fixes = "security" in content.lower()
+            evidence["tracks_security_fixes"] = has_security_fixes
+            if has_security_fixes:
+                findings.append("Security fixes tracked in CHANGELOG.md")
+            else:
+                findings.append("No security fixes documented in CHANGELOG")
+        else:
+            evidence["changelog_exists"] = False
+
+        return status
 
     def check_risk_mitigation(self) -> RiskAssessmentCheckResult:
-        """
-        CC3.3 - Verify remediation tracking.
-
-        Checks:
-        - SLA monitoring for vulnerability remediation
-        - Critical vulnerabilities addressed within 30 days
-        - Remediation procedures documented
-        """
-        findings = []
+        """CC3.3 - Verify remediation tracking."""
+        findings: list[str] = []
         evidence: dict[str, Any] = {}
-        recommendations = []
+        recommendations: list[str] = []
 
         try:
-            # Check for security policies that define SLAs
-            sla_docs = [
-                self.project_root / "docs" / "security" / "SSP.md",
-                self.project_root / "docs" / "security" / "change-management.md",
-            ]
-
-            sla_defined = False
-            for sla_doc in sla_docs:
-                if sla_doc.exists():
-                    content = sla_doc.read_text()
-                    if "sla" in content.lower() or "response time" in content.lower():
-                        sla_defined = True
-                        findings.append(f"SLA defined in {sla_doc.name}")
-                        evidence[f"sla_doc_{sla_doc.name}"] = True
-                        break
-
-            if not sla_defined:
-                findings.append("Vulnerability remediation SLAs not documented")
-                status = ControlStatus.PARTIAL
-                recommendations.append(
-                    "Define SLAs for vulnerability remediation "
-                    "(e.g., Critical: 7 days, High: 30 days)"
-                )
-            else:
-                status = ControlStatus.PASSED
-
-            # Check for change management documentation
-            change_mgmt_path = self.project_root / "docs" / "security" / "change-management.md"
-            if change_mgmt_path.exists():
-                findings.append("Change management procedures documented")
-                evidence["change_management"] = True
-            else:
-                evidence["change_management"] = False
-                if status == ControlStatus.PASSED:
-                    status = ControlStatus.PARTIAL
-                recommendations.append("Document change management and remediation procedures")
-
-            # Check CHANGELOG for security fixes
-            changelog_path = self.project_root / "CHANGELOG.md"
-            if changelog_path.exists():
-                content = changelog_path.read_text()
-                has_security_fixes = "security" in content.lower()
-                evidence["tracks_security_fixes"] = has_security_fixes
-
-                if has_security_fixes:
-                    findings.append("Security fixes tracked in CHANGELOG.md")
-                else:
-                    findings.append("No security fixes documented in CHANGELOG")
-            else:
-                evidence["changelog_exists"] = False
+            status = self._check_sla_documentation(findings, evidence, recommendations)
+            status = self._check_change_management_and_changelog(
+                findings, evidence, recommendations, status
+            )
 
             return RiskAssessmentCheckResult(
                 control_id="CC3.3",
@@ -315,82 +336,84 @@ class RiskAssessmentChecker:
 
         except Exception as e:
             logger.exception(f"Error checking risk mitigation: {e}")
-            return RiskAssessmentCheckResult(
-                control_id="CC3.3",
-                status=ControlStatus.FAILED,
-                findings=[f"Check failed: {str(e)}"],
-                evidence={},
-                recommendations=["Document remediation tracking procedures"],
-            )
+            return _make_error_result("CC3.3", e, "Document remediation tracking procedures")
 
-    def check_risk_monitoring(self) -> RiskAssessmentCheckResult:
-        """
-        CC3.4 - Verify continuous risk monitoring.
+    # ------------------------------------------------------------------
+    # CC3.4 - Risk Monitoring
+    # ------------------------------------------------------------------
 
-        Checks:
-        - Breach detector is active
-        - Compliance checker runs periodically
-        - Continuous monitoring mechanisms in place
-        """
-        findings = []
-        evidence: dict[str, Any] = {}
-        recommendations = []
+    def _check_breach_detection(
+        self,
+        findings: list[str],
+        evidence: dict[str, Any],
+        recommendations: list[str],
+    ) -> ControlStatus:
+        """Check for breach detection system components."""
+        breach_module_path = self.project_root / "src" / "pdfsigner" / "core" / "breach"
+        evidence["breach_module_path"] = str(breach_module_path)
 
-        try:
-            # Check for breach detection system
-            breach_module_path = self.project_root / "src" / "pdfsigner" / "core" / "breach"
-            evidence["breach_module_path"] = str(breach_module_path)
+        if not breach_module_path.exists():
+            findings.append("Breach detection module not found")
+            evidence["breach_module_exists"] = False
+            recommendations.append("Implement continuous monitoring and breach detection")
+            return ControlStatus.FAILED
 
-            if breach_module_path.exists():
-                # Check for key components
-                breach_components = [
-                    "breach_detector.py",
-                    "breach_manager.py",
-                    "breach_repository.py",
-                ]
+        breach_components = [
+            "breach_detector.py",
+            "breach_manager.py",
+            "breach_repository.py",
+        ]
 
-                existing_components = []
-                for component in breach_components:
-                    if (breach_module_path / component).exists():
-                        existing_components.append(component)
+        existing_components = []
+        for component in breach_components:
+            if (breach_module_path / component).exists():
+                existing_components.append(component)
 
-                evidence["breach_components"] = existing_components
+        evidence["breach_components"] = existing_components
 
-                if len(existing_components) == len(breach_components):
-                    findings.append("Breach detection system fully implemented")
-                    status = ControlStatus.PASSED
-                elif existing_components:
-                    findings.append("Breach detection partially implemented")
-                    status = ControlStatus.PARTIAL
-                    recommendations.append("Complete breach detection implementation")
-                else:
-                    findings.append("Breach detection not implemented")
-                    status = ControlStatus.FAILED
-                    recommendations.append("Implement breach detection system")
-            else:
-                findings.append("Breach detection module not found")
-                status = ControlStatus.FAILED
-                recommendations.append("Implement continuous monitoring and breach detection")
-                evidence["breach_module_exists"] = False
+        if len(existing_components) == len(breach_components):
+            findings.append("Breach detection system fully implemented")
+            return ControlStatus.PASSED
+        elif existing_components:
+            findings.append("Breach detection partially implemented")
+            recommendations.append("Complete breach detection implementation")
+            return ControlStatus.PARTIAL
+        else:
+            findings.append("Breach detection not implemented")
+            recommendations.append("Implement breach detection system")
+            return ControlStatus.FAILED
 
-            # Check for compliance checker
-            compliance_module_path = self.project_root / "src" / "pdfsigner" / "core" / "compliance"
-            if compliance_module_path.exists():
-                checker_path = compliance_module_path / "checker.py"
-                if checker_path.exists():
-                    findings.append("Compliance checker available for periodic audits")
-                    evidence["compliance_checker"] = True
-                else:
-                    evidence["compliance_checker"] = False
+    def _check_compliance_checker_available(
+        self,
+        findings: list[str],
+        evidence: dict[str, Any],
+    ) -> None:
+        """Check for compliance checker module."""
+        compliance_module_path = self.project_root / "src" / "pdfsigner" / "core" / "compliance"
+        if compliance_module_path.exists():
+            checker_path = compliance_module_path / "checker.py"
+            if checker_path.exists():
+                findings.append("Compliance checker available for periodic audits")
+                evidence["compliance_checker"] = True
             else:
                 evidence["compliance_checker"] = False
+        else:
+            evidence["compliance_checker"] = False
 
-            # Check for monitoring configuration
-            # Monitoring can be configured via scheduled tasks, cron jobs, etc.
-            findings.append("Continuous monitoring should be configured at deployment level")
-            evidence["deployment_monitoring_note"] = (
-                "Configure periodic compliance checks and breach detection scans"
-            )
+        findings.append("Continuous monitoring should be configured at deployment level")
+        evidence["deployment_monitoring_note"] = (
+            "Configure periodic compliance checks and breach detection scans"
+        )
+
+    def check_risk_monitoring(self) -> RiskAssessmentCheckResult:
+        """CC3.4 - Verify continuous risk monitoring."""
+        findings: list[str] = []
+        evidence: dict[str, Any] = {}
+        recommendations: list[str] = []
+
+        try:
+            status = self._check_breach_detection(findings, evidence, recommendations)
+            self._check_compliance_checker_available(findings, evidence)
 
             return RiskAssessmentCheckResult(
                 control_id="CC3.4",
@@ -402,13 +425,11 @@ class RiskAssessmentChecker:
 
         except Exception as e:
             logger.exception(f"Error checking risk monitoring: {e}")
-            return RiskAssessmentCheckResult(
-                control_id="CC3.4",
-                status=ControlStatus.FAILED,
-                findings=[f"Check failed: {str(e)}"],
-                evidence={},
-                recommendations=["Implement continuous risk monitoring"],
-            )
+            return _make_error_result("CC3.4", e, "Implement continuous risk monitoring")
+
+    # ------------------------------------------------------------------
+    # Run all
+    # ------------------------------------------------------------------
 
     def run_all_checks(self) -> list[RiskAssessmentCheckResult]:
         """
