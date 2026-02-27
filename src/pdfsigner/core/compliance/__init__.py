@@ -118,12 +118,14 @@ from pdfsigner.core.compliance.soc2_report import (
     ControlStatus as SOC2ControlStatus,
 )
 from pdfsigner.core.compliance.status_checker import (
+    ComplianceStatusChecker,
+    get_compliance_checker,
+)
+from pdfsigner.core.compliance.status_types import (
     ComplianceCategory,
     ComplianceCheck,
     ComplianceReport,
     ComplianceStatus,
-    ComplianceStatusChecker,
-    get_compliance_checker,
 )
 from pdfsigner.core.types.report_format import ReportFormat
 
