@@ -18,7 +18,7 @@ from typing import Any
 
 import fitz  # PyMuPDF
 
-from pdfsigner.core.compliance.report_generator import ReportConfig
+from pdfsigner.core.compliance.report_types import ReportConfig
 from pdfsigner.core.compliance.status_checker import ComplianceReport, ComplianceStatus
 
 # PDF Layout Constants

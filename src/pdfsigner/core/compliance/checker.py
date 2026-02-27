@@ -42,8 +42,8 @@ class ControlCheck:
 
 
 @dataclass
-class ComplianceReport:
-    """Comprehensive compliance report for a standard."""
+class StandardComplianceReport:
+    """Comprehensive compliance report for a single standard."""
 
     standard: ComplianceStandard
     score: float  # 0-100
@@ -124,7 +124,7 @@ class ComplianceChecker:
     # Public API
     # ========================================================================
 
-    def check_hipaa(self) -> ComplianceReport:
+    def check_hipaa(self) -> StandardComplianceReport:
         """
         Check HIPAA security rule controls (§164.312).
 
@@ -133,7 +133,7 @@ class ComplianceChecker:
         """
         return self._check_standard(ComplianceStandard.HIPAA)
 
-    def check_nist_800_53(self) -> ComplianceReport:
+    def check_nist_800_53(self) -> StandardComplianceReport:
         """
         Check NIST 800-53 Moderate baseline controls.
 
@@ -142,7 +142,7 @@ class ComplianceChecker:
         """
         return self._check_standard(ComplianceStandard.NIST_800_53)
 
-    def check_fedramp(self) -> ComplianceReport:
+    def check_fedramp(self) -> StandardComplianceReport:
         """
         Check FedRAMP Moderate controls.
 
@@ -151,7 +151,7 @@ class ComplianceChecker:
         """
         return self._check_standard(ComplianceStandard.FEDRAMP)
 
-    def check_eidas(self) -> ComplianceReport:
+    def check_eidas(self) -> StandardComplianceReport:
         """
         Check eIDAS regulation compliance.
 
@@ -160,7 +160,7 @@ class ComplianceChecker:
         """
         return self._check_standard(ComplianceStandard.EIDAS)
 
-    def check_gdpr(self) -> ComplianceReport:
+    def check_gdpr(self) -> StandardComplianceReport:
         """
         Check GDPR data protection controls.
 
@@ -169,7 +169,7 @@ class ComplianceChecker:
         """
         return self._check_standard(ComplianceStandard.GDPR)
 
-    def check_soc2(self) -> ComplianceReport:
+    def check_soc2(self) -> StandardComplianceReport:
         """
         Check SOC 2 Type II controls.
 
@@ -178,7 +178,7 @@ class ComplianceChecker:
         """
         return self._check_standard(ComplianceStandard.SOC2)
 
-    def check_all(self) -> dict[ComplianceStandard, ComplianceReport]:
+    def check_all(self) -> dict[ComplianceStandard, StandardComplianceReport]:
         """
         Run all compliance checks.
 
@@ -195,7 +195,7 @@ class ComplianceChecker:
         }
 
     def get_overall_score(
-        self, reports: dict[ComplianceStandard, ComplianceReport] | None = None
+        self, reports: dict[ComplianceStandard, StandardComplianceReport] | None = None
     ) -> float:
         """
         Calculate weighted overall compliance score (0-100).
@@ -219,7 +219,7 @@ class ComplianceChecker:
     # Internal Check Logic
     # ========================================================================
 
-    def _check_standard(self, standard: ComplianceStandard) -> ComplianceReport:
+    def _check_standard(self, standard: ComplianceStandard) -> StandardComplianceReport:
         """
         Check all controls for a given standard.
 
@@ -279,7 +279,7 @@ class ComplianceChecker:
         for result in failed + partial:
             all_recommendations.extend(result.recommendations)
 
-        return ComplianceReport(
+        return StandardComplianceReport(
             standard=standard,
             score=score,
             passed_controls=passed,

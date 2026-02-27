@@ -15,26 +15,11 @@ from typing import Any
 
 from loguru import logger
 
+from pdfsigner.core.compliance.report_types import ReportConfig
 from pdfsigner.core.compliance.status_checker import (
     ComplianceStatusChecker,
 )
 from pdfsigner.core.types.report_format import ReportFormat
-
-
-@dataclass
-class ReportConfig:
-    """Configuration for report generation."""
-
-    format: ReportFormat
-    standards: list[str] | None = None  # Which standards to include, or ["all"]
-    include_evidence: bool = True
-    include_recommendations: bool = True
-    executive_summary: bool = True
-
-    def __post_init__(self):
-        """Initialize default values."""
-        if self.standards is None:
-            self.standards = ["all"]
 
 
 @dataclass
@@ -280,7 +265,7 @@ def get_report_generator() -> ComplianceReportGenerator:
 
 __all__ = [
     "ReportFormat",
-    "ReportConfig",
+    "ReportConfig",  # Re-exported from report_types for backwards compat
     "GeneratedReport",
     "ComplianceReportGenerator",
     "get_report_generator",

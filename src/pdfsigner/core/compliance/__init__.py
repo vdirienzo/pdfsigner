@@ -56,7 +56,7 @@ from pdfsigner.core.compliance.checker import (
     ControlCheck,
 )
 from pdfsigner.core.compliance.checker import (
-    ComplianceReport as MultiStandardReport,
+    StandardComplianceReport as MultiStandardReport,
 )
 from pdfsigner.core.compliance.checker import (
     get_compliance_checker as get_multi_standard_checker,
@@ -101,10 +101,9 @@ from pdfsigner.core.compliance.nist_checker import NISTChecker
 from pdfsigner.core.compliance.report_generator import (
     ComplianceReportGenerator,
     GeneratedReport,
-    ReportConfig,
-    ReportFormat,
     get_report_generator,
 )
+from pdfsigner.core.compliance.report_types import ReportConfig
 from pdfsigner.core.compliance.risk_assessment import (
     RiskAssessmentChecker,
     get_risk_assessment_checker,
@@ -126,6 +125,7 @@ from pdfsigner.core.compliance.status_checker import (
     ComplianceStatusChecker,
     get_compliance_checker,
 )
+from pdfsigner.core.types.report_format import ReportFormat
 
 __all__ = [
     # Legacy HIPAA-specific
