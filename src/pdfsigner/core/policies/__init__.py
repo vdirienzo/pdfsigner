@@ -25,12 +25,14 @@ Usage:
 """
 
 from pdfsigner.core.policies.encryption_policy import (
+    PolicyEngine,
+    get_policy_engine,
+)
+from pdfsigner.core.policies.policy_types import (
     EncryptionPolicy,
     PolicyAction,
-    PolicyEngine,
     PolicyResult,
     PolicyTrigger,
-    get_policy_engine,
 )
 
 __all__ = [
