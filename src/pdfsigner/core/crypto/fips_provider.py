@@ -13,12 +13,11 @@ Author: Homero Thompson del Lago del Terror
 """
 
 import hashlib
-import logging
 import warnings
 from enum import Enum
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 class AlgorithmCategory(str, Enum):

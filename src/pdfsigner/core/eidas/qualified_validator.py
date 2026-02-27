@@ -24,7 +24,6 @@ QcStatements OIDs (RFC 3739):
 - 0.4.0.1862.1.7: QcCClegislation - EU legislation
 """
 
-import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
@@ -32,13 +31,12 @@ from typing import Any
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
+from loguru import logger
 
 from pdfsigner.config.settings import get_settings
 from pdfsigner.core.certificate.revocation_checker import RevocationChecker, RevocationStatus
 from pdfsigner.core.eidas.qc_statements_parser import parse_qc_statements
 from pdfsigner.core.eidas.tsp_registry import EUTSPRegistry, QualificationStatus
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass

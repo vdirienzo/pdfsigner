@@ -12,8 +12,9 @@ Key features:
 - Support for multiple certificates per token
 """
 
-import logging
 from dataclasses import dataclass
+
+from loguru import logger
 
 from pdfsigner.core.argentina.ca_registry import (
     ArgentineCertifier,
@@ -24,8 +25,6 @@ from pdfsigner.exceptions import (
     CertificateNotFoundError,
     TokenAuthenticationError,
 )
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass

@@ -5,13 +5,13 @@ and certificate qualification checks.
 """
 
 import hashlib
-import logging
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from urllib.parse import urlparse
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
+from loguru import logger
 
 from pdfsigner.core.eidas.tsp_storage import TSPStorage
 from pdfsigner.core.eidas.tsp_types import (
@@ -20,8 +20,6 @@ from pdfsigner.core.eidas.tsp_types import (
     TrustedListInfo,
     TSPInfo,
 )
-
-logger = logging.getLogger(__name__)
 
 
 class EUTSPRegistry:

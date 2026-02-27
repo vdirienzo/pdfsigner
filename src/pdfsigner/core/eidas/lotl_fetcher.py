@@ -13,7 +13,6 @@ Based on ETSI TS 119 612 V2.2.1 specification for Trust Service Status Lists.
 Official EU LOTL: https://ec.europa.eu/tools/lotl/eu-lotl.xml
 """
 
-import logging
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -33,7 +32,7 @@ from pdfsigner.core.eidas.lotl_cache import (
 if TYPE_CHECKING:
     from xml.etree.ElementTree import Element
 
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 class LOTLFetcher:

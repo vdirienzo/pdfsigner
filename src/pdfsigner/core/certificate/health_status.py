@@ -9,12 +9,11 @@ expiration date with color-coded status levels.
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass
 from datetime import date, datetime
 from enum import Enum
 
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 @dataclass

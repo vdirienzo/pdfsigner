@@ -12,12 +12,11 @@ the hash is sent to a remote QTSP via CSC API.
 """
 
 import base64
-import logging
 from dataclasses import dataclass
 
-from pdfsigner.core.remote.csc_client import CSCClient, CSCError
+from loguru import logger
 
-logger = logging.getLogger(__name__)
+from pdfsigner.core.remote.csc_client import CSCClient, CSCError
 
 
 @dataclass

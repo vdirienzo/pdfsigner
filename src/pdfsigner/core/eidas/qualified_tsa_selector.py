@@ -12,11 +12,9 @@ Standards:
 - ETSI EN 319 421 (TSA requirements)
 """
 
-import logging
 from dataclasses import dataclass, field
 
-logger = logging.getLogger(__name__)
-
+from loguru import logger
 
 # ETSI TS 119 612 Service Type URIs for TSAs
 TSA_QTST_URI = "http://uri.etsi.org/TrstSvc/Svctype/TSA/QTST"

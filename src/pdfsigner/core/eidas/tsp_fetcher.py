@@ -5,11 +5,11 @@ country TSL downloads, and conversion of parsed TSP data into the internal forma
 """
 
 import hashlib
-import logging
 from typing import Any
 from urllib.parse import urlparse
 
 import requests
+from loguru import logger
 
 from pdfsigner.core.eidas.tsp_storage import TSPStorage
 from pdfsigner.core.eidas.tsp_types import (
@@ -18,8 +18,6 @@ from pdfsigner.core.eidas.tsp_types import (
     TrustedListInfo,
     TSPInfo,
 )
-
-logger = logging.getLogger(__name__)
 
 
 def fetch_from_eu(

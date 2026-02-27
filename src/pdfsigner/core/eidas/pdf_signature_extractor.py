@@ -9,17 +9,15 @@ detailed information about signature certificates, timestamps, and coverage.
 This module bridges pyHanko's signature validation with eIDAS qualification checks.
 """
 
-import logging
 from dataclasses import dataclass
 from datetime import datetime
 from pathlib import Path
 
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
+from loguru import logger
 from pyhanko.pdf_utils.reader import PdfFileReader
 from pyhanko.sign.validation import validate_pdf_signature
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass

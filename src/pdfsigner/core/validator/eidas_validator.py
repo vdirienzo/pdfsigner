@@ -12,13 +12,10 @@ Key requirements:
 - Algorithm strength per SOGIS Agreed Cryptographic Mechanisms
 """
 
-import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
-
-logger = logging.getLogger(__name__)
 
 
 class ValidationStatus(str, Enum):

@@ -17,14 +17,11 @@ Endpoints implemented:
 - POST /signatures/signDoc - Sign complete document
 """
 
-import logging
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any
 
 import requests
-
-logger = logging.getLogger(__name__)
 
 
 class CSCAuthMethod(str, Enum):

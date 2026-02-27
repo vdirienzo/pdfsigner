@@ -16,11 +16,10 @@ Key features:
 - Support for SafeNet eToken and other PKCS#11 tokens
 """
 
-import logging
 from dataclasses import dataclass
 from enum import Enum
 
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 class CertifierType(str, Enum):

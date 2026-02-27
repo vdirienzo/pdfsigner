@@ -15,10 +15,10 @@ References:
 - ETSI EN 319 411-1/2 (Trust Service Providers)
 """
 
-import logging
 from datetime import UTC, datetime
 from pathlib import Path
 
+from loguru import logger
 from pyhanko.pdf_utils.incremental_writer import IncrementalPdfFileWriter
 from pyhanko.pdf_utils.reader import PdfFileReader
 from pyhanko.sign import fields
@@ -40,8 +40,6 @@ from pdfsigner.core.eidas.seal_validator import (  # noqa: F401
     SealValidator,
     generate_circular_seal,
 )
-
-logger = logging.getLogger(__name__)
 
 
 class SealManager:

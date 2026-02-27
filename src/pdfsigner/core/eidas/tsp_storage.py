@@ -7,11 +7,12 @@ local file cache used by EUTSPRegistry.
 import base64
 import hashlib
 import json
-import logging
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
+
+from loguru import logger
 
 from pdfsigner.core.eidas.tsp_types import (
     QualificationStatus,
@@ -19,8 +20,6 @@ from pdfsigner.core.eidas.tsp_types import (
     TrustedListInfo,
     TSPInfo,
 )
-
-logger = logging.getLogger(__name__)
 
 
 class TSPStorage:

@@ -6,7 +6,6 @@ with Qualified Trust Service Providers for remote signing.
 """
 
 import hashlib
-import logging
 import secrets
 import time
 from base64 import urlsafe_b64encode
@@ -14,8 +13,7 @@ from dataclasses import dataclass, field
 from urllib.parse import urlencode
 
 import requests
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 @dataclass

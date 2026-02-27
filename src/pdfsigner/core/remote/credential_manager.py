@@ -6,12 +6,11 @@ accessed via the CSC API v2 protocol.
 """
 
 import base64
-import logging
 from dataclasses import dataclass, field
 
-from pdfsigner.core.remote.csc_client import CSCClient, CSCCredentialInfo
+from loguru import logger
 
-logger = logging.getLogger(__name__)
+from pdfsigner.core.remote.csc_client import CSCClient, CSCCredentialInfo
 
 
 @dataclass

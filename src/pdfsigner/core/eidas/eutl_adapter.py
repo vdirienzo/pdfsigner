@@ -12,12 +12,11 @@ Standards:
 """
 
 import asyncio
-import logging
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
 
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 # Try importing pyHanko EUTL modules (available with [etsi] extras)
 _PYHANKO_EUTL_AVAILABLE = False

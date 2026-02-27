@@ -14,7 +14,6 @@ Standards referenced:
 from __future__ import annotations
 
 import json
-import logging
 from datetime import UTC, datetime
 from enum import Enum
 from pathlib import Path
@@ -22,6 +21,7 @@ from typing import Any
 
 from cryptography import x509
 from cryptography.hazmat.primitives.asymmetric import ec, rsa
+from loguru import logger
 
 from pdfsigner.core.crypto.algorithm_policy import (
     AlgorithmAssessment,
@@ -39,9 +39,6 @@ from pdfsigner.core.validator.pdf_validator import (
     SignatureStatus,
     ValidationResult,
 )
-
-logger = logging.getLogger(__name__)
-
 
 # --- ETSI EN 319 102-1 SubIndication values ---
 

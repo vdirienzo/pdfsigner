@@ -6,12 +6,11 @@ offline fallback. Shared types (TSLPointer, LOTLData) are also defined here.
 
 from __future__ import annotations
 
-import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 # Official EU LOTL URL
 EU_LOTL_URL = "https://ec.europa.eu/tools/lotl/eu-lotl.xml"

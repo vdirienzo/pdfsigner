@@ -18,7 +18,6 @@ Key features:
 - Legal validity assessment
 """
 
-import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from enum import Enum
@@ -26,14 +25,13 @@ from enum import Enum
 from cryptography import x509
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives.asymmetric import dsa, ec, rsa
+from loguru import logger
 
 from pdfsigner.core.argentina.ca_registry import (
     ArgentineCARegistry,
     ArgentineCertifier,
     get_argentine_ca_registry,
 )
-
-logger = logging.getLogger(__name__)
 
 
 class ArgentineValidationStatus(str, Enum):

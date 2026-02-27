@@ -15,14 +15,12 @@ QcStatements OIDs:
 - 0.4.0.1862.1.7: QcCClegislation - Country codes under EU legislation
 """
 
-import logging
 from dataclasses import dataclass, field
 from typing import Any
 
 from asn1crypto import core as asn1_core
 from asn1crypto import x509 as asn1_x509
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 # --- OID constants ---
 

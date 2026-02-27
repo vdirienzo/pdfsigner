@@ -12,7 +12,6 @@ Based on ETSI TS 119 612 V2.2.1 specification for Trust Service Status Lists.
 """
 
 import base64
-import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import Enum
@@ -23,8 +22,7 @@ if TYPE_CHECKING:
 
 # Use defusedxml to prevent XXE attacks (CWE-611)
 import defusedxml.ElementTree as ET
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 # XML namespaces used in ETSI TS 119 612
 NAMESPACES = {

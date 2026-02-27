@@ -9,7 +9,6 @@ with intelligent caching and fallback mechanisms.
 """
 
 import hashlib
-import logging
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from enum import Enum
@@ -24,8 +23,7 @@ from cryptography.x509.oid import (
     CRLEntryExtensionOID,
     ExtensionOID,
 )
-
-logger = logging.getLogger(__name__)
+from loguru import logger
 
 
 class RevocationStatus(Enum):

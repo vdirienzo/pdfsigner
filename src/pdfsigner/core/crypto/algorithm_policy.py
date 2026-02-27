@@ -12,12 +12,9 @@ Algorithm requirements:
 - EdDSA: Ed25519, Ed448
 """
 
-import logging
 from dataclasses import dataclass
 from datetime import date
 from enum import Enum
-
-logger = logging.getLogger(__name__)
 
 # ---------------------------------------------------------------------------
 # SOGIS v1.3 deprecation timeline (official dates)
