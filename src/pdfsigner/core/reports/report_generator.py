@@ -224,53 +224,43 @@ class ValidationReportGenerator:
 
         return elements
 
-    def _generate_pdf_details(self, results: list[ValidationResult]) -> list[Flowable]:
-        """Generate details section for PDF report."""
-        elements: list[Flowable] = []
+    @staticmethod
+    def _result_status_label(result: ValidationResult) -> str:
+        """Determine human-readable status label for a validation result."""
+        if result.error:
+            return "ERROR"
+        if not result.is_signed:
+            return "UNSIGNED"
+        if result.all_valid:
+            return "VALID"
+        return "INVALID"
 
-        # Section heading
-        heading = Paragraph("File Details", self._styles["SectionHeading"])
-        elements.append(heading)
+    @staticmethod
+    def _result_status_color(result: ValidationResult) -> colors.HexColor:
+        """Determine background color for a validation result status cell."""
+        if result.error:
+            return colors.HexColor("#fee")
+        if not result.is_signed:
+            return colors.HexColor("#eee")
+        if result.all_valid:
+            return colors.HexColor("#efe")
+        return colors.HexColor("#ffe")
 
-        # Cell style for word wrap
-        cell_style = ParagraphStyle(
-            "TableCell",
-            parent=self._styles["Normal"],
-            fontSize=9,
-            leading=11,
-        )
-
-        # Details table header
+    def _build_details_table(
+        self, results: list[ValidationResult], cell_style: ParagraphStyle
+    ) -> Table:
+        """Build the file details table with status coloring."""
         table_data = [["File", "Status", "Signatures", "Signer"]]
 
         for result in results:
-            # Use Paragraph for word wrap on long filenames
             filename = Paragraph(result.file_path.name, cell_style)
-
-            # Determine status
-            if result.error:
-                status = "ERROR"
-            elif not result.is_signed:
-                status = "UNSIGNED"
-            elif result.all_valid:
-                status = "VALID"
-            else:
-                status = "INVALID"
-
-            # Get first signer name if available (use Paragraph for wrap)
-            signer_text = ""
-            if result.signatures:
-                signer_text = result.signatures[0].signer_name
+            status = self._result_status_label(result)
+            signer_text = result.signatures[0].signer_name if result.signatures else ""
             signer = Paragraph(signer_text, cell_style)
+            table_data.append([filename, status, str(result.signature_count), signer])
 
-            sig_count = str(result.signature_count)
-
-            table_data.append([filename, status, sig_count, signer])
-
-        # Create table with adjusted column widths (total ~17cm for A4)
         table = Table(table_data, colWidths=[8 * cm, 2.5 * cm, 2 * cm, 4.5 * cm])
 
-        # Apply table styling
         style_commands = [
             ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#3498db")),
             ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
@@ -287,24 +277,29 @@ class ValidationReportGenerator:
             ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f5f5f5")]),
         ]
 
-        # Color status column based on status
         for i, result in enumerate(results, start=1):
-            if result.error:
-                color = colors.HexColor("#fee")
-            elif not result.is_signed:
-                color = colors.HexColor("#eee")
-            elif result.all_valid:
-                color = colors.HexColor("#efe")
-            else:
-                color = colors.HexColor("#ffe")
-
+            color = self._result_status_color(result)
             style_commands.append(("BACKGROUND", (1, i), (1, i), color))
 
         table.setStyle(TableStyle(style_commands))
+        return table
 
-        elements.append(table)
+    def _generate_pdf_details(self, results: list[ValidationResult]) -> list[Flowable]:
+        """Generate details section for PDF report."""
+        elements: list[Flowable] = []
 
-        # Add detailed certificate info if enabled
+        heading = Paragraph("File Details", self._styles["SectionHeading"])
+        elements.append(heading)
+
+        cell_style = ParagraphStyle(
+            "TableCell",
+            parent=self._styles["Normal"],
+            fontSize=9,
+            leading=11,
+        )
+
+        elements.append(self._build_details_table(results, cell_style))
+
         if self.options.include_certificate_info:
             elements.extend(self._generate_certificate_details(results))
 
@@ -351,9 +346,54 @@ class ValidationReportGenerator:
 
         return elements
 
+    _CSV_HEADERS = [
+        "Filename",
+        "Status",
+        "Signed",
+        "Signature Count",
+        "All Valid",
+        "Signer Name",
+        "Signer Email",
+        "Signing Time",
+        "Certificate Valid Until",
+        "Error",
+    ]
+
+    def _build_csv_row(self, result: ValidationResult) -> list:
+        """Build a single CSV row from a validation result."""
+        status = self._result_status_label(result)
+
+        signer_name = ""
+        signer_email = ""
+        signing_time = ""
+        cert_valid_until = ""
+
+        if result.signatures:
+            sig = result.signatures[0]
+            signer_name = sig.signer_name
+            signer_email = sig.signer_email or ""
+            signing_time = (
+                sig.signing_time.strftime("%Y-%m-%d %H:%M:%S") if sig.signing_time else ""
+            )
+            cert_valid_until = (
+                sig.certificate_valid_to.strftime("%Y-%m-%d") if sig.certificate_valid_to else ""
+            )
+
+        return [
+            result.file_path.name,
+            status,
+            "Yes" if result.is_signed else "No",
+            result.signature_count,
+            "Yes" if result.all_valid else "No",
+            signer_name,
+            signer_email,
+            signing_time,
+            cert_valid_until,
+            result.error or "",
+        ]
+
     def generate_csv(self, results: list[ValidationResult]) -> str:
-        """
-        Generate CSV report (Excel-compatible).
+        """Generate CSV report (Excel-compatible).
 
         Args:
             results: List of validation results
@@ -363,66 +403,10 @@ class ValidationReportGenerator:
         """
         output = io.StringIO()
         writer = csv.writer(output, quoting=csv.QUOTE_ALL)
+        writer.writerow(self._CSV_HEADERS)
 
-        # Header
-        headers = [
-            "Filename",
-            "Status",
-            "Signed",
-            "Signature Count",
-            "All Valid",
-            "Signer Name",
-            "Signer Email",
-            "Signing Time",
-            "Certificate Valid Until",
-            "Error",
-        ]
-        writer.writerow(headers)
-
-        # Data rows
         for result in results:
-            # Determine overall status
-            if result.error:
-                status = "ERROR"
-            elif not result.is_signed:
-                status = "UNSIGNED"
-            elif result.all_valid:
-                status = "VALID"
-            else:
-                status = "INVALID"
-
-            # Get first signature info if available
-            signer_name = ""
-            signer_email = ""
-            signing_time = ""
-            cert_valid_until = ""
-
-            if result.signatures:
-                sig = result.signatures[0]
-                signer_name = sig.signer_name
-                signer_email = sig.signer_email or ""
-                signing_time = (
-                    sig.signing_time.strftime("%Y-%m-%d %H:%M:%S") if sig.signing_time else ""
-                )
-                cert_valid_until = (
-                    sig.certificate_valid_to.strftime("%Y-%m-%d")
-                    if sig.certificate_valid_to
-                    else ""
-                )
-
-            row = [
-                result.file_path.name,
-                status,
-                "Yes" if result.is_signed else "No",
-                result.signature_count,
-                "Yes" if result.all_valid else "No",
-                signer_name,
-                signer_email,
-                signing_time,
-                cert_valid_until,
-                result.error or "",
-            ]
-            writer.writerow(row)
+            writer.writerow(self._build_csv_row(result))
 
         return output.getvalue()
 
