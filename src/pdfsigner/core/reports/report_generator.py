@@ -14,19 +14,10 @@ from collections import Counter
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
-from reportlab.lib import colors
-from reportlab.lib.pagesizes import A4
-from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
-from reportlab.lib.units import cm
-from reportlab.platypus import (
-    Flowable,
-    Paragraph,
-    SimpleDocTemplate,
-    Spacer,
-    Table,
-    TableStyle,
+from pdfsigner.core.reports.report_pdf_builder import (
+    build_pdf_report,
+    result_status_label,
 )
-
 from pdfsigner.core.types.report_format import ReportFormat
 from pdfsigner.core.validator.pdf_validator import ValidationResult
 
@@ -57,34 +48,6 @@ class ValidationReportGenerator:
             options: Report generation options. Uses defaults if None.
         """
         self.options = options or ReportOptions()
-        self._styles = getSampleStyleSheet()
-        self._setup_custom_styles()
-
-    def _setup_custom_styles(self) -> None:
-        """Setup custom paragraph styles for PDF reports."""
-        # Title style
-        self._styles.add(
-            ParagraphStyle(
-                name="ReportTitle",
-                parent=self._styles["Heading1"],
-                fontSize=18,
-                textColor=colors.HexColor("#1a5490"),
-                spaceAfter=12,
-                alignment=1,  # Center
-            )
-        )
-
-        # Section heading style
-        self._styles.add(
-            ParagraphStyle(
-                name="SectionHeading",
-                parent=self._styles["Heading2"],
-                fontSize=14,
-                textColor=colors.HexColor("#2c3e50"),
-                spaceAfter=8,
-                spaceBefore=16,
-            )
-        )
 
     def generate(self, results: list[ValidationResult], format: ReportFormat) -> bytes | str:
         """
@@ -116,235 +79,19 @@ class ValidationReportGenerator:
         Returns:
             PDF report as bytes
         """
-        buffer = io.BytesIO()
-        doc = SimpleDocTemplate(
-            buffer,
-            pagesize=A4,
-            rightMargin=2 * cm,
-            leftMargin=2 * cm,
-            topMargin=2 * cm,
-            bottomMargin=2 * cm,
+        return build_pdf_report(
+            results,
+            title=self.options.title,
+            include_summary=self.options.include_summary,
+            include_details=self.options.include_details,
+            include_certificate_info=self.options.include_certificate_info,
         )
 
-        story: list[Flowable] = []
-
-        # Title
-        title = Paragraph(self.options.title, self._styles["ReportTitle"])
-        story.append(title)
-
-        # Report metadata
-        metadata_text = f"""
-        <para>
-        <b>Generated:</b> {datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S")}<br/>
-        <b>Total Files:</b> {len(results)}
-        </para>
-        """
-        story.append(Paragraph(metadata_text, self._styles["Normal"]))
-        story.append(Spacer(1, 0.5 * cm))
-
-        # Summary section
-        if self.options.include_summary:
-            story.extend(self._generate_pdf_summary(results))
-
-        # Details section
-        if self.options.include_details:
-            story.extend(self._generate_pdf_details(results))
-
-        # Build PDF
-        doc.build(story)
-        buffer.seek(0)
-        return buffer.read()
-
-    def _generate_pdf_summary(self, results: list[ValidationResult]) -> list[Flowable]:
-        """Generate summary section for PDF report."""
-        elements: list[Flowable] = []
-
-        # Section heading
-        heading = Paragraph("Validation Summary", self._styles["SectionHeading"])
-        elements.append(heading)
-
-        # Count files by status
-        total_files = len(results)
-        signed_files = sum(1 for r in results if r.is_signed)
-        unsigned_files = total_files - signed_files
-        all_valid = sum(1 for r in results if r.all_valid and r.is_signed)
-        has_issues = signed_files - all_valid
-        errors = sum(1 for r in results if r.error is not None)
-
-        # Summary table
-        summary_data = [
-            ["Metric", "Count", "Percentage"],
-            ["Total Files", str(total_files), "100%"],
-            [
-                "Signed Files",
-                str(signed_files),
-                f"{signed_files / total_files * 100:.1f}%",
-            ],
-            [
-                "Unsigned Files",
-                str(unsigned_files),
-                f"{unsigned_files / total_files * 100:.1f}%",
-            ],
-            [
-                "All Valid",
-                str(all_valid),
-                f"{all_valid / total_files * 100:.1f}%" if total_files > 0 else "0%",
-            ],
-            [
-                "Has Issues",
-                str(has_issues),
-                f"{has_issues / total_files * 100:.1f}%" if total_files > 0 else "0%",
-            ],
-            [
-                "Errors",
-                str(errors),
-                f"{errors / total_files * 100:.1f}%" if total_files > 0 else "0%",
-            ],
-        ]
-
-        table = Table(summary_data, colWidths=[8 * cm, 4 * cm, 4 * cm])
-        table.setStyle(
-            TableStyle(
-                [
-                    ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#3498db")),
-                    ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
-                    ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-                    ("ALIGN", (1, 0), (-1, -1), "RIGHT"),
-                    ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-                    ("FONTSIZE", (0, 0), (-1, 0), 12),
-                    ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
-                    ("GRID", (0, 0), (-1, -1), 1, colors.grey),
-                    ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.lightgrey]),
-                ]
-            )
-        )
-
-        elements.append(table)
-        elements.append(Spacer(1, 0.5 * cm))
-
-        return elements
-
+    # Keep static methods for backward compatibility (used in CSV)
     @staticmethod
     def _result_status_label(result: ValidationResult) -> str:
         """Determine human-readable status label for a validation result."""
-        if result.error:
-            return "ERROR"
-        if not result.is_signed:
-            return "UNSIGNED"
-        if result.all_valid:
-            return "VALID"
-        return "INVALID"
-
-    @staticmethod
-    def _result_status_color(result: ValidationResult) -> colors.HexColor:
-        """Determine background color for a validation result status cell."""
-        if result.error:
-            return colors.HexColor("#fee")
-        if not result.is_signed:
-            return colors.HexColor("#eee")
-        if result.all_valid:
-            return colors.HexColor("#efe")
-        return colors.HexColor("#ffe")
-
-    def _build_details_table(
-        self, results: list[ValidationResult], cell_style: ParagraphStyle
-    ) -> Table:
-        """Build the file details table with status coloring."""
-        table_data = [["File", "Status", "Signatures", "Signer"]]
-
-        for result in results:
-            filename = Paragraph(result.file_path.name, cell_style)
-            status = self._result_status_label(result)
-            signer_text = result.signatures[0].signer_name if result.signatures else ""
-            signer = Paragraph(signer_text, cell_style)
-            table_data.append([filename, status, str(result.signature_count), signer])
-
-        table = Table(table_data, colWidths=[8 * cm, 2.5 * cm, 2 * cm, 4.5 * cm])
-
-        style_commands = [
-            ("BACKGROUND", (0, 0), (-1, 0), colors.HexColor("#3498db")),
-            ("TEXTCOLOR", (0, 0), (-1, 0), colors.whitesmoke),
-            ("ALIGN", (0, 0), (-1, -1), "LEFT"),
-            ("ALIGN", (2, 0), (2, -1), "CENTER"),
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
-            ("FONTSIZE", (0, 0), (-1, -1), 9),
-            ("TOPPADDING", (0, 0), (-1, -1), 6),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-            ("LEFTPADDING", (0, 0), (-1, -1), 6),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-            ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, colors.HexColor("#f5f5f5")]),
-        ]
-
-        for i, result in enumerate(results, start=1):
-            color = self._result_status_color(result)
-            style_commands.append(("BACKGROUND", (1, i), (1, i), color))
-
-        table.setStyle(TableStyle(style_commands))
-        return table
-
-    def _generate_pdf_details(self, results: list[ValidationResult]) -> list[Flowable]:
-        """Generate details section for PDF report."""
-        elements: list[Flowable] = []
-
-        heading = Paragraph("File Details", self._styles["SectionHeading"])
-        elements.append(heading)
-
-        cell_style = ParagraphStyle(
-            "TableCell",
-            parent=self._styles["Normal"],
-            fontSize=9,
-            leading=11,
-        )
-
-        elements.append(self._build_details_table(results, cell_style))
-
-        if self.options.include_certificate_info:
-            elements.extend(self._generate_certificate_details(results))
-
-        return elements
-
-    def _generate_certificate_details(self, results: list[ValidationResult]) -> list[Flowable]:
-        """Generate detailed certificate information section."""
-        elements: list[Flowable] = []
-
-        for result in results:
-            if not result.signatures:
-                continue
-
-            elements.append(Spacer(1, 0.5 * cm))
-
-            # File heading
-            file_heading = Paragraph(f"<b>{result.file_path.name}</b>", self._styles["Normal"])
-            elements.append(file_heading)
-
-            # Certificate details for each signature
-            for i, sig in enumerate(result.signatures, start=1):
-                valid_from = (
-                    sig.certificate_valid_from.strftime("%Y-%m-%d")
-                    if sig.certificate_valid_from
-                    else "N/A"
-                )
-                valid_to = (
-                    sig.certificate_valid_to.strftime("%Y-%m-%d")
-                    if sig.certificate_valid_to
-                    else "N/A"
-                )
-                cert_text = f"""
-                <para fontSize="8">
-                <b>Signature {i}:</b><br/>
-                &nbsp;&nbsp;Signer: {sig.signer_name}<br/>
-                &nbsp;&nbsp;Email: {sig.signer_email or "N/A"}<br/>
-                &nbsp;&nbsp;Issuer: {sig.certificate_issuer}<br/>
-                &nbsp;&nbsp;Valid: {valid_from} to {valid_to}<br/>
-                &nbsp;&nbsp;Status: {sig.status.value}<br/>
-                &nbsp;&nbsp;Message: {sig.status_message}
-                </para>
-                """
-                elements.append(Paragraph(cert_text, self._styles["Normal"]))
-
-        return elements
+        return result_status_label(result)
 
     _CSV_HEADERS = [
         "Filename",
@@ -361,7 +108,7 @@ class ValidationReportGenerator:
 
     def _build_csv_row(self, result: ValidationResult) -> list:
         """Build a single CSV row from a validation result."""
-        status = self._result_status_label(result)
+        status = result_status_label(result)
 
         signer_name = ""
         signer_email = ""
@@ -431,7 +178,6 @@ class ValidationReportGenerator:
             "files": files_list,
         }
 
-        # Add file details
         for result in results:
             signatures_list: list[dict] = []
             file_data: dict = {
@@ -444,7 +190,6 @@ class ValidationReportGenerator:
                 "signatures": signatures_list,
             }
 
-            # Add signature details
             for sig in result.signatures:
                 sig_data = {
                     "signer_name": sig.signer_name,
