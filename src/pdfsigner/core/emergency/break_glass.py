@@ -15,9 +15,11 @@ from pdfsigner.core.audit.audit_event import AuditEvent, AuditEventType
 from pdfsigner.core.audit.audit_logger import AuditLogger
 from pdfsigner.core.emergency.emergency_access import (
     EmergencyAccessRepository,
+    get_emergency_repository,
+)
+from pdfsigner.core.emergency.emergency_types import (
     EmergencyAccessRequest,
     EmergencyAccessStatus,
-    get_emergency_repository,
 )
 from pdfsigner.exceptions import EmergencyAccessError
 
