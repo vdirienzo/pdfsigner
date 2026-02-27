@@ -26,6 +26,15 @@ from pdfsigner.core.certificate.revocation_checker import (
     RevocationChecker,
     RevocationStatus,
 )
+from pdfsigner.core.validator.signature_validation import (
+    check_eidas_qualification,
+    create_error_info,
+    create_hybrid_pdf_info,
+    detect_pades_level,
+    extract_cn,
+    extract_email,
+    extract_page_number,
+)
 
 # Re-export types for backward compatibility
 from pdfsigner.core.validator.validator_types import (  # noqa: F401
@@ -61,11 +70,8 @@ class PDFValidator:
 
     def __init__(self):
         """Initialize validator."""
-        # Initialize trust store and chain validator
         self.trust_store = TrustStore()
         self.chain_validator = CertificateChainValidator(self.trust_store)
-
-        # Argentine compliance validator (lazy initialization)
         self._argentine_validator: ArgentineCertificateValidator | None = None
 
     def _check_revocation_status(
@@ -76,7 +82,7 @@ class PDFValidator:
         """Check certificate revocation status if enabled.
 
         Returns:
-            Tuple of (status_string, message) or (None, None) if disabled/unavailable
+            Tuple of (status_string, message) or (None, None) if disabled
         """
         settings = get_settings()
         if not settings.revocation_check_enabled:
@@ -115,36 +121,12 @@ class PDFValidator:
             logger.warning(f"Revocation check failed: {e}")
             return "error", str(e)
 
-    def _check_eidas_qualification(self, cert_der: bytes) -> tuple[str | None, str | None]:
-        """Check eIDAS qualification level of signing certificate.
-
-        Returns:
-            Tuple of (qualification_level, tsp_name) or (None, None)
-        """
-        try:
-            from pdfsigner.core.eidas.qualified_validator import QualifiedSignatureValidator
-            from pdfsigner.core.eidas.tsp_registry import get_tsp_registry
-
-            registry = get_tsp_registry(use_mock_data=False)
-            validator = QualifiedSignatureValidator(registry)
-            result = validator.validate_certificate(cert_der)
-
-            tsp_name = None
-            if result.signature_validations:
-                tsp_name = result.signature_validations[0].tsp_name
-
-            return result.qualification_level, tsp_name
-        except Exception as e:
-            logger.warning("eIDAS qualification check failed: %s", e)
-            return None, None
-
     def check_argentine_compliance(
         self,
         cert_der: bytes,
         enabled: bool = True,
     ) -> ArgentineValidationResult | None:
-        """
-        Check certificate compliance with Argentine Ley 25.506.
+        """Check certificate compliance with Argentine Ley 25.506.
 
         Args:
             cert_der: Certificate in DER format
@@ -157,18 +139,15 @@ class PDFValidator:
             return None
 
         try:
-            # Lazy initialization of validator
             if self._argentine_validator is None:
                 self._argentine_validator = get_argentine_validator()
-
             return self._argentine_validator.validate(cert_der)
         except Exception as e:
             logger.warning(f"Argentine compliance check failed: {e}")
             return None
 
     def validate(self, pdf_path: Path | str) -> ValidationResult:
-        """
-        Validate all signatures in a PDF.
+        """Validate all signatures in a PDF.
 
         Args:
             pdf_path: Path to PDF file
@@ -181,10 +160,7 @@ class PDFValidator:
 
         try:
             with open(pdf_path, "rb") as f:
-                # strict=False allows hybrid-reference PDFs (mixed xref tables/streams)
                 reader = PdfFileReader(f, strict=False)
-
-                # Get signature fields
                 sig_fields = self._get_signature_fields(reader)
 
                 if not sig_fields:
@@ -196,12 +172,10 @@ class PDFValidator:
                         signatures=[],
                     )
 
-                # Validate each signature
                 all_valid = True
                 for field_name in sig_fields:
                     sig_info = self._validate_signature(reader, field_name, pdf_path)
                     signatures.append(sig_info)
-
                     if sig_info.status != SignatureStatus.VALID:
                         all_valid = False
 
@@ -245,7 +219,6 @@ class PDFValidator:
     ) -> SignatureInfo:
         """Validate a specific signature."""
         try:
-            # Find signature
             sig = None
             for s in reader.embedded_signatures:
                 if s.field_name == field_name:
@@ -253,10 +226,8 @@ class PDFValidator:
                     break
 
             if sig is None:
-                return self._create_error_info(field_name, "Signature not found")
+                return create_error_info(field_name, "Signature not found")
 
-            # Validate signature
-            # Note: strict=False in PdfFileReader allows hybrid-reference PDFs
             status = validate_pdf_signature(
                 embedded_sig=sig,
                 key_usage_settings=KeyUsageConstraints(
@@ -264,19 +235,15 @@ class PDFValidator:
                 ),
             )
 
-            # Extract certificate information
             cert = sig.signer_cert
-            signer_name = self._extract_cn(cert.subject.human_friendly)
-            signer_email = self._extract_email(cert)
-            issuer = self._extract_cn(cert.issuer.human_friendly)
-
-            # Extract certificate bytes (DER format) for viewing
+            signer_name = extract_cn(cert.subject.human_friendly)
+            signer_email = extract_email(cert)
+            issuer = extract_cn(cert.issuer.human_friendly)
             cert_bytes = cert.dump()
 
             # Validate certificate chain
             chain_result = None
             try:
-                # Convert pyhanko certificate to cryptography x509.Certificate
                 crypto_cert = x509.load_der_x509_certificate(cert_bytes)
                 chain_result = self.chain_validator.validate_chain(crypto_cert)
                 logger.debug(
@@ -300,9 +267,9 @@ class PDFValidator:
             eidas_level, eidas_tsp_name = None, None
             settings = get_settings()
             if settings.eidas_enabled:
-                eidas_level, eidas_tsp_name = self._check_eidas_qualification(cert_bytes)
+                eidas_level, eidas_tsp_name = check_eidas_qualification(cert_bytes)
 
-            # Check Argentine compliance (optional, controlled by settings)
+            # Check Argentine compliance (optional)
             argentine_result = None
             if hasattr(settings, "argentine_compliance_enabled"):
                 argentine_result = self.check_argentine_compliance(
@@ -320,14 +287,12 @@ class PDFValidator:
                 sig_status = SignatureStatus.INVALID
                 status_msg = "Invalid signature or modified document"
 
-            # Extract page number from signature annotation
-            page_number = self._extract_page_number(reader, sig)
+            page_number = extract_page_number(reader, sig)
 
-            # Detect PAdES compliance level
             has_timestamp = (
                 status.timestamp_validity is not None and status.timestamp_validity.valid
             )
-            ltv_info = self._detect_pades_level(pdf_path, reader, has_timestamp)
+            ltv_info = detect_pades_level(pdf_path, reader, has_timestamp)
 
             return SignatureInfo(
                 signer_name=signer_name,
@@ -344,7 +309,7 @@ class PDFValidator:
                 status=sig_status,
                 status_message=status_msg,
                 field_name=field_name,
-                covers_whole_document=status.coverage.value >= 2,  # ENTIRE_REVISION or more
+                covers_whole_document=status.coverage.value >= 2,
                 is_modification_allowed=status.modification_level is not None,
                 page_number=page_number,
                 certificate_bytes=cert_bytes,
@@ -361,158 +326,30 @@ class PDFValidator:
             error_str = str(e)
             logger.warning(f"Error validating signature {field_name}: {error_str}")
 
-            # Check for hybrid-reference file error and provide clear message
             if "hybrid-reference" in error_str.lower():
-                return self._create_hybrid_pdf_info(field_name, sig)
+                return create_hybrid_pdf_info(field_name, sig)
 
-            return self._create_error_info(field_name, error_str)
+            return create_error_info(field_name, error_str)
 
-    def _create_hybrid_pdf_info(self, field_name: str, sig) -> SignatureInfo:
-        """Create SignatureInfo for hybrid-reference PDFs.
-
-        Hybrid PDFs mix classic xref tables with xref streams. The signature
-        is present but cannot be fully verified due to this format limitation.
-        We extract what information we can from the certificate.
-        """
-        signer_name = "Unknown"
-        signer_email = None
-        issuer = "Unknown"
-        serial = ""
-        valid_from = None
-        valid_to = None
-        cert_bytes = None
-
-        # Try to extract certificate info even if validation failed
-        if sig and sig.signer_cert:
-            try:
-                cert = sig.signer_cert
-                signer_name = self._extract_cn(cert.subject.human_friendly)
-                signer_email = self._extract_email(cert)
-                issuer = self._extract_cn(cert.issuer.human_friendly)
-                serial = format(cert.serial_number, "x")
-                valid_from = cert.not_valid_before
-                valid_to = cert.not_valid_after
-                cert_bytes = cert.dump()
-            except Exception as e:
-                logger.debug(f"Could not extract certificate details: {e}")
-
-        return SignatureInfo(
-            signer_name=signer_name,
-            signer_email=signer_email,
-            signing_time=None,
-            is_timestamp_valid=False,
-            certificate_issuer=issuer,
-            certificate_serial=serial,
-            certificate_valid_from=valid_from,
-            certificate_valid_to=valid_to,
-            status=SignatureStatus.INDETERMINATE,
-            status_message="Cannot fully verify (hybrid PDF format)",
-            field_name=field_name,
-            covers_whole_document=False,
-            is_modification_allowed=False,
-            page_number=None,
-            certificate_bytes=cert_bytes,
-            chain_validation_result=None,
-            revocation_status=None,
-            revocation_message=None,
-            ltv_info=None,
-        )
-
-    def _create_error_info(self, field_name: str, error: str) -> SignatureInfo:
-        """Create SignatureInfo for errors."""
-        return SignatureInfo(
-            signer_name="Unknown",
-            signer_email=None,
-            signing_time=None,
-            is_timestamp_valid=False,
-            certificate_issuer="Unknown",
-            certificate_serial="",
-            certificate_valid_from=None,
-            certificate_valid_to=None,
-            status=SignatureStatus.UNKNOWN,
-            status_message=f"Error: {error}",
-            field_name=field_name,
-            covers_whole_document=False,
-            is_modification_allowed=False,
-            page_number=None,
-            certificate_bytes=None,
-            chain_validation_result=None,
-            revocation_status=None,
-            revocation_message=None,
-            ltv_info=None,
-        )
-
+    # Thin wrappers for backward compatibility with tests
     def _extract_cn(self, subject: str) -> str:
         """Extract Common Name (CN) from subject."""
-        # subject comes as "CN=Name,O=Org,..."
-        for part in subject.split(","):
-            part = part.strip()
-            if part.startswith("CN="):
-                return part[3:]
-        return subject
+        return extract_cn(subject)
 
     def _extract_email(self, cert) -> str | None:
         """Extract email from certificate if exists."""
-        try:
-            for ext in cert.extensions:
-                if ext.oid.dotted_string == "2.5.29.17":  # Subject Alt Name
-                    for name in ext.value:
-                        if hasattr(name, "value") and "@" in str(name.value):
-                            return str(name.value)
-        except Exception as e:
-            logger.debug(f"Could not extract email from certificate: {e}")
-        return None
+        return extract_email(cert)
 
-    def _extract_page_number(self, reader: PdfFileReader, sig) -> int | None:
-        """Extract page number where signature annotation is located.
+    def _create_error_info(self, field_name: str, error: str) -> SignatureInfo:
+        """Create SignatureInfo for errors."""
+        return create_error_info(field_name, error)
 
-        Args:
-            reader: PDF reader with document
-            sig: EmbeddedPdfSignature object
-
-        Returns:
-            Page number (1-indexed) or None if not found
-        """
-        try:
-            # Get the signature field object
-            sig_field = sig.sig_field
-            if not sig_field:
-                return None
-
-            sig_field_obj = sig_field.get_object()
-
-            # Strategy 1: Check for direct /P reference to page
-            if "/P" in sig_field_obj:
-                page_ref = sig_field_obj.raw_get("/P")
-                # Find which page number this reference corresponds to
-                pages = reader.root["/Pages"]["/Kids"]
-                for page_num, page in enumerate(pages):
-                    if page.reference == page_ref:
-                        return page_num + 1  # 1-indexed
-
-            # Strategy 2: Iterate pages and check if annotation is in /Annots array
-            pages = reader.root["/Pages"]["/Kids"]
-            for page_num, page in enumerate(pages):
-                if "/Annots" in page:
-                    annots = page["/Annots"]
-                    # annots can be indirect reference or array
-                    if hasattr(annots, "get_object"):
-                        annots = annots.get_object()
-                    # Check each annotation
-                    for annot in annots:
-                        annot_ref = annot if hasattr(annot, "reference") else annot
-                        if annot_ref.reference == sig_field.reference:
-                            return page_num + 1  # 1-indexed
-
-            return None
-
-        except Exception as e:
-            logger.debug(f"Could not extract page number from signature annotation: {e}")
-            return None
+    def _create_hybrid_pdf_info(self, field_name: str, sig) -> SignatureInfo:
+        """Create SignatureInfo for hybrid-reference PDFs."""
+        return create_hybrid_pdf_info(field_name, sig)
 
     def get_signature_count(self, pdf_path: Path | str) -> int:
-        """
-        Quickly count signatures in a PDF.
+        """Quickly count signatures in a PDF.
 
         Args:
             pdf_path: Path to PDF
@@ -522,15 +359,13 @@ class PDFValidator:
         """
         try:
             with open(pdf_path, "rb") as f:
-                # strict=False allows hybrid-reference PDFs (mixed xref tables/streams)
                 reader = PdfFileReader(f, strict=False)
                 return len(list(reader.embedded_signatures))
         except Exception:
             return 0
 
     def is_signed(self, pdf_path: Path | str) -> bool:
-        """
-        Quickly check if a PDF is signed.
+        """Quickly check if a PDF is signed.
 
         Args:
             pdf_path: Path to PDF
@@ -539,100 +374,3 @@ class PDFValidator:
             True if it has at least one signature
         """
         return self.get_signature_count(pdf_path) > 0
-
-    def _check_dss_present(self, reader: PdfFileReader) -> tuple[bool, bool, bool]:
-        """
-        Check if PDF has Document Security Store (DSS).
-
-        Args:
-            reader: PDF reader
-
-        Returns:
-            Tuple of (has_dss, has_ocsp_in_dss, has_crl_in_dss)
-        """
-        try:
-            dss_dict = reader.root.get("/DSS")
-            if dss_dict is None:
-                return False, False, False
-
-            # Get DSS object
-            dss_obj = dss_dict.get_object() if hasattr(dss_dict, "get_object") else dss_dict
-
-            # Check for OCSP responses
-            has_ocsp = "/OCSPs" in dss_obj and len(dss_obj.get("/OCSPs", [])) > 0
-
-            # Check for CRLs
-            has_crl = "/CRLs" in dss_obj and len(dss_obj.get("/CRLs", [])) > 0
-
-            logger.debug(f"DSS found: OCSP={has_ocsp}, CRL={has_crl}")
-            return True, has_ocsp, has_crl
-
-        except Exception as e:
-            logger.debug(f"Error checking DSS: {e}")
-            return False, False, False
-
-    def _get_archive_timestamps(self, pdf_path: Path) -> list[ArchiveTimestampInfo]:
-        """
-        Get archive timestamps from PDF.
-
-        Args:
-            pdf_path: Path to PDF
-
-        Returns:
-            List of archive timestamps
-        """
-        try:
-            # Lazy import to avoid circular dependency
-            from pdfsigner.core.signer.archive_ts_manager import ArchiveTimestampManager
-
-            # Use ArchiveTimestampManager to get timestamps
-            # Create manager with empty TSA URLs (we only need to read, not add timestamps)
-            ts_manager = ArchiveTimestampManager(tsa_urls=[])
-            timestamps = ts_manager.get_archive_timestamps(pdf_path)
-            return timestamps
-        except Exception as e:
-            logger.debug(f"Error getting archive timestamps: {e}")
-            return []
-
-    def _detect_pades_level(
-        self,
-        pdf_path: Path,
-        reader: PdfFileReader,
-        has_timestamp: bool,
-    ) -> LTVInfo:
-        """
-        Detect PAdES compliance level of a signature.
-
-        Args:
-            pdf_path: Path to PDF
-            reader: PDF reader
-            has_timestamp: Whether signature has a timestamp
-
-        Returns:
-            LTVInfo with detected level and details
-        """
-        ltv_info = LTVInfo()
-
-        # Check for DSS
-        has_dss, has_ocsp, has_crl = self._check_dss_present(reader)
-        ltv_info.has_dss = has_dss
-        ltv_info.has_ocsp_in_dss = has_ocsp
-        ltv_info.has_crl_in_dss = has_crl
-
-        # Check for archive timestamps
-        archive_timestamps = self._get_archive_timestamps(pdf_path)
-        ltv_info.archive_timestamps = archive_timestamps
-        ltv_info.has_archive_timestamp = len(archive_timestamps) > 0
-
-        # Determine PAdES level based on features
-        if ltv_info.has_archive_timestamp:
-            ltv_info.pades_level = PAdESLevel.B_LTA
-        elif has_dss:
-            ltv_info.pades_level = PAdESLevel.B_LT
-        elif has_timestamp:
-            ltv_info.pades_level = PAdESLevel.B_T
-        else:
-            ltv_info.pades_level = PAdESLevel.B_B
-
-        logger.debug(f"Detected PAdES level: {ltv_info.pades_level.value}")
-        return ltv_info

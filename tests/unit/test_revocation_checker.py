@@ -158,10 +158,11 @@ class TestOCSPChecker:
         assert result.method == "OCSP"
         assert "No OCSP responder URL" in result.error_message
 
-    @patch("pdfsigner.core.certificate.revocation_checker.requests.post")
-    @patch("pdfsigner.core.certificate.revocation_checker.ocsp.OCSPRequestBuilder")
+    @patch("pdfsigner.core.security.url_validator.validate_ocsp_url", side_effect=lambda url: url)
+    @patch("pdfsigner.core.certificate.ocsp_checker.requests.post")
+    @patch("pdfsigner.core.certificate.ocsp_checker.ocsp.OCSPRequestBuilder")
     def test_check_ocsp_good_status(
-        self, mock_builder, mock_post, ocsp_checker, mock_cert, mock_issuer_cert
+        self, mock_builder, mock_post, _mock_validate, ocsp_checker, mock_cert, mock_issuer_cert
     ):
         """Test check returns GOOD status from OCSP response."""
         # Mock OCSP request building
@@ -184,7 +185,7 @@ class TestOCSPChecker:
         mock_ocsp_response.certificate_status = ocsp.OCSPCertStatus.GOOD
 
         with patch(
-            "pdfsigner.core.certificate.revocation_checker.ocsp.load_der_ocsp_response",
+            "pdfsigner.core.certificate.ocsp_checker.ocsp.load_der_ocsp_response",
             return_value=mock_ocsp_response,
         ):
             result = ocsp_checker.check(mock_cert, mock_issuer_cert)
@@ -194,10 +195,11 @@ class TestOCSPChecker:
         assert result.responder_url == "http://ocsp.example.com"
         assert result.error_message is None
 
-    @patch("pdfsigner.core.certificate.revocation_checker.requests.post")
-    @patch("pdfsigner.core.certificate.revocation_checker.ocsp.OCSPRequestBuilder")
+    @patch("pdfsigner.core.security.url_validator.validate_ocsp_url", side_effect=lambda url: url)
+    @patch("pdfsigner.core.certificate.ocsp_checker.requests.post")
+    @patch("pdfsigner.core.certificate.ocsp_checker.ocsp.OCSPRequestBuilder")
     def test_check_ocsp_revoked_status(
-        self, mock_builder, mock_post, ocsp_checker, mock_cert, mock_issuer_cert
+        self, mock_builder, mock_post, _mock_validate, ocsp_checker, mock_cert, mock_issuer_cert
     ):
         """Test check returns REVOKED status from OCSP response."""
         # Mock OCSP request building
@@ -222,7 +224,7 @@ class TestOCSPChecker:
         mock_ocsp_response.revocation_reason = "keyCompromise"
 
         with patch(
-            "pdfsigner.core.certificate.revocation_checker.ocsp.load_der_ocsp_response",
+            "pdfsigner.core.certificate.ocsp_checker.ocsp.load_der_ocsp_response",
             return_value=mock_ocsp_response,
         ):
             result = ocsp_checker.check(mock_cert, mock_issuer_cert)
@@ -233,10 +235,11 @@ class TestOCSPChecker:
         assert result.revocation_time is not None
         assert result.revocation_reason == "keyCompromise"
 
-    @patch("pdfsigner.core.certificate.revocation_checker.requests.post")
-    @patch("pdfsigner.core.certificate.revocation_checker.ocsp.OCSPRequestBuilder")
+    @patch("pdfsigner.core.security.url_validator.validate_ocsp_url", side_effect=lambda url: url)
+    @patch("pdfsigner.core.certificate.ocsp_checker.requests.post")
+    @patch("pdfsigner.core.certificate.ocsp_checker.ocsp.OCSPRequestBuilder")
     def test_check_ocsp_timeout(
-        self, mock_builder, mock_post, ocsp_checker, mock_cert, mock_issuer_cert
+        self, mock_builder, mock_post, _mock_validate, ocsp_checker, mock_cert, mock_issuer_cert
     ):
         """Test check handles OCSP timeout correctly."""
         # Mock OCSP request building
@@ -256,11 +259,19 @@ class TestOCSPChecker:
         assert result.method == "OCSP"
         assert "timeout" in result.error_message.lower()
 
-    @patch("pdfsigner.core.certificate.revocation_checker.requests.post")
-    @patch("pdfsigner.core.certificate.revocation_checker.ocsp.OCSPRequestBuilder")
-    @patch("pdfsigner.core.certificate.revocation_checker.ocsp.load_der_ocsp_response")
+    @patch("pdfsigner.core.security.url_validator.validate_ocsp_url", side_effect=lambda url: url)
+    @patch("pdfsigner.core.certificate.ocsp_checker.requests.post")
+    @patch("pdfsigner.core.certificate.ocsp_checker.ocsp.OCSPRequestBuilder")
+    @patch("pdfsigner.core.certificate.ocsp_checker.ocsp.load_der_ocsp_response")
     def test_check_cache_hit(
-        self, mock_load_ocsp, mock_builder, mock_post, ocsp_checker, mock_cert, mock_issuer_cert
+        self,
+        mock_load_ocsp,
+        mock_builder,
+        mock_post,
+        _mock_validate,
+        ocsp_checker,
+        mock_cert,
+        mock_issuer_cert,
     ):
         """Test check uses cached response when available."""
         # Mock OCSP request building
@@ -355,9 +366,12 @@ class TestCRLChecker:
         assert result.method == "CRL"
         assert "No CRL distribution points" in result.error_message
 
-    @patch("pdfsigner.core.certificate.revocation_checker.requests.get")
-    @patch("pdfsigner.core.certificate.revocation_checker.x509.load_der_x509_crl")
-    def test_check_crl_good_status(self, mock_load_crl, mock_get, crl_checker, mock_cert_with_crl):
+    @patch("pdfsigner.core.security.url_validator.validate_crl_url", side_effect=lambda url: url)
+    @patch("pdfsigner.core.certificate.crl_checker.requests.get")
+    @patch("pdfsigner.core.certificate.crl_checker.x509.load_der_x509_crl")
+    def test_check_crl_good_status(
+        self, mock_load_crl, mock_get, _mock_validate, crl_checker, mock_cert_with_crl
+    ):
         """Test check returns GOOD when certificate not in CRL."""
         # Mock HTTP response
         mock_response = Mock()
@@ -377,10 +391,11 @@ class TestCRLChecker:
         assert result.method == "CRL"
         assert result.responder_url == "http://crl.example.com/test.crl"
 
-    @patch("pdfsigner.core.certificate.revocation_checker.requests.get")
-    @patch("pdfsigner.core.certificate.revocation_checker.x509.load_der_x509_crl")
+    @patch("pdfsigner.core.security.url_validator.validate_crl_url", side_effect=lambda url: url)
+    @patch("pdfsigner.core.certificate.crl_checker.requests.get")
+    @patch("pdfsigner.core.certificate.crl_checker.x509.load_der_x509_crl")
     def test_check_crl_revoked_status(
-        self, mock_load_crl, mock_get, crl_checker, mock_cert_with_crl
+        self, mock_load_crl, mock_get, _mock_validate, crl_checker, mock_cert_with_crl
     ):
         """Test check returns REVOKED when certificate is in CRL."""
         # Mock HTTP response
@@ -408,9 +423,12 @@ class TestCRLChecker:
         assert result.method == "CRL"
         assert result.revocation_time is not None
 
-    @patch("pdfsigner.core.certificate.revocation_checker.requests.get")
-    @patch("pdfsigner.core.certificate.revocation_checker.x509.load_der_x509_crl")
-    def test_check_crl_cache_hit(self, mock_load_crl, mock_get, crl_checker, mock_cert_with_crl):
+    @patch("pdfsigner.core.security.url_validator.validate_crl_url", side_effect=lambda url: url)
+    @patch("pdfsigner.core.certificate.crl_checker.requests.get")
+    @patch("pdfsigner.core.certificate.crl_checker.x509.load_der_x509_crl")
+    def test_check_crl_cache_hit(
+        self, mock_load_crl, mock_get, _mock_validate, crl_checker, mock_cert_with_crl
+    ):
         """Test check uses cached CRL when available."""
         # Mock HTTP response
         mock_response = Mock()
@@ -438,8 +456,11 @@ class TestCRLChecker:
         # Still only 1 call - second used cache
         assert mock_get.call_count == 1
 
-    @patch("pdfsigner.core.certificate.revocation_checker.requests.get")
-    def test_check_crl_download_error(self, mock_get, crl_checker, mock_cert_with_crl):
+    @patch("pdfsigner.core.security.url_validator.validate_crl_url", side_effect=lambda url: url)
+    @patch("pdfsigner.core.certificate.crl_checker.requests.get")
+    def test_check_crl_download_error(
+        self, mock_get, _mock_validate, crl_checker, mock_cert_with_crl
+    ):
         """Test check handles CRL download errors."""
         mock_get.side_effect = requests.exceptions.RequestException("Network error")
 

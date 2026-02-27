@@ -102,14 +102,23 @@ class TestCRLUrlValidation:
 class TestRevocationCheckerSSRF:
     """Test that RevocationChecker uses SSRF protection."""
 
-    def test_revocation_checker_imports_validator(self):
-        """RevocationChecker should import SSRF validator."""
+    def test_ocsp_checker_imports_validator(self):
+        """OCSPChecker module should import SSRF validator."""
         import inspect
 
-        from pdfsigner.core.certificate import revocation_checker
+        from pdfsigner.core.certificate import ocsp_checker
 
-        source = inspect.getsource(revocation_checker)
+        source = inspect.getsource(ocsp_checker)
         assert "validate_ocsp_url" in source
+        assert "SSRFError" in source
+
+    def test_crl_checker_imports_validator(self):
+        """CRLChecker module should import SSRF validator."""
+        import inspect
+
+        from pdfsigner.core.certificate import crl_checker
+
+        source = inspect.getsource(crl_checker)
         assert "validate_crl_url" in source
         assert "SSRFError" in source
 
@@ -117,9 +126,9 @@ class TestRevocationCheckerSSRF:
         """OCSP check should validate URL before request."""
         import inspect
 
-        from pdfsigner.core.certificate import revocation_checker
+        from pdfsigner.core.certificate import ocsp_checker
 
-        source = inspect.getsource(revocation_checker)
+        source = inspect.getsource(ocsp_checker)
         # Check that validation happens before the request
         ocsp_section = source[
             source.find("Sending OCSP request") - 500 : source.find("Sending OCSP request")
@@ -130,9 +139,9 @@ class TestRevocationCheckerSSRF:
         """CRL check should validate URL before request."""
         import inspect
 
-        from pdfsigner.core.certificate import revocation_checker
+        from pdfsigner.core.certificate import crl_checker
 
-        source = inspect.getsource(revocation_checker)
+        source = inspect.getsource(crl_checker)
         # Check that validation happens before the request
         crl_section = source[source.find("Downloading CRL") - 500 : source.find("Downloading CRL")]
         assert "validate_crl_url" in crl_section
