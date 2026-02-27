@@ -64,7 +64,7 @@ def main() -> int:
         "--reason", type=str, help="Signature reason (e.g., 'I approve this document')"
     )
     sign_parser.add_argument(
-        "--location", type=str, help="Signature location (e.g., 'Buenos Aires, Argentina')"
+        "--location", type=str, help="Signature location (e.g., 'New York, NY')"
     )
     sign_parser.add_argument(
         "--contact", type=str, help="Contact information (e.g., 'email@company.com')"

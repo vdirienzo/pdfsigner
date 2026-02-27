@@ -268,15 +268,15 @@ def test_json_formatter_unicode() -> None:
     """Test JSON formatter handles Unicode correctly."""
     event = AuditEvent(
         event_type=AuditEventType.SIGN_SUCCESS,
-        user_cn="José García",
-        document_path="/home/user/documentación.pdf",
+        user_cn="James O'Brien",
+        document_path="/home/user/documents/résumé.pdf",
     )
 
     result = JSONFormatter.format(event)
     data = json.loads(result)
 
-    assert data["user_cn"] == "José García"
-    assert data["document_path"] == "/home/user/documentación.pdf"
+    assert data["user_cn"] == "James O'Brien"
+    assert data["document_path"] == "/home/user/documents/résumé.pdf"
 
 
 # ============================================================================

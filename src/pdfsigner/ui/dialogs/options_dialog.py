@@ -238,7 +238,7 @@ class SignatureOptionsDialog(Gtk.Dialog):
         info_grid.attach(location_label, 0, 1, 1, 1)
 
         self.location_entry = Gtk.Entry()
-        self.location_entry.set_placeholder_text(_("e.g., Buenos Aires, Argentina"))
+        self.location_entry.set_placeholder_text(_("e.g., New York, NY"))
         self.location_entry.set_hexpand(True)
         set_accessible(
             self.location_entry,

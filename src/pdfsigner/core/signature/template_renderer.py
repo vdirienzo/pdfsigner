@@ -356,9 +356,9 @@ def render_preview(
 
     # Sample variables for preview
     variables = {
-        "signer_name": "Juan Pérez García",
+        "signer_name": "John A. Smith",
         "date": datetime.now(UTC).strftime("%Y-%m-%d %H:%M"),
-        "org": "Empresa S.A.",
+        "org": "Acme Corp",
     }
 
     # Create preview image

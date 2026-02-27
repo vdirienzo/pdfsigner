@@ -76,8 +76,8 @@ class MockNSSHandler:
             return []
 
         return [
-            create_mock_certificate("Juan Pérez (TEST)"),
-            create_mock_certificate("María García (TEST)"),
+            create_mock_certificate("John Smith (TEST)"),
+            create_mock_certificate("Jane Doe (TEST)"),
         ]
 
     def close(self) -> None:

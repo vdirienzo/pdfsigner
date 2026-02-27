@@ -141,7 +141,7 @@ class BatchManager:
             progress_callback: Callback to update progress
             template_override: Template name to use instead of settings default
             reason: Signature reason (e.g., "I approve this document")
-            location: Signature location (e.g., "Buenos Aires, Argentina")
+            location: Signature location (e.g., "New York, NY")
             contact_info: Contact information (e.g., "email@company.com")
 
         Returns:

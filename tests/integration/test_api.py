@@ -380,7 +380,7 @@ async def test_sign_with_parameters(client, auth_headers, sample_pdf):
     files = {"file": ("document.pdf", sample_pdf, "application/pdf")}
     params = {
         "reason": "Approval",
-        "location": "Buenos Aires",
+        "location": "New York, NY",
         "visible_signature": True,
         "embed_ltv": True,
     }

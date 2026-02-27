@@ -421,9 +421,9 @@ class TestExtractCNEdgeCases:
         """Test CN extraction with special characters in name."""
         validator = PDFValidator()
 
-        cn = validator._extract_cn("CN=José María Ñoño,O=Test")
+        cn = validator._extract_cn("CN=James O'Brien-Smith,O=Test")
 
-        assert cn == "José María Ñoño"
+        assert cn == "James O'Brien-Smith"
 
     def test_extract_cn_with_comma_in_cn(self):
         """Test CN extraction when CN field itself is first part."""

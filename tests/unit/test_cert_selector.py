@@ -49,7 +49,7 @@ class TestValidCertificate:
         """Display name should extract CN from subject."""
         cert_info = make_cert_info(
             label="my-cert",
-            subject="CN=Juan Pérez García,O=Empresa,C=ES",
+            subject="CN=John A. Smith,O=Acme Corp,C=US",
         )
         valid_cert = ValidCertificate(
             info=cert_info,
@@ -57,13 +57,13 @@ class TestValidCertificate:
             is_expiring_soon=False,
         )
 
-        assert valid_cert.display_name == "Juan Pérez García"
+        assert valid_cert.display_name == "John A. Smith"
 
     def test_display_name_fallback_to_label(self):
         """Display name should fallback to label if no CN."""
         cert_info = make_cert_info(
             label="my-cert-label",
-            subject="O=Empresa,C=ES",  # No CN
+            subject="O=Acme Corp,C=US",  # No CN
         )
         valid_cert = ValidCertificate(
             info=cert_info,
@@ -77,7 +77,7 @@ class TestValidCertificate:
         """Display name should handle complex subject strings."""
         cert_info = make_cert_info(
             label="cert",
-            subject="CN=María O'Connor,OU=IT,O=Empresa S.A.,C=ES",
+            subject="CN=Mary O'Connor,OU=IT,O=Acme Corp,C=US",
         )
         valid_cert = ValidCertificate(
             info=cert_info,
@@ -85,7 +85,7 @@ class TestValidCertificate:
             is_expiring_soon=False,
         )
 
-        assert valid_cert.display_name == "María O'Connor"
+        assert valid_cert.display_name == "Mary O'Connor"
 
 
 class TestCertificateSelectorFilterExpired:

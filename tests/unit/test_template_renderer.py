@@ -112,24 +112,24 @@ class TestSubstituteVariables:
     def test_substitute_variables_basic(self):
         """Basic variable substitution should work."""
         text = "Signed by {signer_name}"
-        variables = {"signer_name": "Juan Pérez"}
+        variables = {"signer_name": "John Smith"}
 
         result = _substitute_variables(text, variables)
 
-        assert result == "Signed by Juan Pérez"
+        assert result == "Signed by John Smith"
 
     def test_substitute_variables_multiple(self):
         """Multiple variables should all be substituted."""
         text = "{signer_name} - {date} - {org}"
         variables = {
-            "signer_name": "María García",
+            "signer_name": "Jane Doe",
             "date": "2025-01-27",
             "org": "ACME Corp",
         }
 
         result = _substitute_variables(text, variables)
 
-        assert result == "María García - 2025-01-27 - ACME Corp"
+        assert result == "Jane Doe - 2025-01-27 - ACME Corp"
 
     def test_substitute_variables_removes_unresolved(self):
         """Unresolved variables should be removed."""
@@ -161,11 +161,11 @@ class TestSubstituteVariables:
     def test_substitute_variables_special_characters(self):
         """Variables with special characters should work."""
         text = "Signer: {signer_name}"
-        variables = {"signer_name": "José María O'Connor"}
+        variables = {"signer_name": "James O'Connor"}
 
         result = _substitute_variables(text, variables)
 
-        assert result == "Signer: José María O'Connor"
+        assert result == "Signer: James O'Connor"
 
 
 class TestLoadFont:

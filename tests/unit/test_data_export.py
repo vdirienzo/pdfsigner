@@ -643,8 +643,8 @@ def test_export_user_data_unicode_characters(user_repository, user_data_exporter
     """Test export handles Unicode characters correctly."""
     user = User(
         username="user.unicode",
-        display_name="José García-Pérez 日本語",
-        email="jose@example.com",
+        display_name="James O'Brien-Smith 日本語",
+        email="james@example.com",
         role=UserRole.SIGNER,
     )
     user = user_repository.create_user(user)
@@ -652,13 +652,13 @@ def test_export_user_data_unicode_characters(user_repository, user_data_exporter
     export = user_data_exporter.export_user_data(user.id)
 
     assert export is not None
-    assert "José" in export.user_info["display_name"]
+    assert "James" in export.user_info["display_name"]
     assert "日本語" in export.user_info["display_name"]
 
     # Verify JSON export preserves Unicode
     json_str = user_data_exporter.export_to_json_string(user.id)
     assert json_str is not None
-    assert "José" in json_str
+    assert "James" in json_str
     assert "日本語" in json_str
 
 

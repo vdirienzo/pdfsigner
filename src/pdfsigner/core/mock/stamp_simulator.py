@@ -19,8 +19,8 @@ from PIL import Image, ImageDraw, ImageFont
 from pdfsigner.core.stamp.qr_generator import QRData, generate_qr_image
 
 # Demo signer data for realistic simulation
-DEMO_SIGNER_NAME = "Juan Pérez (DEMO)"
-DEMO_ORGANIZATION = "Empresa Demo S.A."
+DEMO_SIGNER_NAME = "John Smith (DEMO)"
+DEMO_ORGANIZATION = "Acme Corp (DEMO)"
 DEMO_SERIAL = "1234567890ABCDEF"
 
 # Stamp dimensions in pixels (150 DPI for high quality)

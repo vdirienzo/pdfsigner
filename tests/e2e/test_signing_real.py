@@ -61,9 +61,9 @@ def create_test_certificate():
     # Create certificate subject
     subject = issuer = x509.Name(
         [
-            x509.NameAttribute(NameOID.COUNTRY_NAME, "AR"),
-            x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, "Buenos Aires"),
-            x509.NameAttribute(NameOID.LOCALITY_NAME, "CABA"),
+            x509.NameAttribute(NameOID.COUNTRY_NAME, "US"),
+            x509.NameAttribute(NameOID.STATE_OR_PROVINCE_NAME, "New York"),
+            x509.NameAttribute(NameOID.LOCALITY_NAME, "New York"),
             x509.NameAttribute(NameOID.ORGANIZATION_NAME, "PDFSigner Test CA"),
             x509.NameAttribute(NameOID.COMMON_NAME, "Test Signing Certificate"),
             x509.NameAttribute(NameOID.EMAIL_ADDRESS, "test@pdfsigner.test"),
@@ -401,7 +401,7 @@ class TestBasicSigning:
             signer=test_signer,
             visible=False,
             reason="Testing E2E signing",
-            location="Buenos Aires, Argentina",
+            location="New York, NY",
         )
 
         assert output.exists()

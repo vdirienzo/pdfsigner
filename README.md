@@ -155,7 +155,7 @@ uv run pdfsigner sign document.pdf --visible --page last --qr-code
 # Sign with metadata
 uv run pdfsigner sign document.pdf --visible \
     --reason "Approved for release" \
-    --location "Buenos Aires, Argentina" \
+    --location "New York, NY" \
     --contact "signer@company.com"
 
 # Batch signing (recursive)

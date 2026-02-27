@@ -144,7 +144,7 @@ class TestSignCommand:
                 "--reason",
                 "Document approval",
                 "--location",
-                "Buenos Aires, Argentina",
+                "New York, NY",
                 "--contact",
                 "test@example.com",
             ],

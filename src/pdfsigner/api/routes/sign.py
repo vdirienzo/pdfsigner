@@ -114,7 +114,7 @@ async def sign_document(
          -H "X-API-Key: your-api-key" \\
          -F "file=@document.pdf" \\
          -F "reason=Approval" \\
-         -F "location=Buenos Aires" \\
+         -F "location=New York, NY" \\
          -F "visible_signature=true"
     ```
 
@@ -122,7 +122,7 @@ async def sign_document(
         background_tasks: FastAPI background tasks
         file: PDF file to sign (multipart/form-data)
         reason: Reason for signing (e.g., "I approve this document")
-        location: Geographic location (e.g., "Buenos Aires, Argentina")
+        location: Geographic location (e.g., "New York, NY")
         contact_info: Contact information (e.g., "email@company.com")
         visible_signature: Whether to add visible signature stamp
         signature_page: Page for signature (first/last/all/number)

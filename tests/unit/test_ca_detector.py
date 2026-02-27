@@ -37,7 +37,7 @@ def mock_afip_cert():
     """Create mock AFIP certificate info."""
     return CertificateInfo(
         label="AFIP Certificate",
-        subject="CN=Juan Perez,O=Test Company",
+        subject="CN=John Smith,O=Test Company",
         issuer="CN=AC AFIP,O=AFIP,C=AR",
         serial_number="1234567890abcdef",
         not_before="2024-01-01T00:00:00Z",
@@ -52,7 +52,7 @@ def mock_renaper_cert():
     """Create mock RENAPER certificate info."""
     return CertificateInfo(
         label="RENAPER Certificate",
-        subject="CN=Maria Garcia,O=Citizen",
+        subject="CN=Jane Doe,O=Citizen",
         issuer="CN=AC RENAPER,O=RENAPER,C=AR",
         serial_number="fedcba0987654321",
         not_before="2024-01-01T00:00:00Z",

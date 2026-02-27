@@ -67,12 +67,12 @@ class TestSignatureMetadata:
             signer.sign_pdf(
                 input_path=sample_pdf,
                 appearance=SignatureAppearance(visible=False),
-                location="Buenos Aires, Argentina",
+                location="New York, NY",
             )
 
             assert mock_execute.called
             call_kwargs = mock_execute.call_args[1]
-            assert call_kwargs["location"] == "Buenos Aires, Argentina"
+            assert call_kwargs["location"] == "New York, NY"
 
     def test_sign_pdf_accepts_contact_info_parameter(
         self, mock_nss_handler, mock_lta_handler, sample_pdf
@@ -124,14 +124,14 @@ class TestSignatureMetadata:
                 input_path=sample_pdf,
                 appearance=SignatureAppearance(visible=False),
                 reason="I approve this document",
-                location="Buenos Aires, Argentina",
+                location="New York, NY",
                 contact_info="email@company.com",
             )
 
             assert mock_execute.called
             call_kwargs = mock_execute.call_args[1]
             assert call_kwargs["reason"] == "I approve this document"
-            assert call_kwargs["location"] == "Buenos Aires, Argentina"
+            assert call_kwargs["location"] == "New York, NY"
             assert call_kwargs["contact_info"] == "email@company.com"
 
     def test_execute_signing_passes_metadata_to_pyhanko(
@@ -169,7 +169,7 @@ class TestSignatureMetadata:
                 existing_sig_count=0,
                 template_override=None,
                 reason="I approve this document",
-                location="Buenos Aires, Argentina",
+                location="New York, NY",
                 contact_info="email@company.com",
             )
 
@@ -177,7 +177,7 @@ class TestSignatureMetadata:
             assert mock_metadata.called
             call_kwargs = mock_metadata.call_args[1]
             assert call_kwargs["reason"] == "I approve this document"
-            assert call_kwargs["location"] == "Buenos Aires, Argentina"
+            assert call_kwargs["location"] == "New York, NY"
             assert call_kwargs["contact_info"] == "email@company.com"
 
     def test_execute_signing_converts_empty_strings_to_none(
@@ -242,7 +242,7 @@ class TestSignatureMetadata:
                 pdf_files=[sample_pdf],
                 appearance=SignatureAppearance(visible=False),
                 reason="I approve this document",
-                location="Buenos Aires, Argentina",
+                location="New York, NY",
                 contact_info="email@company.com",
             )
 
@@ -250,7 +250,7 @@ class TestSignatureMetadata:
             assert mock_signer.sign_pdf.called
             call_kwargs = mock_signer.sign_pdf.call_args[1]
             assert call_kwargs["reason"] == "I approve this document"
-            assert call_kwargs["location"] == "Buenos Aires, Argentina"
+            assert call_kwargs["location"] == "New York, NY"
             assert call_kwargs["contact_info"] == "email@company.com"
 
     def test_options_dialog_has_metadata_getters(self):

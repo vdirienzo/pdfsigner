@@ -121,7 +121,7 @@ class Settings(BaseSettings):
     )
     default_signature_location: str = Field(
         default="",
-        description="Default signature location (e.g., 'Buenos Aires, Argentina')",
+        description="Default signature location (e.g., 'New York, NY')",
     )
     default_signature_contact: str = Field(
         default="",

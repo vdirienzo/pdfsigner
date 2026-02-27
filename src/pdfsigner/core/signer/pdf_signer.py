@@ -570,7 +570,7 @@ class PDFSigner:
             existing_sig_count: Number of existing signatures
             template_override: Template name override
             reason: Signature reason (e.g., "I approve this document")
-            location: Signature location (e.g., "Buenos Aires, Argentina")
+            location: Signature location (e.g., "New York, NY")
             contact_info: Contact information (e.g., "email@company.com")
         """
         # strict=False allows hybrid-reference PDFs (mixed xref tables/streams)
@@ -785,7 +785,7 @@ class PDFSigner:
             cert_id: Certificate ID to use (None = default)
             template_override: Template name to use instead of settings default
             reason: Signature reason (e.g., "I approve this document")
-            location: Signature location (e.g., "Buenos Aires, Argentina")
+            location: Signature location (e.g., "New York, NY")
             contact_info: Contact information (e.g., "email@company.com")
             embed_ltv: Enable LTV (None = use settings.ltv_enabled)
 

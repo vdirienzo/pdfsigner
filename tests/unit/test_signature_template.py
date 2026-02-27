@@ -204,16 +204,16 @@ class TestTemplateRenderer:
     def test_substitute_variables_basic(self):
         """Test basic variable substitution."""
         text = "Signed by {signer_name} on {date}"
-        variables = {"signer_name": "Juan Pérez", "date": "2025-01-26"}
+        variables = {"signer_name": "John Smith", "date": "2025-01-26"}
         result = _substitute_variables(text, variables)
-        assert result == "Signed by Juan Pérez on 2025-01-26"
+        assert result == "Signed by John Smith on 2025-01-26"
 
     def test_substitute_variables_removes_unresolved(self):
         """Test unresolved variables are removed."""
         text = "Name: {signer_name}, Org: {org}"
-        variables = {"signer_name": "Juan"}
+        variables = {"signer_name": "John"}
         result = _substitute_variables(text, variables)
-        assert result == "Name: Juan, Org: "
+        assert result == "Name: John, Org: "
 
     def test_render_template_creates_png(self):
         """Test template rendering creates valid PNG."""
@@ -278,8 +278,8 @@ class TestTemplateRenderer:
         """Test rendering corporate builtin template."""
         template = load_template("corporate")
         variables = {
-            "signer_name": "Juan Pérez García",
-            "org": "Empresa S.A.",
+            "signer_name": "John A. Smith",
+            "org": "Acme Corp",
             "date": "2025-01-26 14:30",
         }
 
