@@ -18,6 +18,8 @@ from pdfsigner.core.certificate.revocation_checker import (
     CRLChecker,
     OCSPChecker,
     RevocationChecker,
+)
+from pdfsigner.core.certificate.revocation_types import (
     RevocationResult,
     RevocationStatus,
 )
