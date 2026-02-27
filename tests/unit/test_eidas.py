@@ -233,7 +233,10 @@ class TestEUTSPRegistry:
         """Test check_certificate_issuer detects qualified issuer."""
         registry.load_trusted_list(offline=True)
 
-        status = registry.check_certificate_issuer("CN=Bundesdruckerei,C=DE")
+        # Use full DN with organization name for robust matching
+        status = registry.check_certificate_issuer(
+            "CN=Bundesdruckerei GmbH CA,O=Bundesdruckerei GmbH,C=DE"
+        )
 
         assert status == QualificationStatus.QUALIFIED
 
@@ -267,16 +270,17 @@ class TestEUTSPRegistry:
 
         # Create new registry with same cache dir
         registry2 = EUTSPRegistry(cache_dir=registry._cache_dir)
-        loaded = registry2._load_from_cache()
+        cache_result = registry2._storage.load_from_cache()
 
-        assert loaded is True
-        assert len(registry2._tsps) == initial_count
+        assert cache_result is not None
+        tsps, _cert_to_tsp, _list_info = cache_result
+        assert len(tsps) == initial_count
 
     def test_cache_expires_after_max_age(self, registry, temp_cache_dir):
         """Test cache expires after max age."""
         # Load and save cache
         registry.load_trusted_list(offline=True)
-        cache_file = registry._cache_file
+        cache_file = registry._storage.cache_file
 
         # Manually set old modification time
         old_time = datetime.now() - timedelta(days=8)
@@ -287,14 +291,14 @@ class TestEUTSPRegistry:
 
         # Try to load expired cache
         registry2 = EUTSPRegistry(cache_dir=temp_cache_dir)
-        loaded = registry2._load_from_cache()
+        cache_result = registry2._storage.load_from_cache()
 
-        assert loaded is False
+        assert cache_result is None
 
     def test_update_trusted_list_clears_cache(self, registry):
         """Test update_trusted_list clears existing cache."""
         registry.load_trusted_list(offline=True)
-        cache_file = registry._cache_file
+        cache_file = registry._storage.cache_file
 
         assert cache_file.exists()
 
@@ -406,19 +410,19 @@ class TestQualifiedSignatureValidator:
         # Bundesdruckerei is in mock data as qualified
         assert result.tsp_qualified is True
 
-    def test_check_qualified_certificate_with_qualified_issuer(self, validator, mock_cert):
-        """Test check_qualified_certificate detects qualified certificate."""
+    def test_check_qualified_certificate_without_qc_statements(self, validator, mock_cert):
+        """Test check_qualified_certificate returns False for cert without QcStatements."""
         is_qualified = validator.check_qualified_certificate(mock_cert)
 
-        # Mock cert has Bundesdruckerei as issuer (qualified in mock data)
-        assert is_qualified is True
+        # mock_cert has no QcStatements extension → not qualified per ASN.1 parsing
+        assert is_qualified is False
 
-    def test_check_qscd_with_qualified_issuer(self, validator, mock_cert):
-        """Test check_qscd detects QSCD usage."""
+    def test_check_qscd_without_qc_statements(self, validator, mock_cert):
+        """Test check_qscd returns False for cert without QcStatements."""
         has_qscd = validator.check_qscd(mock_cert)
 
-        # Mock cert has Bundesdruckerei as issuer (qualified in mock data)
-        assert has_qscd is True
+        # mock_cert has no QcStatements extension → no QSCD indication
+        assert has_qscd is False
 
     def test_get_qc_statements_returns_dict(self, validator, mock_cert):
         """Test get_qc_statements returns dictionary."""
@@ -426,13 +430,12 @@ class TestQualifiedSignatureValidator:
 
         assert isinstance(statements, dict)
 
-    def test_get_qc_statements_detects_qualified_issuer(self, validator, mock_cert):
-        """Test get_qc_statements detects qualified issuer."""
+    def test_get_qc_statements_empty_for_regular_cert(self, validator, mock_cert):
+        """Test get_qc_statements returns empty dict for cert without QcStatements."""
         statements = validator.get_qc_statements(mock_cert)
 
-        # Bundesdruckerei in issuer should trigger QcCompliance
-        assert "QcCompliance" in statements
-        assert statements["QcCompliance"] is True
+        # mock_cert has no QcStatements extension → empty dict
+        assert statements == {}
 
     def test_detect_signature_level_returns_string(self, validator, tmp_path):
         """Test detect_signature_level returns level string."""
@@ -450,12 +453,12 @@ class TestQualifiedSignatureValidator:
 
         assert level == "Basic"
 
-    def test_get_qc_type_returns_esign(self, validator, mock_cert):
-        """Test get_qc_type returns certificate type."""
+    def test_get_qc_type_returns_none_for_regular_cert(self, validator, mock_cert):
+        """Test get_qc_type returns None for cert without QcStatements."""
         qc_type = validator.get_qc_type(mock_cert)
 
-        # Mock cert should have esign type
-        assert qc_type == "esign"
+        # mock_cert has no QcStatements → no QcType
+        assert qc_type is None
 
     def test_validate_certificate_determines_qes_level(self, validator, mock_cert):
         """Test validate_certificate determines QES qualification level."""

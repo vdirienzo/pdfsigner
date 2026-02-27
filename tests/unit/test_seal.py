@@ -226,7 +226,7 @@ def test_validate_seal_no_signatures(seal_manager, test_pdf):
 def test_validate_seal_with_embedded_signature(seal_manager, test_pdf):
     """Test seal validation with mocked embedded signature and crypto validation."""
     with (
-        patch("pdfsigner.core.eidas.seal_manager.PdfFileReader") as mock_reader_class,
+        patch("pdfsigner.core.eidas.seal_validator.PdfFileReader") as mock_reader_class,
         patch("pyhanko.sign.validation.validate_pdf_signature") as mock_validate,
     ):
         # Mock reader with embedded signatures
@@ -333,31 +333,16 @@ def test_generate_circular_seal_custom_size():
 # ========== Organization Info Extraction Tests ==========
 
 
-def test_extract_seal_info_no_fields(seal_manager, test_pdf):
-    """Test extracting seal info from PDF without signature fields."""
-    result = seal_manager.extract_seal_info(test_pdf)
-
-    assert result == []
+def test_extract_seal_info_raises_not_implemented(seal_manager, test_pdf):
+    """Test extracting seal info raises NotImplementedError."""
+    with pytest.raises(NotImplementedError, match="extract_seal_info requires pyHanko"):
+        seal_manager.extract_seal_info(test_pdf)
 
 
 def test_extract_seal_info_file_not_found(seal_manager):
     """Test extracting seal info from non-existent PDF."""
     with pytest.raises(FileNotFoundError):
         seal_manager.extract_seal_info(Path("/nonexistent.pdf"))
-
-
-def test_extract_seal_info_with_mock_fields(seal_manager, test_pdf):
-    """Test extracting seal info with mocked signature fields."""
-    with patch("pdfsigner.core.eidas.seal_manager.PdfFileReader") as mock_reader_class:
-        mock_reader = MagicMock()
-        mock_reader.root = {"/AcroForm": {"/Fields": [{"Type": "/Sig"}]}}
-        mock_reader_class.return_value = mock_reader
-
-        result = seal_manager.extract_seal_info(test_pdf)
-
-        assert len(result) == 1
-        assert result[0].name == "Mock Organization"
-        assert result[0].country == "ES"
 
 
 # ========== Certificate Type Detection Tests ==========
@@ -509,9 +494,9 @@ def test_full_seal_workflow_dry_run(seal_manager, test_pdf, seal_config, tmp_pat
     appearance = seal_manager.generate_seal_appearance(seal_config)
     assert len(appearance) > 0
 
-    # Extract info (will be empty for dry-run)
-    info_list = seal_manager.extract_seal_info(test_pdf)
-    assert isinstance(info_list, list)
+    # extract_seal_info now raises NotImplementedError
+    with pytest.raises(NotImplementedError):
+        seal_manager.extract_seal_info(test_pdf)
 
 
 def test_seal_with_different_positions(seal_manager, test_pdf, seal_config):

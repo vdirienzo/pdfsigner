@@ -14,7 +14,6 @@ Official EU LOTL: https://ec.europa.eu/tools/lotl/eu-lotl.xml
 """
 
 import logging
-from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -23,48 +22,18 @@ from typing import TYPE_CHECKING
 import defusedxml.ElementTree as ET
 import requests
 
+from pdfsigner.core.eidas.lotl_cache import (
+    EU_LOTL_URL,
+    NAMESPACES,
+    LOTLCache,
+    LOTLData,
+    TSLPointer,
+)
+
 if TYPE_CHECKING:
     from xml.etree.ElementTree import Element
 
 logger = logging.getLogger(__name__)
-
-# Official EU LOTL URL
-EU_LOTL_URL = "https://ec.europa.eu/tools/lotl/eu-lotl.xml"
-
-# XML namespaces used in ETSI TS 119 612
-NAMESPACES = {
-    "tsl": "http://uri.etsi.org/02231/v2#",
-    "xsi": "http://www.w3.org/2001/XMLSchema-instance",
-    "xades": "http://uri.etsi.org/01903/v1.3.2#",
-    "ds": "http://www.w3.org/2000/09/xmldsig#",
-    "xml": "http://www.w3.org/XML/1998/namespace",
-}
-
-
-@dataclass
-class TSLPointer:
-    """Pointer to a country's Trusted Service List."""
-
-    country_code: str  # ISO 3166-1 alpha-2
-    country_name: str
-    tsl_url: str
-    mime_type: str = "application/vnd.etsi.tsl+xml"
-    certificate_hash: str | None = None
-    last_update: datetime | None = None
-
-
-@dataclass
-class LOTLData:
-    """Parsed EU List of Trusted Lists data."""
-
-    version: str
-    sequence_number: int
-    issue_date: datetime
-    next_update: datetime
-    tsl_pointers: list[TSLPointer] = field(default_factory=list)
-    operator_name: str = ""
-    territory: str = "EU"
-    signature_valid: bool = False
 
 
 class LOTLFetcher:
@@ -88,14 +57,20 @@ class LOTLFetcher:
             cache_ttl_hours: Cache validity period in hours (default: 24)
             timeout: HTTP request timeout in seconds
         """
-        self.cache_dir = cache_dir or Path.home() / ".config" / "pdfsigner" / "eidas_cache"
-        self.cache_ttl = timedelta(hours=cache_ttl_hours)
+        cache_dir = cache_dir or Path.home() / ".config" / "pdfsigner" / "eidas_cache"
+        self._cache = LOTLCache(cache_dir=cache_dir, cache_ttl=timedelta(hours=cache_ttl_hours))
         self.timeout = timeout
-        self._ensure_cache_dir()
 
-    def _ensure_cache_dir(self) -> None:
-        """Create cache directory if it doesn't exist."""
-        self.cache_dir.mkdir(parents=True, exist_ok=True)
+    # Expose cache_dir for backward compatibility
+    @property
+    def cache_dir(self) -> Path:
+        """Cache directory path."""
+        return self._cache.cache_dir
+
+    @property
+    def cache_ttl(self) -> timedelta:
+        """Cache time-to-live."""
+        return self._cache.cache_ttl
 
     def fetch_lotl(self, force_refresh: bool = False) -> LOTLData:
         """Fetch EU LOTL, using cache if valid.
@@ -110,12 +85,10 @@ class LOTLFetcher:
             requests.RequestException: If fetch fails and no cache available
             ValueError: If LOTL parsing fails
         """
-        cache_file = self.cache_dir / "eu-lotl.xml"
-
         # Check cache first
-        if not force_refresh and self._is_cache_valid(cache_file):
+        if not force_refresh and self._cache.is_valid():
             logger.info("Using cached EU LOTL")
-            return self._parse_cached_lotl(cache_file)
+            return self._parse_lotl_xml(self._cache.read())
 
         # Fetch fresh data
         logger.info("Fetching EU LOTL from %s", EU_LOTL_URL)
@@ -129,39 +102,17 @@ class LOTLFetcher:
             response.raise_for_status()
 
             # Save to cache
-            cache_file.write_bytes(response.content)
-            logger.info("Saved EU LOTL to cache (%d bytes)", len(response.content))
+            self._cache.write(response.content)
 
             return self._parse_lotl_xml(response.content)
 
         except requests.RequestException as e:
             logger.warning("Failed to fetch LOTL: %s", e)
             # Try cache as fallback
-            if cache_file.exists():
+            if self._cache.exists():
                 logger.info("Using stale cache as fallback")
-                return self._parse_cached_lotl(cache_file)
+                return self._parse_lotl_xml(self._cache.read())
             raise
-
-    def _is_cache_valid(self, cache_file: Path) -> bool:
-        """Check if cache file is still valid.
-
-        Args:
-            cache_file: Path to cache file
-
-        Returns:
-            True if cache exists and is not expired
-        """
-        if not cache_file.exists():
-            return False
-
-        mtime = datetime.fromtimestamp(cache_file.stat().st_mtime, tz=UTC)
-        age = datetime.now(UTC) - mtime
-        is_valid = age < self.cache_ttl
-
-        if not is_valid:
-            logger.debug("Cache expired (age: %s, ttl: %s)", age, self.cache_ttl)
-
-        return is_valid
 
     def _parse_lotl_xml(self, xml_data: bytes) -> LOTLData:
         """Parse ETSI TS 119 612 XML format.
@@ -341,17 +292,6 @@ class LOTLFetcher:
         except ValueError:
             logger.warning("Failed to parse datetime: %s, using current time", dt_string)
             return datetime.now(UTC)
-
-    def _parse_cached_lotl(self, cache_file: Path) -> LOTLData:
-        """Parse cached LOTL file.
-
-        Args:
-            cache_file: Path to cached LOTL XML
-
-        Returns:
-            Parsed LOTLData
-        """
-        return self._parse_lotl_xml(cache_file.read_bytes())
 
     def get_country_tsl_url(self, country_code: str) -> str | None:
         """Get TSL URL for a specific country.
