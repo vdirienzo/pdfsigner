@@ -17,22 +17,8 @@ from pdfsigner.gui.a11y import set_accessible
 from pdfsigner.i18n import _
 
 
-def create_healthcare_page(settings, dialog) -> Adw.PreferencesPage:
-    """
-    Creates the Healthcare Compliance settings page.
-
-    Args:
-        settings: Settings object with current configuration
-        dialog: Parent dialog for widget reference storage
-
-    Returns:
-        Configured PreferencesPage with HIPAA compliance options
-    """
-    page = Adw.PreferencesPage()
-    page.set_title(_("Healthcare"))
-    page.set_icon_name("hospital-symbolic")
-
-    # --- Group 1: Master Switch ---
+def _build_master_group(settings, dialog) -> Adw.PreferencesGroup:
+    """Build the healthcare mode master switch group."""
     master_group = Adw.PreferencesGroup()
     master_group.set_title(_("Healthcare Compliance Mode"))
     master_group.set_description(
@@ -55,13 +41,17 @@ def create_healthcare_page(settings, dialog) -> Adw.PreferencesPage:
     )
     master_group.add(healthcare_switch)
 
-    page.add(master_group)
+    dialog.healthcare_switch = healthcare_switch
 
-    # --- Group 2: Session Management ---
+    return master_group
+
+
+def _build_session_group(settings, dialog) -> Adw.PreferencesGroup:
+    """Build the session management configuration group."""
     session_group = Adw.PreferencesGroup()
     session_group.set_title(_("Session Management"))
     session_group.set_description(
-        _("HIPAA §164.312(a)(2)(iii) - Automatic logoff after inactivity")
+        _("HIPAA \u00a7164.312(a)(2)(iii) - Automatic logoff after inactivity")
     )
 
     # Session timeout (5-60 minutes)
@@ -102,13 +92,18 @@ def create_healthcare_page(settings, dialog) -> Adw.PreferencesPage:
     )
     session_group.add(max_sessions_spin)
 
-    page.add(session_group)
+    dialog.healthcare_session_timeout_spin = session_timeout_spin
+    dialog.healthcare_max_sessions_spin = max_sessions_spin
 
-    # --- Group 3: Emergency Access (Break-Glass) ---
+    return session_group
+
+
+def _build_emergency_group(settings, dialog) -> Adw.PreferencesGroup:
+    """Build the emergency access (break-glass) configuration group."""
     emergency_group = Adw.PreferencesGroup()
     emergency_group.set_title(_("Emergency Access"))
     emergency_group.set_description(
-        _("HIPAA §164.312(a)(2)(ii) - Break-glass procedure for urgent access")
+        _("HIPAA \u00a7164.312(a)(2)(ii) - Break-glass procedure for urgent access")
     )
 
     # Emergency duration (1-24 hours)
@@ -144,13 +139,18 @@ def create_healthcare_page(settings, dialog) -> Adw.PreferencesPage:
     )
     emergency_group.add(emergency_approval_switch)
 
-    page.add(emergency_group)
+    dialog.healthcare_emergency_duration_spin = emergency_duration_spin
+    dialog.healthcare_emergency_approval_switch = emergency_approval_switch
 
-    # --- Group 4: Encryption Settings ---
+    return emergency_group
+
+
+def _build_encryption_group(settings, dialog) -> Adw.PreferencesGroup:
+    """Build the HIPAA encryption settings group."""
     encryption_group = Adw.PreferencesGroup()
     encryption_group.set_title(_("Encryption"))
     encryption_group.set_description(
-        _("HIPAA §164.312(a)(2)(iv) - Encryption and decryption of PHI")
+        _("HIPAA \u00a7164.312(a)(2)(iv) - Encryption and decryption of PHI")
     )
 
     # HIPAA encryption mode
@@ -173,7 +173,6 @@ def create_healthcare_page(settings, dialog) -> Adw.PreferencesPage:
     strength_combo.set_title(_("Encryption strength"))
     strength_combo.set_subtitle(_("AES-256 required for HIPAA compliance"))
     strength_combo.set_model(strength_model)
-    # Set selected based on current setting
     strength_combo.set_selected(0 if settings.encryption_default_strength == "aes128" else 1)
     set_accessible(
         strength_combo,
@@ -194,9 +193,15 @@ def create_healthcare_page(settings, dialog) -> Adw.PreferencesPage:
     )
     encryption_group.add(keyring_switch)
 
-    page.add(encryption_group)
+    dialog.encryption_hipaa_switch = encryption_hipaa_switch
+    dialog.encryption_strength_combo = strength_combo
+    dialog.encryption_keyring_switch = keyring_switch
 
-    # --- Group 5: Document Permissions (when encrypted) ---
+    return encryption_group
+
+
+def _build_permissions_group(settings, dialog) -> Adw.PreferencesGroup:
+    """Build the default document permissions group."""
     permissions_group = Adw.PreferencesGroup()
     permissions_group.set_title(_("Default Permissions"))
     permissions_group.set_description(
@@ -227,18 +232,31 @@ def create_healthcare_page(settings, dialog) -> Adw.PreferencesPage:
     )
     permissions_group.add(allow_copy_switch)
 
-    page.add(permissions_group)
-
-    # Store widget references for auto-save
-    dialog.healthcare_switch = healthcare_switch
-    dialog.healthcare_session_timeout_spin = session_timeout_spin
-    dialog.healthcare_max_sessions_spin = max_sessions_spin
-    dialog.healthcare_emergency_duration_spin = emergency_duration_spin
-    dialog.healthcare_emergency_approval_switch = emergency_approval_switch
-    dialog.encryption_hipaa_switch = encryption_hipaa_switch
-    dialog.encryption_strength_combo = strength_combo
-    dialog.encryption_keyring_switch = keyring_switch
     dialog.encryption_allow_print_switch = allow_print_switch
     dialog.encryption_allow_copy_switch = allow_copy_switch
+
+    return permissions_group
+
+
+def create_healthcare_page(settings, dialog) -> Adw.PreferencesPage:
+    """
+    Creates the Healthcare Compliance settings page.
+
+    Args:
+        settings: Settings object with current configuration
+        dialog: Parent dialog for widget reference storage
+
+    Returns:
+        Configured PreferencesPage with HIPAA compliance options
+    """
+    page = Adw.PreferencesPage()
+    page.set_title(_("Healthcare"))
+    page.set_icon_name("hospital-symbolic")
+
+    page.add(_build_master_group(settings, dialog))
+    page.add(_build_session_group(settings, dialog))
+    page.add(_build_emergency_group(settings, dialog))
+    page.add(_build_encryption_group(settings, dialog))
+    page.add(_build_permissions_group(settings, dialog))
 
     return page

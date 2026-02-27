@@ -18,16 +18,8 @@ from pdfsigner.gui.a11y import set_accessible
 from pdfsigner.i18n import _
 
 
-def add_argentina_groups(page: Adw.PreferencesPage, settings, dialog) -> None:
-    """
-    Add Argentina compliance groups to an existing page.
-
-    Args:
-        page: Target PreferencesPage to add groups to
-        settings: Settings object with current configuration
-        dialog: Parent dialog for storing widget references
-    """
-    # --- Group 1: Compliance Ley 25.506 ---
+def _build_compliance_group(settings, dialog) -> Adw.PreferencesGroup:
+    """Build the Ley 25.506 compliance switches group."""
     compliance_group = Adw.PreferencesGroup()
     compliance_group.set_title(_("Ley 25.506 Compliance"))
     compliance_group.set_description(
@@ -37,7 +29,6 @@ def add_argentina_groups(page: Adw.PreferencesPage, settings, dialog) -> None:
         )
     )
 
-    # Switch: Enable Argentine compliance
     argentine_enabled = Adw.SwitchRow()
     argentine_enabled.set_title(_("Enable Argentine compliance"))
     argentine_enabled.set_subtitle(
@@ -51,7 +42,6 @@ def add_argentina_groups(page: Adw.PreferencesPage, settings, dialog) -> None:
     )
     compliance_group.add(argentine_enabled)
 
-    # Switch: Strict mode (only Argentine CAs)
     strict_mode = Adw.SwitchRow()
     strict_mode.set_title(_("Strict mode"))
     strict_mode.set_subtitle(_("Only accept certificates from licensed Argentine certifiers"))
@@ -63,9 +53,14 @@ def add_argentina_groups(page: Adw.PreferencesPage, settings, dialog) -> None:
     )
     compliance_group.add(strict_mode)
 
-    page.add(compliance_group)
+    dialog.argentine_enabled = argentine_enabled
+    dialog.argentine_strict_mode = strict_mode
 
-    # --- Group 2: Configuration Preset ---
+    return compliance_group
+
+
+def _build_preset_group(settings, dialog) -> Adw.PreferencesGroup:
+    """Build the quick configuration preset group."""
     preset_group = Adw.PreferencesGroup()
     preset_group.set_title(_("Quick Configuration"))
     preset_group.set_description(
@@ -75,7 +70,6 @@ def add_argentina_groups(page: Adw.PreferencesPage, settings, dialog) -> None:
         )
     )
 
-    # Button: Apply Argentina preset
     preset_row = Adw.ActionRow()
     preset_row.set_title(_("Apply Argentina preset"))
     preset_row.set_subtitle(
@@ -97,9 +91,13 @@ def add_argentina_groups(page: Adw.PreferencesPage, settings, dialog) -> None:
     preset_row.set_activatable_widget(preset_button)
     preset_group.add(preset_row)
 
-    page.add(preset_group)
+    dialog.argentina_preset_button = preset_button
 
-    # --- Group 3: Governmental Certifiers (Free) ---
+    return preset_group
+
+
+def _build_gov_certifiers_group() -> Adw.PreferencesGroup:
+    """Build the governmental (free) certifiers information group."""
     gov_group = Adw.PreferencesGroup()
     gov_group.set_title(_("Governmental Certifiers (Free)"))
     gov_group.set_description(
@@ -111,11 +109,11 @@ def add_argentina_groups(page: Adw.PreferencesPage, settings, dialog) -> None:
     afip_row.set_title("AFIP")
     afip_row.set_subtitle(_("For taxpayers with CUIT - Token/Software - Free"))
     afip_row.set_tooltip_text(
-        "AFIP - Administración Federal de Ingresos Públicos\n"
+        "AFIP - Administraci\u00f3n Federal de Ingresos P\u00fablicos\n"
         "Certificados gratuitos para contribuyentes con CUIT.\n"
         "Requiere Clave Fiscal nivel 3 o superior.\n"
         "Modalidad: Token USB (SafeNet eToken) o Software.\n"
-        "Renovación anual gratuita."
+        "Renovaci\u00f3n anual gratuita."
     )
     afip_link = Gtk.LinkButton(uri="https://www.afip.gob.ar/cl_fiscal/")
     afip_link.set_label(_("Website"))
@@ -136,7 +134,7 @@ def add_argentina_groups(page: Adw.PreferencesPage, settings, dialog) -> None:
         "Certificado digital integrado en el DNI argentino.\n"
         "Disponible para todos los ciudadanos argentinos.\n"
         "Modalidad: Token USB integrado en el DNI.\n"
-        "Gratuito, requiere DNI actualizado (emitido después de 2019)."
+        "Gratuito, requiere DNI actualizado (emitido despu\u00e9s de 2019)."
     )
     renaper_link = Gtk.LinkButton(uri="https://www.argentina.gob.ar/interior/renaper")
     renaper_link.set_label(_("Website"))
@@ -153,10 +151,10 @@ def add_argentina_groups(page: Adw.PreferencesPage, settings, dialog) -> None:
     fdr_row.set_title("FDR (Firma Digital Remota)")
     fdr_row.set_subtitle(_("Remote signature with HSM - Free for citizens"))
     fdr_row.set_tooltip_text(
-        "FDR - Firma Digital Remota (Secretaría de Innovación Pública)\n"
-        "Firma remota con módulo de seguridad hardware (HSM).\n"
-        "No requiere token físico - 100% online.\n"
-        "Autenticación mediante DNI y video-selfie.\n"
+        "FDR - Firma Digital Remota (Secretar\u00eda de Innovaci\u00f3n P\u00fablica)\n"
+        "Firma remota con m\u00f3dulo de seguridad hardware (HSM).\n"
+        "No requiere token f\u00edsico - 100% online.\n"
+        "Autenticaci\u00f3n mediante DNI y video-selfie.\n"
         "Ideal para usuarios sin token USB."
     )
     fdr_link = Gtk.LinkButton(uri="https://fdr.psi.gob.ar/")
@@ -181,9 +179,11 @@ def add_argentina_groups(page: Adw.PreferencesPage, settings, dialog) -> None:
     )
     gov_group.add(iosfa_row)
 
-    page.add(gov_group)
+    return gov_group
 
-    # --- Group 4: Private Certifiers ---
+
+def _build_private_certifiers_group() -> Adw.PreferencesGroup:
+    """Build the private certifiers information group."""
     private_group = Adw.PreferencesGroup()
     private_group.set_title(_("Private Certifiers"))
     private_group.set_description(_("Licensed certifiers with annual subscription fees"))
@@ -196,8 +196,8 @@ def add_argentina_groups(page: Adw.PreferencesPage, settings, dialog) -> None:
         "Andreani - Certificadora Digital Privada\n"
         "Token SafeNet eToken certificado por ONTI.\n"
         "Compatible con PDFSigner y Linux/GNOME.\n"
-        "Costo: USD 80-200/año según nivel de certificación.\n"
-        "Renovación anual con soporte técnico incluido."
+        "Costo: USD 80-200/a\u00f1o seg\u00fan nivel de certificaci\u00f3n.\n"
+        "Renovaci\u00f3n anual con soporte t\u00e9cnico incluido."
     )
     andreani_link = Gtk.LinkButton(uri="https://www.andreani.com/")
     andreani_link.set_label(_("Website"))
@@ -215,10 +215,10 @@ def add_argentina_groups(page: Adw.PreferencesPage, settings, dialog) -> None:
     ecert_row.set_subtitle(_("Token/Software - USD 100-300/year"))
     ecert_row.set_tooltip_text(
         "E-CERT - NIC Argentina\n"
-        "Múltiples niveles de certificación disponibles.\n"
+        "M\u00faltiples niveles de certificaci\u00f3n disponibles.\n"
         "Modalidad: Token USB o Certificado Software.\n"
-        "Costo: USD 100-300/año según nivel.\n"
-        "Certificados con validación de identidad presencial o remota."
+        "Costo: USD 100-300/a\u00f1o seg\u00fan nivel.\n"
+        "Certificados con validaci\u00f3n de identidad presencial o remota."
     )
     ecert_link = Gtk.LinkButton(uri="https://www.e-cert.com.ar/")
     ecert_link.set_label(_("Website"))
@@ -237,9 +237,9 @@ def add_argentina_groups(page: Adw.PreferencesPage, settings, dialog) -> None:
     certant_row.set_tooltip_text(
         "Certant - Certificadora Digital Privada\n"
         "Tokens PKCS#11 compatibles con Linux.\n"
-        "Costo: USD 100-250/año.\n"
-        "Validación presencial de identidad.\n"
-        "Soporte técnico especializado."
+        "Costo: USD 100-250/a\u00f1o.\n"
+        "Validaci\u00f3n presencial de identidad.\n"
+        "Soporte t\u00e9cnico especializado."
     )
     certant_link = Gtk.LinkButton(uri="https://www.certant.com/")
     certant_link.set_label(_("Website"))
@@ -259,14 +259,16 @@ def add_argentina_groups(page: Adw.PreferencesPage, settings, dialog) -> None:
         "Colegio de Escribanos de la Ciudad de Buenos Aires\n"
         "Exclusivo para escribanos matriculados en CABA.\n"
         "Token USB PKCS#11 compatible.\n"
-        "Costo: USD 150/año aproximadamente.\n"
+        "Costo: USD 150/a\u00f1o aproximadamente.\n"
         "Incluye cobertura legal y soporte especializado."
     )
     private_group.add(escribanos_row)
 
-    page.add(private_group)
+    return private_group
 
-    # --- Group 5: Legal Information ---
+
+def _build_legal_group() -> Adw.PreferencesGroup:
+    """Build the legal information and disclaimers group."""
     legal_group = Adw.PreferencesGroup()
     legal_group.set_title(_("Legal Information"))
 
@@ -320,12 +322,23 @@ def add_argentina_groups(page: Adw.PreferencesPage, settings, dialog) -> None:
     law_row.add_suffix(law_link)
     legal_group.add(law_row)
 
-    page.add(legal_group)
+    return legal_group
 
-    # Store widget references for auto-save
-    dialog.argentine_enabled = argentine_enabled
-    dialog.argentine_strict_mode = strict_mode
-    dialog.argentina_preset_button = preset_button
+
+def add_argentina_groups(page: Adw.PreferencesPage, settings, dialog) -> None:
+    """
+    Add Argentina compliance groups to an existing page.
+
+    Args:
+        page: Target PreferencesPage to add groups to
+        settings: Settings object with current configuration
+        dialog: Parent dialog for storing widget references
+    """
+    page.add(_build_compliance_group(settings, dialog))
+    page.add(_build_preset_group(settings, dialog))
+    page.add(_build_gov_certifiers_group())
+    page.add(_build_private_certifiers_group())
+    page.add(_build_legal_group())
 
 
 def create_argentina_page(settings, dialog) -> Adw.PreferencesPage:
