@@ -9,7 +9,6 @@ into signed PDFs to create PAdES-LTV signatures with long-term validation suppor
 
 import hashlib
 import time
-from dataclasses import dataclass, field
 from pathlib import Path
 
 import requests
@@ -28,25 +27,8 @@ from pdfsigner.core.certificate.revocation_checker import (
     RevocationStatus,
 )
 
-
-@dataclass
-class ValidationInfo:
-    """
-    Información de validación recopilada para LTV.
-
-    Attributes:
-        ocsp_responses: Lista de respuestas OCSP en formato DER
-        crls: Lista de CRLs en formato DER
-        certificates: Lista de certificados en formato DER
-    """
-
-    ocsp_responses: list[bytes] = field(default_factory=list)
-    crls: list[bytes] = field(default_factory=list)
-    certificates: list[bytes] = field(default_factory=list)
-
-    def is_empty(self) -> bool:
-        """Verifica si no hay información de validación."""
-        return not (self.ocsp_responses or self.crls or self.certificates)
+# Re-export for backward compatibility
+from pdfsigner.core.signer.dss_types import ValidationInfo  # noqa: F401
 
 
 class DSSManager:
@@ -143,11 +125,7 @@ class DSSManager:
     def _get_ocsp_response_bytes(
         self, cert: x509.Certificate, issuer_cert: x509.Certificate
     ) -> bytes | None:
-        """
-        Obtiene respuesta OCSP en formato DER, with in-memory caching.
-
-        Uses a TTL cache keyed by (cert_serial_hash, responder_url) to avoid
-        repeated network requests during batch signing operations.
+        """Obtiene respuesta OCSP en formato DER, with in-memory caching.
 
         Args:
             cert: Certificado a verificar
@@ -157,51 +135,82 @@ class DSSManager:
             Respuesta OCSP en bytes DER o None si falla
         """
         try:
-            # Obtener URL del responder OCSP
             responder_url = self._get_ocsp_responder_url(cert)
             if not responder_url:
                 logger.debug("No se encontró URL de responder OCSP en el certificado")
                 return None
 
-            # Check cache before making network request
+            # Check cache first
             cache_key = self._ocsp_cache_key(cert, responder_url)
-            cached = self._ocsp_cache.get(cache_key)
+            cached = self._check_ocsp_cache(cache_key)
             if cached is not None:
-                response_bytes, cached_at = cached
-                if (time.monotonic() - cached_at) < self._CACHE_TTL:
-                    logger.debug(f"OCSP cache hit for {cache_key[:16]}...")
-                    return response_bytes
-                del self._ocsp_cache[cache_key]
+                return cached
 
-            # Construir petición OCSP
-            builder = ocsp.OCSPRequestBuilder()
-            builder = builder.add_certificate(cert, issuer_cert, hashes.SHA256())
-            ocsp_request = builder.build()
-
-            # Enviar petición
-            ocsp_request_der = ocsp_request.public_bytes(Encoding.DER)
-            headers = {"Content-Type": "application/ocsp-request"}
-
-            response = requests.post(
-                responder_url,
-                data=ocsp_request_der,
-                headers=headers,
-                timeout=self.ocsp_checker.timeout,
-            )
-            response.raise_for_status()
-
-            # Validar respuesta
-            ocsp_response = ocsp.load_der_ocsp_response(response.content)
-            if ocsp_response.response_status == ocsp.OCSPResponseStatus.SUCCESSFUL:
-                self._ocsp_cache[cache_key] = (response.content, time.monotonic())
-                return response.content
-
-            logger.warning(f"Respuesta OCSP no exitosa: {ocsp_response.response_status.name}")
-            return None
+            # Fetch from network
+            return self._fetch_ocsp_response(cert, issuer_cert, responder_url, cache_key)
 
         except Exception as e:
             logger.warning(f"Error obteniendo respuesta OCSP: {e}")
             return None
+
+    def _check_ocsp_cache(self, cache_key: str) -> bytes | None:
+        """Check OCSP cache for a valid (non-expired) response.
+
+        Args:
+            cache_key: Cache key for the certificate/responder pair
+
+        Returns:
+            Cached OCSP response bytes or None if not found/expired
+        """
+        cached = self._ocsp_cache.get(cache_key)
+        if cached is not None:
+            response_bytes, cached_at = cached
+            if (time.monotonic() - cached_at) < self._CACHE_TTL:
+                logger.debug(f"OCSP cache hit for {cache_key[:16]}...")
+                return response_bytes
+            del self._ocsp_cache[cache_key]
+        return None
+
+    def _fetch_ocsp_response(
+        self,
+        cert: x509.Certificate,
+        issuer_cert: x509.Certificate,
+        responder_url: str,
+        cache_key: str,
+    ) -> bytes | None:
+        """Build, send, and validate an OCSP request. Cache on success.
+
+        Args:
+            cert: Certificate to check
+            issuer_cert: Issuer certificate
+            responder_url: OCSP responder URL
+            cache_key: Key for caching the response
+
+        Returns:
+            OCSP response bytes or None on failure
+        """
+        builder = ocsp.OCSPRequestBuilder()
+        builder = builder.add_certificate(cert, issuer_cert, hashes.SHA256())
+        ocsp_request = builder.build()
+
+        ocsp_request_der = ocsp_request.public_bytes(Encoding.DER)
+        headers = {"Content-Type": "application/ocsp-request"}
+
+        response = requests.post(
+            responder_url,
+            data=ocsp_request_der,
+            headers=headers,
+            timeout=self.ocsp_checker.timeout,
+        )
+        response.raise_for_status()
+
+        ocsp_response = ocsp.load_der_ocsp_response(response.content)
+        if ocsp_response.response_status == ocsp.OCSPResponseStatus.SUCCESSFUL:
+            self._ocsp_cache[cache_key] = (response.content, time.monotonic())
+            return response.content
+
+        logger.warning(f"Respuesta OCSP no exitosa: {ocsp_response.response_status.name}")
+        return None
 
     def _get_crl_bytes(self, cert: x509.Certificate) -> bytes | None:
         """
@@ -332,11 +341,7 @@ class DSSManager:
         validation_info: ValidationInfo,
         output_path: Path | None = None,
     ) -> Path:
-        """
-        Embebe el DSS dictionary en un PDF firmado.
-
-        Agrega la información de validación (OCSP, CRL, certificados) al PDF
-        para permitir la validación LTV (Long Term Validation).
+        """Embebe el DSS dictionary en un PDF firmado.
 
         Args:
             pdf_path: Ruta al PDF firmado
@@ -351,50 +356,16 @@ class DSSManager:
             FileNotFoundError: Si el PDF no existe
             RuntimeError: Si falla el proceso de embedding
         """
-        if not pdf_path.exists():
-            raise FileNotFoundError(f"PDF no encontrado: {pdf_path}")
-
-        if validation_info.is_empty():
-            raise ValueError("ValidationInfo está vacío, no hay nada que embeber")
-
+        self._validate_embed_inputs(pdf_path, validation_info)
         if output_path is None:
             output_path = pdf_path
 
         logger.info(f"Embebiendo DSS en {pdf_path}")
 
         try:
-            import shutil
-            import tempfile
-
-            from asn1crypto import x509 as asn1_x509
-
-            # Convertir bytes DER a objetos asn1crypto.x509.Certificate
-            certs_as_objects = [
-                asn1_x509.Certificate.load(cert_der) for cert_der in validation_info.certificates
-            ]
-
-            # Usar archivo temporal para evitar corrupción por escritura in-place
-            # Esto previene problemas de xref cuando se modifica el archivo original
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
-                tmp_path = Path(tmp_file.name)
-
-            # Copiar el PDF original al temporal
-            shutil.copy2(pdf_path, tmp_path)
-
-            # Aplicar DSS al archivo temporal
-            with open(tmp_path, "rb+") as f:
-                DocumentSecurityStore.add_dss(
-                    output_stream=f,
-                    sig_contents=None,  # Sin VRI específico por firma
-                    certs=certs_as_objects,
-                    ocsps=validation_info.ocsp_responses,
-                    crls=validation_info.crls,
-                    force_write=True,
-                    strict=False,
-                )
-
-            # Reemplazar el archivo original con el temporal
-            shutil.move(str(tmp_path), str(output_path))
+            tmp_path = self._prepare_temp_pdf(pdf_path)
+            self._apply_dss_to_file(tmp_path, validation_info)
+            self._finalize_output(tmp_path, output_path)
 
             logger.info(f"DSS embebido exitosamente en {output_path}")
             return output_path
@@ -402,6 +373,52 @@ class DSSManager:
         except Exception as e:
             logger.error(f"Error embebiendo DSS: {e}")
             raise RuntimeError(f"Fallo al embeber DSS: {str(e)}") from e
+
+    @staticmethod
+    def _validate_embed_inputs(pdf_path: Path, validation_info: ValidationInfo) -> None:
+        """Validate inputs for embed_dss."""
+        if not pdf_path.exists():
+            raise FileNotFoundError(f"PDF no encontrado: {pdf_path}")
+        if validation_info.is_empty():
+            raise ValueError("ValidationInfo está vacío, no hay nada que embeber")
+
+    @staticmethod
+    def _prepare_temp_pdf(pdf_path: Path) -> Path:
+        """Copy PDF to a temporary file for safe in-place modification."""
+        import shutil
+        import tempfile
+
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp_file:
+            tmp_path = Path(tmp_file.name)
+        shutil.copy2(pdf_path, tmp_path)
+        return tmp_path
+
+    @staticmethod
+    def _apply_dss_to_file(tmp_path: Path, validation_info: ValidationInfo) -> None:
+        """Apply DSS dictionary to the temporary PDF file."""
+        from asn1crypto import x509 as asn1_x509
+
+        certs_as_objects = [
+            asn1_x509.Certificate.load(cert_der) for cert_der in validation_info.certificates
+        ]
+
+        with open(tmp_path, "rb+") as f:
+            DocumentSecurityStore.add_dss(
+                output_stream=f,
+                sig_contents=None,
+                certs=certs_as_objects,
+                ocsps=validation_info.ocsp_responses,
+                crls=validation_info.crls,
+                force_write=True,
+                strict=False,
+            )
+
+    @staticmethod
+    def _finalize_output(tmp_path: Path, output_path: Path) -> None:
+        """Move temporary file to final output path."""
+        import shutil
+
+        shutil.move(str(tmp_path), str(output_path))
 
     def build_validation_context(
         self,
