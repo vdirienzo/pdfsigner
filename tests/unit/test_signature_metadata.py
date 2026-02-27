@@ -141,9 +141,11 @@ class TestSignatureMetadata:
         signer = PDFSigner(mock_nss_handler, mock_lta_handler)
 
         with (
-            patch("pdfsigner.core.signer.pdf_signer.IncrementalPdfFileWriter") as mock_writer,
-            patch("pdfsigner.core.signer.pdf_signer.signers.PdfSignatureMetadata") as mock_metadata,
-            patch("pdfsigner.core.signer.pdf_signer.signers.PdfSigner") as mock_pdf_signer,
+            patch("pdfsigner.core.signer.signing_pipeline.IncrementalPdfFileWriter") as mock_writer,
+            patch(
+                "pdfsigner.core.signer.signing_pipeline.signers.PdfSignatureMetadata"
+            ) as mock_metadata,
+            patch("pdfsigner.core.signer.signing_pipeline.signers.PdfSigner") as mock_pdf_signer,
             patch.object(signer, "_build_stamp_style", return_value=None),
         ):
             # Setup mocks
@@ -187,9 +189,11 @@ class TestSignatureMetadata:
         signer = PDFSigner(mock_nss_handler, mock_lta_handler)
 
         with (
-            patch("pdfsigner.core.signer.pdf_signer.IncrementalPdfFileWriter") as mock_writer,
-            patch("pdfsigner.core.signer.pdf_signer.signers.PdfSignatureMetadata") as mock_metadata,
-            patch("pdfsigner.core.signer.pdf_signer.signers.PdfSigner") as mock_pdf_signer,
+            patch("pdfsigner.core.signer.signing_pipeline.IncrementalPdfFileWriter") as mock_writer,
+            patch(
+                "pdfsigner.core.signer.signing_pipeline.signers.PdfSignatureMetadata"
+            ) as mock_metadata,
+            patch("pdfsigner.core.signer.signing_pipeline.signers.PdfSigner") as mock_pdf_signer,
             patch.object(signer, "_build_stamp_style", return_value=None),
         ):
             mock_writer_instance = MagicMock()

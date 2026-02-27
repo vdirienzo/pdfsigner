@@ -402,7 +402,7 @@ class TestPDFSignerStampWithImage:
 
         # Mock the PdfImage class from pyhanko.pdf_utils.images
         with (
-            patch("pdfsigner.core.signer.pdf_signer.get_settings", return_value=mock_settings),
+            patch("pdfsigner.core.signer.stamp_builder.get_settings", return_value=mock_settings),
             patch("pyhanko.pdf_utils.images.PdfImage") as mock_img,
         ):
             mock_img.return_value = MagicMock()
