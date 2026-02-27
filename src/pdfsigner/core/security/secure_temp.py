@@ -246,8 +246,13 @@ class SecureTempDirectory:
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """Securely delete directory and all contents on exit."""
         if self._path and self._path.exists():
-            self._secure_delete_directory(self._path)
-            logger.debug(f"Securely deleted temp directory: {self._path.name}")
+            deleted = self._secure_delete_directory(self._path)
+            if deleted:
+                logger.debug(f"Securely deleted temp directory: {self._path.name}")
+            else:
+                logger.critical(
+                    f"SECURITY: Failed to fully delete temp directory: {self._path.name}"
+                )
 
     def _secure_delete_directory(self, dir_path: Path) -> bool:
         """
