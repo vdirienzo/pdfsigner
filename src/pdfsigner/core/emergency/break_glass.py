@@ -1,7 +1,7 @@
 """
 break_glass.py - Emergency access (break-glass) service
 
-Implements HIPAA §164.312(a)(2)(ii) emergency access procedure.
+Implements HIPAA SS164.312(a)(2)(ii) emergency access procedure.
 Manages approval workflow, access expiration, and audit logging.
 """
 
@@ -38,23 +38,34 @@ class BreakGlassService:
         repository: EmergencyAccessRepository | None = None,
         audit_logger: AuditLogger | None = None,
     ):
-        """
-        Initialize break-glass service.
-
-        Args:
-            repository: Emergency access repository (uses singleton if None)
-            audit_logger: Audit logger instance (uses singleton if None)
-        """
         self.repository = repository or get_emergency_repository()
         self.audit_logger = audit_logger or AuditLogger.get_instance()
         self.settings = get_settings()
 
+    def _require_healthcare_mode(self) -> None:
+        """Raise if healthcare mode is not enabled."""
+        if not self.settings.healthcare_mode:
+            raise EmergencyAccessError("Emergency access requires healthcare_mode to be enabled")
+
+    def _fetch_request_or_raise(self, request_id: str) -> EmergencyAccessRequest:
+        """Fetch request by ID, raise EmergencyAccessError if not found."""
+        request = self.repository.get_request(request_id)
+        if request is None:
+            raise EmergencyAccessError(f"Emergency access request not found: {request_id}")
+        return request
+
+    def _verify_status(
+        self, request: EmergencyAccessRequest, expected: EmergencyAccessStatus, action: str
+    ) -> None:
+        """Verify request has the expected status, raise if not."""
+        if request.status != expected:
+            raise EmergencyAccessError(
+                f"Request {request.id} cannot be {action} (current status: {request.status.value})"
+            )
+
     def request_emergency_access(self, requester_id: str, reason: str) -> EmergencyAccessRequest:
         """
         Request emergency access.
-
-        Creates a new emergency access request. If auto-approval is enabled
-        in settings, the request is immediately approved.
 
         Args:
             requester_id: User ID requesting emergency access
@@ -66,16 +77,13 @@ class BreakGlassService:
         Raises:
             EmergencyAccessError: If healthcare mode is disabled or request fails
         """
-        if not self.settings.healthcare_mode:
-            raise EmergencyAccessError("Emergency access requires healthcare_mode to be enabled")
+        self._require_healthcare_mode()
 
         if not reason or not reason.strip():
             raise EmergencyAccessError("Reason for emergency access is required")
 
-        # Create request
         request = self.repository.create_request(requester_id, reason)
 
-        # Log event
         self._log_event(
             event_type=AuditEventType.EMERGENCY_ACCESS_REQUESTED,
             request=request,
@@ -91,7 +99,6 @@ class BreakGlassService:
             f"(approval_required={self.settings.healthcare_emergency_require_approval})"
         )
 
-        # Auto-approve if configured
         if not self.settings.healthcare_emergency_require_approval:
             logger.info(f"Auto-approving emergency request {request.id} (require_approval=False)")
             request = self.approve_request(request.id, admin_id="system")
@@ -101,9 +108,6 @@ class BreakGlassService:
     def approve_request(self, request_id: str, admin_id: str) -> EmergencyAccessRequest:
         """
         Approve emergency access request.
-
-        Updates request status to APPROVED and sets expiration time
-        based on settings.
 
         Args:
             request_id: Request ID to approve
@@ -115,21 +119,10 @@ class BreakGlassService:
         Raises:
             EmergencyAccessError: If request not found or not in pending status
         """
-        if not self.settings.healthcare_mode:
-            raise EmergencyAccessError("Emergency access requires healthcare_mode to be enabled")
+        self._require_healthcare_mode()
+        request = self._fetch_request_or_raise(request_id)
+        self._verify_status(request, EmergencyAccessStatus.PENDING, "approved")
 
-        # Get request
-        request = self.repository.get_request(request_id)
-        if request is None:
-            raise EmergencyAccessError(f"Emergency access request not found: {request_id}")
-
-        # Verify it's pending
-        if request.status != EmergencyAccessStatus.PENDING:
-            raise EmergencyAccessError(
-                f"Request {request_id} cannot be approved (current status: {request.status.value})"
-            )
-
-        # Update request
         request.status = EmergencyAccessStatus.APPROVED
         request.approved_by = admin_id
         request.approved_at = datetime.now(UTC)
@@ -137,10 +130,8 @@ class BreakGlassService:
             hours=self.settings.healthcare_emergency_duration_hours
         )
 
-        # Save to database
         self.repository.update_request(request)
 
-        # Log event
         self._log_event(
             event_type=AuditEventType.EMERGENCY_ACCESS_APPROVED,
             request=request,
@@ -156,7 +147,6 @@ class BreakGlassService:
             f"Emergency access approved: {request_id} by {admin_id} "
             f"(expires: {request.expires_at.isoformat()})"
         )
-
         return request
 
     def deny_request(
@@ -176,53 +166,31 @@ class BreakGlassService:
         Raises:
             EmergencyAccessError: If request not found or not in pending status
         """
-        if not self.settings.healthcare_mode:
-            raise EmergencyAccessError("Emergency access requires healthcare_mode to be enabled")
+        self._require_healthcare_mode()
+        request = self._fetch_request_or_raise(request_id)
+        self._verify_status(request, EmergencyAccessStatus.PENDING, "denied")
 
-        # Get request
-        request = self.repository.get_request(request_id)
-        if request is None:
-            raise EmergencyAccessError(f"Emergency access request not found: {request_id}")
-
-        # Verify it's pending
-        if request.status != EmergencyAccessStatus.PENDING:
-            raise EmergencyAccessError(
-                f"Request {request_id} cannot be denied (current status: {request.status.value})"
-            )
-
-        # Update request
         request.status = EmergencyAccessStatus.DENIED
-        request.approved_by = admin_id  # Track who made the decision
+        request.approved_by = admin_id
         request.approved_at = datetime.now(UTC)
 
-        # Save to database
         self.repository.update_request(request)
 
-        # Log event
         self._log_event(
             event_type=AuditEventType.EMERGENCY_ACCESS_DENIED,
             request=request,
             status="SUCCESS",
-            details={
-                "denied_by": admin_id,
-                "denial_reason": reason,
-            },
+            details={"denied_by": admin_id, "denial_reason": reason},
         )
 
         logger.info(f"Emergency access denied: {request_id} by {admin_id}")
-
         return request
 
     def revoke_access(
-        self,
-        request_id: str,
-        admin_id: str,
-        reason: str = "",
+        self, request_id: str, admin_id: str, reason: str = ""
     ) -> EmergencyAccessRequest:
         """
         Revoke active emergency access.
-
-        Used for early termination of emergency access before natural expiration.
 
         Args:
             request_id: Request ID to revoke
@@ -235,41 +203,24 @@ class BreakGlassService:
         Raises:
             EmergencyAccessError: If request not found or not currently approved
         """
-        if not self.settings.healthcare_mode:
-            raise EmergencyAccessError("Emergency access requires healthcare_mode to be enabled")
+        self._require_healthcare_mode()
+        request = self._fetch_request_or_raise(request_id)
+        self._verify_status(request, EmergencyAccessStatus.APPROVED, "revoked")
 
-        # Get request
-        request = self.repository.get_request(request_id)
-        if request is None:
-            raise EmergencyAccessError(f"Emergency access request not found: {request_id}")
-
-        # Verify it's approved (can only revoke approved requests)
-        if request.status != EmergencyAccessStatus.APPROVED:
-            raise EmergencyAccessError(
-                f"Request {request_id} cannot be revoked (current status: {request.status.value})"
-            )
-
-        # Update request
         request.status = EmergencyAccessStatus.REVOKED
         request.revoked_by = admin_id
         request.revoked_at = datetime.now(UTC)
 
-        # Save to database
         self.repository.update_request(request)
 
-        # Log event
         self._log_event(
             event_type=AuditEventType.EMERGENCY_ACCESS_REVOKED,
             request=request,
             status="SUCCESS",
-            details={
-                "revoked_by": admin_id,
-                "revocation_reason": reason,
-            },
+            details={"revoked_by": admin_id, "revocation_reason": reason},
         )
 
         logger.info(f"Emergency access revoked: {request_id} by {admin_id}")
-
         return request
 
     def check_emergency_access(self, user_id: str) -> bool:
@@ -285,19 +236,13 @@ class BreakGlassService:
         if not self.settings.healthcare_mode:
             return False
 
-        # Cleanup expired requests first
         self.repository.cleanup_expired_requests()
-
-        # Get active request
         request = self.repository.get_active_request(user_id)
         return request is not None and request.is_active
 
     def log_document_access(self, request_id: str, document_path: str | Path) -> None:
         """
         Log document access using emergency access.
-
-        Records which documents were accessed under emergency access
-        for audit trail compliance.
 
         Args:
             request_id: Emergency access request ID
@@ -309,22 +254,16 @@ class BreakGlassService:
         if not self.settings.healthcare_mode:
             return
 
-        # Get request
-        request = self.repository.get_request(request_id)
-        if request is None:
-            raise EmergencyAccessError(f"Emergency access request not found: {request_id}")
+        request = self._fetch_request_or_raise(request_id)
 
-        # Verify it's active
         if not request.is_active:
             raise EmergencyAccessError(f"Emergency access {request_id} is not active")
 
-        # Add document to accessed list
         doc_path_str = str(document_path)
         if doc_path_str not in request.documents_accessed:
             request.documents_accessed.append(doc_path_str)
             self.repository.update_request(request)
 
-        # Log event
         self._log_event(
             event_type=AuditEventType.EMERGENCY_ACCESS_USED,
             request=request,
@@ -340,38 +279,16 @@ class BreakGlassService:
             f"(total accessed: {len(request.documents_accessed)})"
         )
 
-    def get_user_requests(
-        self,
-        user_id: str,
-        limit: int = 50,
-    ) -> list[EmergencyAccessRequest]:
-        """
-        Get emergency access requests for a user.
-
-        Args:
-            user_id: User ID to filter by
-            limit: Maximum number of requests to return
-
-        Returns:
-            List of user's emergency access requests
-        """
+    def get_user_requests(self, user_id: str, limit: int = 50) -> list[EmergencyAccessRequest]:
+        """Get emergency access requests for a user."""
         if not self.settings.healthcare_mode:
             return []
-
         return self.repository.get_user_requests(user_id, limit=limit)
 
     def get_pending_requests(self) -> list[EmergencyAccessRequest]:
-        """
-        Get all pending emergency access requests.
-
-        Typically used by admins to review pending requests.
-
-        Returns:
-            List of pending requests
-        """
+        """Get all pending emergency access requests."""
         if not self.settings.healthcare_mode:
             return []
-
         return self.repository.get_pending_requests()
 
     def _log_event(
@@ -381,15 +298,7 @@ class BreakGlassService:
         status: str,
         details: dict | None = None,
     ) -> None:
-        """
-        Log emergency access event to audit trail.
-
-        Args:
-            event_type: Type of audit event
-            request: Emergency access request
-            status: Event status (SUCCESS, FAILURE, ERROR)
-            details: Additional event details
-        """
+        """Log emergency access event to audit trail."""
         event_details = details or {}
         event_details.update(
             {
@@ -405,7 +314,7 @@ class BreakGlassService:
             status=status,
             user_id=request.requester_id,
             details=event_details,
-            phi_accessed=False,  # Request itself doesn't access PHI
+            phi_accessed=False,
         )
 
         self.audit_logger.log_event(event)
