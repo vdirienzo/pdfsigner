@@ -104,12 +104,15 @@ class SecureTempFile:
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """Securely delete temp file on exit."""
         if self._delete and self._path and self._path.exists():
-            self._secure_delete(self._path)
+            deleted = self._secure_delete(self._path)
             if self._info:
-                self._info.secure_deleted = True
-            logger.debug(f"Securely deleted temp file: {self._path.name}")
+                self._info.secure_deleted = deleted
+            if deleted:
+                logger.debug(f"Securely deleted temp file: {self._path.name}")
+            else:
+                logger.critical(f"SECURITY: Failed to delete temp file: {self._path.name}")
 
-    def _secure_delete(self, path: Path) -> None:
+    def _secure_delete(self, path: Path) -> bool:
         """
         Securely delete file by overwriting with random data.
 
@@ -120,9 +123,12 @@ class SecureTempFile:
 
         Args:
             path: Path to file to delete
+
+        Returns:
+            True if file was successfully deleted, False if deletion failed
         """
         if not path.exists():
-            return
+            return True
 
         try:
             file_size = path.stat().st_size
@@ -144,13 +150,16 @@ class SecureTempFile:
 
             # Finally delete
             path.unlink()
+            return True
         except Exception as e:
             logger.error(f"Failed to securely delete {path}: {e}")
             # Still try to delete normally
             try:
                 path.unlink()
-            except Exception:
-                pass
+                return True
+            except Exception as fallback_err:
+                logger.critical(f"SECURITY: Cannot delete sensitive file {path}: {fallback_err}")
+                return False
 
     def _get_secure_temp_dir(self) -> Path:
         """
@@ -240,19 +249,25 @@ class SecureTempDirectory:
             self._secure_delete_directory(self._path)
             logger.debug(f"Securely deleted temp directory: {self._path.name}")
 
-    def _secure_delete_directory(self, dir_path: Path) -> None:
+    def _secure_delete_directory(self, dir_path: Path) -> bool:
         """
         Recursively secure-delete all files then remove directory.
 
         Args:
             dir_path: Path to directory to delete
+
+        Returns:
+            True if all files and the directory were successfully deleted,
+            False if any file or directory could not be deleted
         """
         secure_file = SecureTempFile()
+        all_deleted = True
 
         # Recursively delete all files
         for item in dir_path.rglob("*"):
             if item.is_file():
-                secure_file._secure_delete(item)
+                if not secure_file._secure_delete(item):
+                    all_deleted = False
 
         # Remove empty directories (bottom-up)
         for item in sorted(dir_path.rglob("*"), reverse=True):
@@ -261,12 +276,16 @@ class SecureTempDirectory:
                     item.rmdir()
                 except OSError as e:
                     logger.warning(f"Failed to remove directory {item}: {e}")
+                    all_deleted = False
 
         # Remove the top-level directory
         try:
             dir_path.rmdir()
         except OSError as e:
             logger.warning(f"Failed to remove directory {dir_path}: {e}")
+            all_deleted = False
+
+        return all_deleted
 
 
 @contextmanager

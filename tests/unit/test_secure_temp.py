@@ -199,6 +199,119 @@ class TestSecureTempFile:
             if path.exists():
                 path.unlink()
 
+    def test_secure_delete_returns_true_on_success(self):
+        """Test that _secure_delete returns True when file is successfully deleted."""
+        secure_file = SecureTempFile()
+        temp_path = Path(secure_file._get_secure_temp_dir()) / "test_ret_true.txt"
+        temp_path.write_bytes(b"sensitive data" * 10)
+
+        result = secure_file._secure_delete(temp_path)
+
+        assert result is True
+        assert not temp_path.exists()
+
+    def test_secure_delete_returns_true_for_nonexistent(self):
+        """Test that _secure_delete returns True for non-existent file (nothing to delete)."""
+        secure_file = SecureTempFile()
+        nonexistent = Path("/tmp/nonexistent_secure_delete_test.txt")
+
+        result = secure_file._secure_delete(nonexistent)
+
+        assert result is True
+
+    def test_secure_delete_returns_true_for_empty_file(self):
+        """Test that _secure_delete returns True for empty file."""
+        secure_file = SecureTempFile()
+        temp_path = Path(secure_file._get_secure_temp_dir()) / "test_empty_ret.txt"
+        temp_path.touch()
+
+        result = secure_file._secure_delete(temp_path)
+
+        assert result is True
+        assert not temp_path.exists()
+
+    def test_secure_delete_returns_false_when_undeletable(self):
+        """Test that _secure_delete returns False when file cannot be deleted."""
+        secure_file = SecureTempFile()
+        temp_path = Path(secure_file._get_secure_temp_dir()) / "undeletable.txt"
+        temp_path.write_bytes(b"sensitive locked data")
+
+        # Mock unlink to always fail (simulates permission/filesystem errors)
+        with patch.object(Path, "unlink", side_effect=PermissionError("Permission denied")):
+            result = secure_file._secure_delete(temp_path)
+
+        assert result is False
+
+        # Clean up the file (real unlink, not mocked)
+        if temp_path.exists():
+            temp_path.unlink()
+
+    def test_secure_delete_logs_critical_on_total_failure(self):
+        """Test that _secure_delete logs critical when both deletion attempts fail."""
+        secure_file = SecureTempFile()
+        temp_path = Path(secure_file._get_secure_temp_dir()) / "crit_test.txt"
+        temp_path.write_bytes(b"critical test data")
+
+        # Mock unlink to always fail (simulates permission/filesystem errors)
+        with (
+            patch.object(Path, "unlink", side_effect=PermissionError("Permission denied")),
+            patch("pdfsigner.core.security.secure_temp.logger") as mock_logger,
+        ):
+            result = secure_file._secure_delete(temp_path)
+
+            assert result is False
+            # Should have logged critical message
+            mock_logger.critical.assert_called_once()
+            critical_msg = mock_logger.critical.call_args[0][0]
+            assert "SECURITY" in critical_msg
+            assert "Cannot delete sensitive file" in critical_msg
+            assert str(temp_path) in critical_msg
+
+        # Clean up the file (real unlink, not mocked)
+        if temp_path.exists():
+            temp_path.unlink()
+
+    def test_exit_sets_secure_deleted_true_on_success(self):
+        """Test that __exit__ sets _info.secure_deleted=True on successful deletion."""
+        stf = SecureTempFile(suffix=".pdf")
+        with stf as temp_path:
+            temp_path.write_bytes(b"test data for deletion tracking")
+
+        # After exit, info should reflect successful deletion
+        assert stf._info is not None
+        assert stf._info.secure_deleted is True
+
+    def test_exit_sets_secure_deleted_false_on_failure(self):
+        """Test that __exit__ sets _info.secure_deleted=False when deletion fails."""
+        stf = SecureTempFile(suffix=".pdf")
+
+        # Mock _secure_delete to simulate failure
+        with patch.object(SecureTempFile, "_secure_delete", return_value=False):
+            with stf as temp_path:
+                temp_path.write_bytes(b"sensitive PHI data")
+
+        # After exit, info should reflect failed deletion
+        assert stf._info is not None
+        assert stf._info.secure_deleted is False
+
+        # Clean up the file (deletion was mocked, file still exists)
+        if temp_path.exists():
+            temp_path.unlink()
+
+    def test_secure_delete_returns_true_on_fallback_unlink(self):
+        """Test that _secure_delete returns True when overwrite fails but unlink succeeds."""
+        secure_file = SecureTempFile()
+        temp_path = Path(secure_file._get_secure_temp_dir()) / "fallback_test.txt"
+        temp_path.write_bytes(b"fallback test data")
+
+        # Make file read-only so overwrite (open r+b) fails, but unlink can still work
+        temp_path.chmod(0o000)
+
+        result = secure_file._secure_delete(temp_path)
+
+        assert result is True
+        assert not temp_path.exists()
+
 
 class TestSecureTempDirectory:
     """Tests for SecureTempDirectory context manager."""
