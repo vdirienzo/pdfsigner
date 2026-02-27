@@ -148,71 +148,9 @@ class ComplianceStatusChecker:
         Returns:
             ComplianceCheck for audit controls
         """
-        settings = self.settings
+        from pdfsigner.core.compliance.status_helpers import check_audit_controls
 
-        # Check if audit logging is enabled
-        if not settings.audit_enabled:
-            return ComplianceCheck(
-                name="Audit Controls",
-                category=ComplianceCategory.AUDIT_CONTROLS,
-                status=ComplianceStatus.NON_COMPLIANT,
-                hipaa_reference="§164.312(b)",
-                description="Audit trail with integrity protection",
-                details="Audit logging is disabled",
-                remediation="Enable audit_enabled in settings",
-            )
-
-        try:
-            from pdfsigner.core.audit import get_audit_integrity_manager
-
-            # Verify that integrity manager is available and configured
-            manager = get_audit_integrity_manager()
-
-            # Create a test event to verify signing works
-            from pdfsigner.core.audit import AuditEvent, AuditEventType
-
-            test_event = AuditEvent(
-                event_type=AuditEventType.AUDIT_INTEGRITY_CHECK,
-                user_id="compliance_checker",
-                details={"test": "integrity_check"},
-            )
-
-            # Try to sign the event (this verifies HMAC key is configured)
-            signed_event = manager.sign_event(test_event)
-
-            # Verify the signed event
-            is_valid, reason = manager.verify_event(signed_event)
-
-            if is_valid:
-                return ComplianceCheck(
-                    name="Audit Controls",
-                    category=ComplianceCategory.AUDIT_CONTROLS,
-                    status=ComplianceStatus.COMPLIANT,
-                    hipaa_reference="§164.312(b)",
-                    description="Audit trail with integrity protection",
-                    details="HMAC-protected audit logging is functioning correctly",
-                )
-            else:
-                return ComplianceCheck(
-                    name="Audit Controls",
-                    category=ComplianceCategory.AUDIT_CONTROLS,
-                    status=ComplianceStatus.NON_COMPLIANT,
-                    hipaa_reference="§164.312(b)",
-                    description="Audit trail with integrity protection",
-                    details=f"Audit integrity verification failed: {reason}",
-                    remediation="Check audit integrity configuration",
-                )
-        except Exception as e:
-            logger.warning(f"Could not verify audit integrity: {e}")
-            return ComplianceCheck(
-                name="Audit Controls",
-                category=ComplianceCategory.AUDIT_CONTROLS,
-                status=ComplianceStatus.WARNING,
-                hipaa_reference="§164.312(b)",
-                description="Audit trail with integrity protection",
-                details=f"Could not verify audit integrity: {e}",
-                remediation="Ensure audit system is properly configured",
-            )
+        return check_audit_controls(self.settings)
 
     def _check_access_control(self) -> ComplianceCheck:
         """
@@ -250,42 +188,9 @@ class ComplianceStatusChecker:
         Returns:
             ComplianceCheck for session management
         """
-        settings = self.settings
+        from pdfsigner.core.compliance.status_helpers import check_session_management
 
-        if not settings.healthcare_mode:
-            return ComplianceCheck(
-                name="Session Management",
-                category=ComplianceCategory.SESSION_MANAGEMENT,
-                status=ComplianceStatus.WARNING,
-                hipaa_reference="§164.312(a)(2)(iii)",
-                description="Automatic logoff after inactivity",
-                details="Healthcare mode disabled. Auto-logoff not enforced.",
-                remediation="Enable healthcare_mode in settings",
-            )
-
-        timeout = settings.healthcare_session_timeout_minutes
-        if timeout <= 15:
-            status = ComplianceStatus.COMPLIANT
-            details = f"Auto-logoff after {timeout} minutes (recommended: ≤15)"
-            remediation = None
-        elif timeout <= 30:
-            status = ComplianceStatus.WARNING
-            details = f"Auto-logoff after {timeout} minutes (recommended: ≤15)"
-            remediation = "Set healthcare_session_timeout_minutes to 15 or less"
-        else:
-            status = ComplianceStatus.NON_COMPLIANT
-            details = f"Auto-logoff after {timeout} minutes is too long"
-            remediation = "Set healthcare_session_timeout_minutes to 15 or less"
-
-        return ComplianceCheck(
-            name="Session Management",
-            category=ComplianceCategory.SESSION_MANAGEMENT,
-            status=status,
-            hipaa_reference="§164.312(a)(2)(iii)",
-            description="Automatic logoff after inactivity",
-            details=details,
-            remediation=remediation,
-        )
+        return check_session_management(self.settings)
 
     def _check_temp_file_security(self) -> ComplianceCheck:
         """
