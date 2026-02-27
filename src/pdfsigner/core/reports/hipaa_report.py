@@ -15,6 +15,8 @@ from typing import Any
 
 from loguru import logger
 
+from pdfsigner.core.types.report_format import ReportFormat
+
 # PDF Layout Constants
 PDF_PAGE_WIDTH = 612
 PDF_PAGE_HEIGHT = 792
@@ -31,14 +33,6 @@ PDF_LINE_HEIGHT = 16
 PDF_SECTION_SPACING = 10
 PDF_PAGE_BREAK_Y = 650
 PDF_FOOTER_Y = 750
-
-
-class ReportFormat(str, Enum):
-    """Output format for HIPAA reports."""
-
-    PDF = "pdf"
-    JSON = "json"
-    CSV = "csv"
 
 
 class ReportSection(str, Enum):

@@ -10,7 +10,6 @@ for government and healthcare compliance documentation.
 import hashlib
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from enum import Enum
 from pathlib import Path
 from typing import Any
 
@@ -19,15 +18,7 @@ from loguru import logger
 from pdfsigner.core.compliance.status_checker import (
     ComplianceStatusChecker,
 )
-
-
-class ReportFormat(str, Enum):
-    """Available report formats."""
-
-    PDF = "pdf"
-    JSON = "json"
-    CSV = "csv"
-    CEF = "cef"  # Common Event Format for SIEM
+from pdfsigner.core.types.report_format import ReportFormat
 
 
 @dataclass

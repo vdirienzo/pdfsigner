@@ -13,7 +13,6 @@ import json
 from collections import Counter
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from enum import Enum
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -28,15 +27,8 @@ from reportlab.platypus import (
     TableStyle,
 )
 
+from pdfsigner.core.types.report_format import ReportFormat
 from pdfsigner.core.validator.pdf_validator import ValidationResult
-
-
-class ReportFormat(Enum):
-    """Report output format."""
-
-    PDF = "pdf"
-    CSV = "csv"
-    JSON = "json"
 
 
 @dataclass
