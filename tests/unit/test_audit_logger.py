@@ -335,6 +335,52 @@ class TestAuditLogger:
         assert len(retrieved_events) == 10
 
 
+class TestWriteEventErrorPropagation:
+    """Tests for _write_event error propagation (HIPAA §164.312(b))."""
+
+    def test_write_event_raises_on_unwritable_directory(self, temp_audit_dir):
+        """Test that _write_event raises OSError when log dir is not writable.
+
+        HIPAA §164.312(b) requires audit events to never be silently lost.
+        If disk write fails, the caller must know so it can handle the
+        compliance violation.
+        """
+        # Arrange
+        AuditLogger._instance = None
+        audit_log = AuditLogger(log_dir=temp_audit_dir, enabled=True)
+        event = AuditEvent(event_type=AuditEventType.SIGN_SUCCESS)
+
+        # Make the log directory read-only so file creation/append fails
+        import os
+
+        os.chmod(temp_audit_dir, 0o444)
+
+        try:
+            # Act & Assert
+            with pytest.raises(OSError):
+                audit_log._write_event(event)
+        finally:
+            # Restore permissions for cleanup
+            os.chmod(temp_audit_dir, 0o755)
+            AuditLogger._instance = None
+
+    def test_write_event_succeeds_under_normal_conditions(self, audit_logger):
+        """Test that _write_event still works normally when no errors occur."""
+        # Arrange
+        event = AuditEvent(
+            event_type=AuditEventType.SIGN_SUCCESS,
+            user_cn="Normal User",
+        )
+
+        # Act (should not raise)
+        audit_logger._write_event(event)
+
+        # Assert
+        events = audit_logger.get_events()
+        assert len(events) == 1
+        assert events[0].user_cn == "Normal User"
+
+
 class TestHelperFunctions:
     """Tests for helper functions in audit module."""
 

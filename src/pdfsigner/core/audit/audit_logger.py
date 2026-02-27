@@ -158,32 +158,36 @@ class AuditLogger:
         Thread-safe write operation. Signs event if sign_events is enabled.
         Exports to SIEM if siem_exporter is configured.
 
+        Raises on disk write failures so callers know the audit event was lost.
+        In HIPAA context (§164.312(b)), silencing write errors is a compliance
+        violation because it hides lost audit records.
+
         Args:
             event: AuditEvent to log
+
+        Raises:
+            OSError: If the audit log file cannot be written (permission denied,
+                disk full, etc.)
         """
-        try:
-            # Sign event if integrity manager is available
-            if self.sign_events and self.integrity_manager is not None:
-                event = self.integrity_manager.sign_event(event)
+        # Sign event if integrity manager is available
+        if self.sign_events and self.integrity_manager is not None:
+            event = self.integrity_manager.sign_event(event)
 
-            log_file = self._get_log_file_path(event.timestamp)
+        log_file = self._get_log_file_path(event.timestamp)
 
-            with self._write_lock:
-                with open(log_file, "a", encoding="utf-8") as f:
-                    json.dump(event.to_dict(), f, ensure_ascii=False)
-                    f.write("\n")
+        with self._write_lock:
+            with open(log_file, "a", encoding="utf-8") as f:
+                json.dump(event.to_dict(), f, ensure_ascii=False)
+                f.write("\n")
 
-            logger.debug(f"Audit event logged: {event.event_type.value} [{event.event_id}]")
+        logger.debug(f"Audit event logged: {event.event_type.value} [{event.event_id}]")
 
-            # Export to SIEM if configured
-            if self.siem_exporter and self.siem_exporter.config.enabled:
-                try:
-                    self.siem_exporter.export_event(event)
-                except Exception as e:
-                    logger.error(f"Failed to export event to SIEM: {e}")
-
-        except Exception as e:
-            logger.error(f"Failed to log audit event: {e}")
+        # Export to SIEM if configured (best-effort, don't fail the audit write)
+        if self.siem_exporter and self.siem_exporter.config.enabled:
+            try:
+                self.siem_exporter.export_event(event)
+            except Exception as e:
+                logger.error(f"Failed to export event to SIEM: {e}")
 
     def log_encryption_event(
         self,
