@@ -13,6 +13,8 @@ from enum import Enum
 
 from pydantic import BaseModel, Field
 
+from pdfsigner.core.validator.pdf_validator import PAdESLevel as PAdESLevel  # noqa: F401
+
 
 class StatusEnum(str, Enum):
     """Job execution status enumeration.
@@ -28,22 +30,6 @@ class StatusEnum(str, Enum):
     PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
-
-
-class PAdESLevel(str, Enum):
-    """PAdES (PDF Advanced Electronic Signatures) conformance levels.
-
-    Attributes:
-        B_B: Basic signature (baseline)
-        B_T: Signature with timestamp
-        B_LT: Long-term validation with revocation info
-        B_LTA: Long-term archival with archive timestamps
-    """
-
-    B_B = "B-B"
-    B_T = "B-T"
-    B_LT = "B-LT"
-    B_LTA = "B-LTA"
 
 
 class ErrorResponse(BaseModel):
