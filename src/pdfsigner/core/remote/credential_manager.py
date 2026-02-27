@@ -43,7 +43,7 @@ class RemoteCredential:
         return self.subject_dn or self.credential_id
 
 
-class CredentialManager:
+class RemoteCredentialManager:
     """Manages remote signing credentials from a QTSP.
 
     Provides methods to list, select, and cache credentials
