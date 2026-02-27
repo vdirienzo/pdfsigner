@@ -28,11 +28,13 @@ from pdfsigner.core.phi.patterns import (
     get_high_confidence_patterns,
     get_patterns_by_type,
 )
-from pdfsigner.core.phi.scanner import (
+from pdfsigner.core.phi.phi_types import (
     Confidence,
     PHIMatch,
-    PHIScanner,
     PHIScanResult,
+)
+from pdfsigner.core.phi.scanner import (
+    PHIScanner,
     get_phi_scanner,
 )
 
