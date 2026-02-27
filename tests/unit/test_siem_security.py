@@ -113,7 +113,7 @@ class TestSIEMTLSVerification:
 
         exporter = SIEMExporter(config)
 
-        with patch("pdfsigner.core.audit.siem_exporter.logger") as mock_logger:
+        with patch("pdfsigner.core.audit.siem_transport.logger") as mock_logger:
             with patch("socket.socket") as mock_socket_class:
                 mock_socket = MagicMock()
                 mock_socket_class.return_value = mock_socket
@@ -146,7 +146,7 @@ class TestSIEMTLSVerification:
 
         exporter = SIEMExporter(config)
 
-        with patch("pdfsigner.core.audit.siem_exporter.logger") as mock_logger:
+        with patch("pdfsigner.core.audit.siem_transport.logger") as mock_logger:
             with patch("socket.socket") as mock_socket_class:
                 mock_socket = MagicMock()
                 mock_socket_class.return_value = mock_socket
@@ -181,7 +181,7 @@ class TestSIEMTLSVerification:
 
         exporter = SIEMExporter(config)
 
-        with patch("pdfsigner.core.audit.siem_exporter.logger") as mock_logger:
+        with patch("pdfsigner.core.audit.siem_transport.logger") as mock_logger:
             with patch("socket.socket") as mock_socket_class:
                 mock_socket = MagicMock()
                 mock_socket_class.return_value = mock_socket

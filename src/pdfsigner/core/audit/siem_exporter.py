@@ -8,9 +8,6 @@ Supports multiple formats: CEF, LEEF, JSON, Syslog.
 """
 
 import socket
-import ssl
-import threading
-import warnings
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -21,6 +18,7 @@ from loguru import logger
 
 from pdfsigner.core.audit.audit_event import AuditEvent
 from pdfsigner.core.audit.formatters import CEFFormatter, JSONFormatter, LEEFFormatter
+from pdfsigner.core.audit.siem_transport import SIEMTransport
 
 
 class SIEMFormat(str, Enum):
@@ -79,8 +77,8 @@ class SIEMExporter:
 
     Features:
     - Multiple formats: CEF, LEEF, JSON
-    - Syslog transport: UDP, TCP, TLS
-    - File export with rotation and retention
+    - Syslog transport: UDP, TCP, TLS (via SIEMTransport)
+    - File export with rotation and retention (via SIEMTransport)
     - Thread-safe operations
     - Connection testing
     - Event streaming
@@ -94,9 +92,7 @@ class SIEMExporter:
             config: SIEM configuration
         """
         self.config = config
-        self._socket: socket.socket | None = None
-        self._file_lock = threading.Lock()
-        self._current_file_size = 0
+        self._transport = SIEMTransport(config)
 
         # Validate configuration
         if self.config.enabled:
@@ -212,105 +208,12 @@ class SIEMExporter:
                 f"{proc_id} {msg_id} - {formatted}\n"
             )
 
-            # Send to syslog server
-            return self._send_to_syslog(syslog_msg.encode("utf-8"))
+            # Send via transport
+            return self._transport.send_to_syslog(syslog_msg.encode("utf-8"))
 
         except Exception as e:
             logger.error(f"Failed to export event to syslog: {e}")
             return False
-
-    def _send_to_syslog(self, message: bytes) -> bool:
-        """
-        Send message to syslog server via configured protocol.
-
-        Args:
-            message: Formatted syslog message
-
-        Returns:
-            True if successful, False otherwise
-        """
-        try:
-            if self.config.syslog_protocol == SyslogProtocol.UDP:
-                return self._send_udp(message)
-            elif self.config.syslog_protocol == SyslogProtocol.TCP:
-                return self._send_tcp(message)
-            elif self.config.syslog_protocol == SyslogProtocol.TLS:
-                return self._send_tls(message)
-            else:
-                logger.error(f"Unsupported syslog protocol: {self.config.syslog_protocol}")
-                return False
-
-        except Exception as e:
-            logger.error(f"Failed to send to syslog: {e}")
-            # Close socket on error
-            self.close()
-            return False
-
-    def _send_udp(self, message: bytes) -> bool:
-        """Send message via UDP."""
-        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        try:
-            sock.sendto(message, (self.config.syslog_host, self.config.syslog_port))
-            return True
-        finally:
-            sock.close()
-
-    def _send_tcp(self, message: bytes) -> bool:
-        """Send message via TCP (with connection reuse)."""
-        if self._socket is None or self._socket.fileno() == -1:
-            # Create new TCP connection
-            self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            self._socket.settimeout(10.0)
-            self._socket.connect((self.config.syslog_host, self.config.syslog_port))
-
-        self._socket.sendall(message)
-        return True
-
-    def _send_tls(self, message: bytes) -> bool:
-        """Send message via TLS."""
-        if self._socket is None or self._socket.fileno() == -1:
-            # Create TLS connection
-            context = ssl.create_default_context()
-
-            if self.config.tls_cert_path:
-                context.load_verify_locations(self.config.tls_cert_path)
-
-            # Security: TLS verification should always be enabled by default
-            # Check for deprecated tls_verify parameter
-            if not self.config.tls_verify:
-                warnings.warn(
-                    "tls_verify parameter is deprecated. Use allow_insecure_tls=True instead.",
-                    DeprecationWarning,
-                    stacklevel=3,
-                )
-                logger.warning(
-                    "DEPRECATED: tls_verify=False is deprecated. "
-                    "Use allow_insecure_tls=True to explicitly disable TLS verification."
-                )
-
-            # Only disable TLS verification if explicitly allowed
-            if self.config.allow_insecure_tls or not self.config.tls_verify:
-                logger.warning(
-                    "SECURITY WARNING: TLS certificate verification is DISABLED for SIEM connection to "
-                    f"{self.config.syslog_host}:{self.config.syslog_port}. "
-                    "This connection is vulnerable to man-in-the-middle attacks."
-                )
-                context.check_hostname = False
-                context.verify_mode = ssl.CERT_NONE
-            else:
-                # Enforce secure TLS verification (default)
-                logger.debug(
-                    f"TLS certificate verification enabled for SIEM connection to "
-                    f"{self.config.syslog_host}:{self.config.syslog_port}"
-                )
-
-            raw_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            raw_socket.settimeout(10.0)
-            self._socket = context.wrap_socket(raw_socket, server_hostname=self.config.syslog_host)
-            self._socket.connect((self.config.syslog_host, self.config.syslog_port))
-
-        self._socket.sendall(message)
-        return True
 
     def export_to_file(self, event: AuditEvent) -> bool:
         """
@@ -323,78 +226,11 @@ class SIEMExporter:
             True if successful, False otherwise
         """
         try:
-            # Format event
             formatted = self._format_event(event)
-
-            with self._file_lock:
-                # Check if rotation needed
-                self._rotate_file_if_needed()
-
-                # Write to file
-                file_path = Path(self.config.file_path)
-                with open(file_path, "a", encoding="utf-8") as f:
-                    f.write(formatted + "\n")
-                    self._current_file_size += len(formatted) + 1
-
-            return True
-
+            return self._transport.export_to_file(formatted)
         except Exception as e:
             logger.error(f"Failed to export event to file: {e}")
             return False
-
-    def _rotate_file_if_needed(self) -> None:
-        """Rotate log file if size limit exceeded."""
-        if not self.config.file_path:
-            return
-
-        file_path = Path(self.config.file_path)
-        if not file_path.exists():
-            self._current_file_size = 0
-            return
-
-        # Check actual file size
-        actual_size = file_path.stat().st_size
-        self._current_file_size = actual_size
-
-        max_size_bytes = self.config.file_rotation_mb * 1024 * 1024
-
-        if self._current_file_size >= max_size_bytes:
-            # Rotate file
-            timestamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
-            rotated_path = file_path.with_suffix(f".{timestamp}{file_path.suffix}")
-            file_path.rename(rotated_path)
-            self._current_file_size = 0
-
-            logger.info(f"Rotated SIEM log file to {rotated_path}")
-
-            # Cleanup old files
-            self._cleanup_old_files()
-
-    def _cleanup_old_files(self) -> None:
-        """Remove rotated files older than retention period."""
-        if not self.config.file_path:
-            return
-
-        file_path = Path(self.config.file_path)
-        # Pattern: filename.TIMESTAMP.ext (e.g., siem_export.20200101_120000.log)
-        pattern = f"{file_path.stem}.*{file_path.suffix}"
-
-        cutoff = datetime.now(UTC).timestamp() - (self.config.file_retention_days * 86400)
-
-        for old_file in file_path.parent.glob(pattern):
-            if old_file == file_path:
-                continue  # Skip current file
-
-            # Check if it's a rotated file (has timestamp in name)
-            if not old_file.stem.startswith(file_path.stem + "."):
-                continue
-
-            if old_file.stat().st_mtime < cutoff:
-                try:
-                    old_file.unlink()
-                    logger.info(f"Deleted old SIEM log file: {old_file}")
-                except Exception as e:
-                    logger.error(f"Failed to delete old SIEM log file {old_file}: {e}")
 
     def _format_event(self, event: AuditEvent) -> str:
         """
@@ -513,10 +349,40 @@ class SIEMExporter:
 
     def close(self) -> None:
         """Close any open connections."""
-        if self._socket is not None:
-            try:
-                self._socket.close()
-            except Exception as e:
-                logger.debug(f"Error closing socket: {e}")
-            finally:
-                self._socket = None
+        self._transport.close()
+
+    # -- Backward-compatible private methods for tests that patch them --
+
+    @property
+    def _socket(self) -> "socket.socket | None":
+        """Backward-compatible access to transport socket."""
+        return self._transport._socket
+
+    @_socket.setter
+    def _socket(self, value: "socket.socket | None") -> None:
+        """Backward-compatible setter for transport socket."""
+        self._transport._socket = value
+
+    def _send_to_syslog(self, message: bytes) -> bool:
+        """Backward-compatible delegate to transport."""
+        return self._transport.send_to_syslog(message)
+
+    def _send_udp(self, message: bytes) -> bool:
+        """Backward-compatible delegate to transport."""
+        return self._transport._send_udp(message)
+
+    def _send_tcp(self, message: bytes) -> bool:
+        """Backward-compatible delegate to transport."""
+        return self._transport._send_tcp(message)
+
+    def _send_tls(self, message: bytes) -> bool:
+        """Backward-compatible delegate to transport."""
+        return self._transport._send_tls(message)
+
+    def _rotate_file_if_needed(self) -> None:
+        """Backward-compatible delegate to transport."""
+        self._transport._rotate_file_if_needed()
+
+    def _cleanup_old_files(self) -> None:
+        """Backward-compatible delegate to transport."""
+        self._transport._cleanup_old_files()

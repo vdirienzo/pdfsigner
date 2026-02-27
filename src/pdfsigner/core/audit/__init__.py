@@ -20,6 +20,7 @@ from pdfsigner.core.audit.audit_integrity import (
     verify_audit_integrity,
 )
 from pdfsigner.core.audit.audit_logger import AuditLogger
+from pdfsigner.core.audit.audit_query import AuditQueryService
 from pdfsigner.core.audit.helpers import emit_audit_event
 from pdfsigner.core.audit.siem_exporter import (
     SIEMConfig,
@@ -27,16 +28,19 @@ from pdfsigner.core.audit.siem_exporter import (
     SIEMFormat,
     SyslogProtocol,
 )
+from pdfsigner.core.audit.siem_transport import SIEMTransport
 
 # Re-export public API
 __all__ = [
     "AuditEvent",
     "AuditEventType",
     "AuditLogger",
+    "AuditQueryService",
     "AuditIntegrityManager",
     "get_audit_integrity_manager",
     "verify_audit_integrity",
     "SIEMExporter",
+    "SIEMTransport",
     "SIEMConfig",
     "SIEMFormat",
     "SyslogProtocol",
