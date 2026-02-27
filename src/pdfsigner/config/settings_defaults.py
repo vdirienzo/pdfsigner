@@ -4,8 +4,10 @@ settings_defaults.py - Default constants and field group mixins for Settings
 Extracted from settings.py to reduce file size.
 Contains:
 - TOML_CONFIG_PATH and default value constants
-- Field group mixin classes (SecurityFieldsMixin, HealthcareFieldsMixin,
-  ComplianceFieldsMixin, EidasFieldsMixin) that define pydantic Field groups
+- Field group mixin classes (SecurityFieldsMixin, EidasFieldsMixin)
+
+HealthcareFieldsMixin and ComplianceFieldsMixin are in their own modules
+and re-exported here for backward compatibility.
 
 Author: Homero Thompson del Lago del Terror
 """
@@ -15,10 +17,24 @@ from typing import Literal
 
 from pydantic import Field, SecretStr
 
+# Re-export extracted mixins for backward compatibility
+from pdfsigner.config.settings_compliance import ComplianceFieldsMixin
+from pdfsigner.config.settings_healthcare import HealthcareFieldsMixin
+
 # --- Default value constants ---
 TOML_CONFIG_PATH = Path.home() / ".config" / "pdfsigner" / "config.toml"
 DEFAULT_NSS_PATH = Path.home() / ".nss"
 DEFAULT_LOG_DIR = Path.home() / ".local" / "share" / "pdfsigner" / "logs"
+
+__all__ = [
+    "TOML_CONFIG_PATH",
+    "DEFAULT_NSS_PATH",
+    "DEFAULT_LOG_DIR",
+    "SecurityFieldsMixin",
+    "HealthcareFieldsMixin",
+    "ComplianceFieldsMixin",
+    "EidasFieldsMixin",
+]
 
 
 class SecurityFieldsMixin:
@@ -173,204 +189,6 @@ class SecurityFieldsMixin:
         description="Raise exception vs warning for non-FIPS algorithms. "
         "When True, non-FIPS algorithms will cause immediate failure. "
         "When False, a warning is logged but operation continues.",
-    )
-
-
-class HealthcareFieldsMixin:
-    """Healthcare compliance (HIPAA), encryption, and PHI fields."""
-
-    # --- Healthcare Compliance Mode (HIPAA) ---
-    healthcare_mode: bool = Field(
-        default=False,
-        description="Enable healthcare compliance features (RBAC, sessions, emergency access). "
-        "When disabled, the app works normally without additional complexity.",
-    )
-    healthcare_session_timeout_minutes: int = Field(
-        default=15,
-        ge=5,
-        le=60,
-        description="Auto-logoff timeout in minutes (HIPAA §164.312(a)(2)(iii))",
-    )
-    healthcare_max_sessions: int = Field(
-        default=3,
-        ge=1,
-        le=10,
-        description="Maximum concurrent sessions per user",
-    )
-    healthcare_emergency_duration_hours: int = Field(
-        default=4,
-        ge=1,
-        le=24,
-        description="Emergency access duration in hours",
-    )
-    healthcare_emergency_require_approval: bool = Field(
-        default=True,
-        description="Require admin approval for emergency access",
-    )
-
-    # --- Encryption (HIPAA Compliance) ---
-    encryption_default_strength: Literal["aes128", "aes256"] = Field(
-        default="aes256", description="Default encryption strength (aes256 recommended for HIPAA)"
-    )
-    encryption_output_suffix: str = Field(
-        default="_encrypted", description="Suffix added to encrypted file names"
-    )
-    encryption_store_in_keyring: bool = Field(
-        default=True, description="Store encryption passwords in system keyring"
-    )
-    encryption_hipaa_mode: bool = Field(
-        default=False, description="Enforce HIPAA-compliant encryption defaults"
-    )
-    encryption_default_allow_print: bool = Field(
-        default=True, description="Allow printing by default in encrypted PDFs"
-    )
-    encryption_default_allow_copy: bool = Field(
-        default=False, description="Allow content copying by default in encrypted PDFs"
-    )
-
-    # --- PHI Detection Settings (HIPAA §164.514) ---
-    phi_detection_enabled: bool = Field(
-        default=False,
-        description="Enable PHI scanning before signing to detect protected health information",
-    )
-    phi_detection_min_confidence: Literal["low", "medium", "high"] = Field(
-        default="medium",
-        description="Minimum confidence level for PHI detection (low=70%, medium=85%, high=95%)",
-    )
-    phi_detection_block_unencrypted: bool = Field(
-        default=False,
-        description=(
-            "Block signing if PHI detected without encryption (requires phi_detection_enabled)"
-        ),
-    )
-
-    # --- Encryption Policy Settings (HIPAA §164.312(a)(2)(iv)) ---
-    encryption_policy_enabled: bool = Field(
-        default=False,
-        description="Enable mandatory encryption policies for document security",
-    )
-    encryption_policy_encrypt_phi: bool = Field(
-        default=True,
-        description="Auto-encrypt documents with detected PHI (requires phi_detection_enabled)",
-    )
-
-    # --- Temp File Security Settings (HIPAA §164.310(d)(1)) ---
-    temp_secure_delete: bool = Field(
-        default=True,
-        description="Securely delete temp files using DoD 5220.22-M standard (3-pass overwrite)",
-    )
-    temp_retention_hours: int = Field(
-        default=24,
-        ge=1,
-        le=168,
-        description="Hours to retain temp files before cleanup (1-168 = 1 hour to 7 days)",
-    )
-    temp_cleanup_interval_minutes: int = Field(
-        default=15,
-        ge=5,
-        le=60,
-        description="Interval between temp cleanup runs in minutes (5-60)",
-    )
-
-
-class ComplianceFieldsMixin:
-    """GDPR, compliance reporting, revocation, LTV, and Argentina fields."""
-
-    # --- Revocation Checking ---
-    revocation_check_enabled: bool = Field(
-        default=False,
-        description="Check certificate revocation status during validation (OCSP/CRL)",
-    )
-    revocation_check_timeout: int = Field(
-        default=10,
-        ge=5,
-        le=60,
-        description="Timeout for revocation checks in seconds",
-    )
-    revocation_cache_ttl: int = Field(
-        default=3600,
-        ge=300,
-        le=86400,
-        description="Cache TTL for revocation results in seconds",
-    )
-    revocation_prefer_ocsp: bool = Field(
-        default=True,
-        description="Prefer OCSP over CRL for revocation checks",
-    )
-
-    # --- LTV (Long Term Validation) ---
-    ltv_enabled: bool = Field(
-        default=True,
-        description="Enable PAdES-LTV signature with embedded validation info (DSS)",
-    )
-    ltv_ocsp_timeout: int = Field(
-        default=10,
-        ge=5,
-        le=60,
-        description="Timeout for OCSP requests during LTV embedding in seconds",
-    )
-    ltv_crl_timeout: int = Field(
-        default=30,
-        ge=10,
-        le=120,
-        description="Timeout for CRL downloads during LTV embedding in seconds",
-    )
-    ltv_prefer_ocsp: bool = Field(
-        default=True,
-        description="Prefer OCSP over CRL for LTV validation info",
-    )
-    ltv_fail_open: bool = Field(
-        default=True,
-        description="Continue signing if LTV embedding fails (signature still valid, just not LTV)",
-    )
-
-    # --- GDPR Compliance (Data Retention & Erasure) ---
-    gdpr_enabled: bool = Field(
-        default=False,
-        description="Enable GDPR compliance features (data retention, erasure, portability)",
-    )
-    gdpr_retention_days: int = Field(
-        default=365,
-        ge=30,
-        le=3650,
-        description="Days to retain user data after deletion request (30-3650)",
-    )
-    gdpr_deletion_grace_days: int = Field(
-        default=30,
-        ge=1,
-        le=365,
-        description="Grace period before actual deletion in days (1-365)",
-    )
-    gdpr_anonymize_audit_logs: bool = Field(
-        default=True,
-        description="Anonymize audit log references when user is deleted",
-    )
-
-    # --- Compliance Reporting ---
-    compliance_report_dir: str = Field(
-        default="~/.pdfsigner/reports",
-        description="Directory to store generated compliance reports",
-    )
-    compliance_auto_check_enabled: bool = Field(
-        default=False,
-        description="Enable automatic compliance checks at regular intervals",
-    )
-    compliance_check_interval_hours: int = Field(
-        default=24,
-        ge=1,
-        le=168,
-        description="Hours between automatic compliance checks (1-168, i.e., 1 hour to 7 days)",
-    )
-
-    # --- Argentina Compliance (Ley 25.506) ---
-    argentine_compliance_enabled: bool = Field(
-        default=False,
-        description="Enable Argentine digital signature law compliance validation (Ley 25.506)",
-    )
-    argentine_strict_mode: bool = Field(
-        default=False,
-        description="Only accept certificates from licensed Argentine certifiers "
-        "(AFIP, RENAPER, FDR, etc. - requires argentine_compliance_enabled)",
     )
 
 
