@@ -23,7 +23,8 @@ Author: Homero Thompson del Lago del Terror
 from pdfsigner.core.detection.pdf_scanner import PDFScanner, TextBlock
 from pdfsigner.core.detection.pii_detector import PIIDetector, get_pii_detector
 from pdfsigner.core.detection.pii_types import PIIMatch, PIIType, RedactionRegion
-from pdfsigner.core.detection.redactor import PDFRedactor, RedactionResult, get_pdf_redactor
+from pdfsigner.core.detection.redaction_types import RedactionResult
+from pdfsigner.core.detection.redactor import PDFRedactor, get_pdf_redactor
 
 __all__ = [
     "PIIType",

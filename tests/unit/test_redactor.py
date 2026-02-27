@@ -18,7 +18,11 @@ import fitz  # PyMuPDF
 import pytest
 
 from pdfsigner.core.detection.pii_types import PIIMatch, PIIType, RedactionRegion
-from pdfsigner.core.detection.redactor import PDFRedactor, RedactionResult, get_pdf_redactor
+from pdfsigner.core.detection.redactor import (
+    PDFRedactor,
+    RedactionResult,
+    get_pdf_redactor,
+)
 from pdfsigner.exceptions import PDFCorruptedError
 
 
@@ -511,6 +515,8 @@ class TestPDFRedactor:
 
     def test_log_redaction_event_success(self):
         """Test redaction event logging on success."""
+        from pdfsigner.core.detection.redactor import _log_redaction_event
+
         # Mock both the AuditLogger and AuditEvent at the correct import location
         with (
             patch("pdfsigner.core.audit.audit_logger.AuditLogger") as mock_audit_logger,
@@ -527,8 +533,7 @@ class TestPDFRedactor:
             }
             mock_audit_event.return_value = mock_event_instance
 
-            redactor = PDFRedactor()
-            redactor._log_redaction_event(
+            _log_redaction_event(
                 pdf_path=Path("/tmp/test.pdf"),
                 pii_types=["ssn", "credit_card"],
                 redaction_count=5,

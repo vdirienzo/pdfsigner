@@ -1,14 +1,16 @@
 """
-redactor.py - PDF redaction engine with true text removal
+redactor.py - PDF redaction engine with true text removal.
 
 Author: Homero Thompson del Lago del Terror
 
 Implements permanent redaction of PII/PHI from PDF documents using
 PyMuPDF's redaction annotations. This provides true content removal,
 not just visual overlays.
+
+PDFRedactor orchestrates region-based and pattern-based redaction,
+delegating low-level operations to redaction_helpers.
 """
 
-from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from pathlib import Path
 
@@ -16,39 +18,20 @@ import fitz  # PyMuPDF
 from loguru import logger
 
 from pdfsigner.core.detection.pii_types import PIIType, RedactionRegion
+from pdfsigner.core.detection.redaction_helpers import (
+    create_scanner,
+    group_regions_by_page,
+    log_redaction_event,
+    make_failure_result,
+    parse_pii_types,
+    process_page,
+    verify_redaction,
+)
+from pdfsigner.core.detection.redaction_types import RedactionResult
 from pdfsigner.exceptions import PDFCorruptedError
 
-
-@dataclass
-class RedactionResult:
-    """
-    Result of a redaction operation.
-
-    Attributes:
-        success: Whether redaction completed successfully
-        output_path: Path to redacted PDF file
-        redaction_count: Number of regions redacted
-        pages_affected: List of page numbers with redactions
-        errors: List of error messages encountered
-        input_path: Original PDF path
-        redacted_at: Timestamp of redaction
-    """
-
-    success: bool
-    output_path: str | None
-    redaction_count: int
-    pages_affected: list[int] = field(default_factory=list)
-    errors: list[str] = field(default_factory=list)
-    input_path: str | None = None
-    redacted_at: datetime | None = None
-
-    def __str__(self) -> str:
-        if self.success:
-            return (
-                f"✓ Redacted: {self.input_path} → {self.output_path} "
-                f"({self.redaction_count} regions on {len(self.pages_affected)} pages)"
-            )
-        return f"✗ Redaction failed: {self.input_path} - {', '.join(self.errors)}"
+# Backward-compatible aliases for external consumers
+_log_redaction_event = log_redaction_event
 
 
 class PDFRedactor:
@@ -60,20 +43,11 @@ class PDFRedactor:
 
     Usage:
         redactor = PDFRedactor()
-
-        # Region-based redaction
         regions = [
             RedactionRegion(page=0, x0=100, y0=200, x1=300, y1=220,
                           replacement_text="[REDACTED]")
         ]
         result = redactor.redact_regions("doc.pdf", regions, "doc_redacted.pdf")
-
-        # Pattern-based (auto-detect PII)
-        result = redactor.redact_by_pattern(
-            "doc.pdf",
-            pii_types=["ssn", "credit_card"],
-            output_path="doc_redacted.pdf"
-        )
     """
 
     def __init__(
@@ -81,13 +55,6 @@ class PDFRedactor:
         default_fill_color: tuple[float, float, float] = (0, 0, 0),
         default_text_color: tuple[float, float, float] = (1, 1, 1),
     ):
-        """
-        Initialize redactor.
-
-        Args:
-            default_fill_color: Default RGB color for redaction box (0-1 range)
-            default_text_color: Default RGB color for replacement text (0-1 range)
-        """
         self.default_fill_color = default_fill_color
         self.default_text_color = default_text_color
 
@@ -100,9 +67,6 @@ class PDFRedactor:
         """
         Redact specific regions in a PDF.
 
-        Uses PyMuPDF's redaction annotations for true text removal.
-        The underlying text is permanently removed from the PDF structure.
-
         Args:
             pdf_path: Path to input PDF
             regions: List of RedactionRegion objects to redact
@@ -113,131 +77,74 @@ class PDFRedactor:
 
         Raises:
             PDFCorruptedError: If PDF cannot be opened
-            PDFError: If redaction fails
+            FileNotFoundError: If PDF file does not exist
         """
         pdf_path = Path(pdf_path)
         output_path = Path(output_path)
-        errors = []
-        pages_affected = set()
 
-        try:
-            # Validate input
-            if not pdf_path.exists():
-                raise FileNotFoundError(f"PDF not found: {pdf_path}")
+        if not pdf_path.exists():
+            raise FileNotFoundError(f"PDF not found: {pdf_path}")
 
-            if not regions:
-                logger.warning(f"No regions to redact for {pdf_path}")
-                return RedactionResult(
-                    success=True,
-                    output_path=str(output_path),
-                    redaction_count=0,
-                    pages_affected=[],
-                    input_path=str(pdf_path),
-                    redacted_at=datetime.now(UTC),
-                )
-
-            # Open PDF
-            try:
-                doc = fitz.open(pdf_path)
-            except Exception as e:
-                raise PDFCorruptedError(pdf_path.name) from e
-
-            try:
-                # Group regions by page for efficiency
-                regions_by_page: dict[int, list[RedactionRegion]] = {}
-                for region in regions:
-                    if region.page not in regions_by_page:
-                        regions_by_page[region.page] = []
-                    regions_by_page[region.page].append(region)
-
-                # Apply redactions page by page
-                redaction_count = 0
-                for page_num, page_regions in regions_by_page.items():
-                    try:
-                        # Validate page number
-                        if page_num < 0 or page_num >= len(doc):
-                            error_msg = (
-                                f"Invalid page number {page_num} (document has {len(doc)} pages)"
-                            )
-                            errors.append(error_msg)
-                            logger.warning(error_msg)
-                            continue
-
-                        page = doc[page_num]
-
-                        # Add redaction annotations for each region
-                        for region in page_regions:
-                            try:
-                                # Create rectangle (PyMuPDF uses bottom-left origin)
-                                rect = fitz.Rect(region.x0, region.y0, region.x1, region.y1)
-
-                                # Add redaction annotation
-                                annot = page.add_redact_annot(
-                                    rect,
-                                    text=region.replacement_text or "",
-                                    fill=region.fill_color,
-                                    text_color=self.default_text_color,
-                                )
-
-                                if annot:
-                                    redaction_count += 1
-                                else:
-                                    error_msg = (
-                                        f"Failed to add redaction annotation on page {page_num}"
-                                    )
-                                    errors.append(error_msg)
-                                    logger.warning(error_msg)
-
-                            except Exception as e:
-                                error_msg = f"Error adding redaction on page {page_num}: {e}"
-                                errors.append(error_msg)
-                                logger.warning(error_msg)
-
-                        # Apply all redactions on this page (removes the actual text)
-                        page.apply_redactions()
-                        pages_affected.add(page_num)
-
-                    except Exception as e:
-                        error_msg = f"Error processing page {page_num}: {e}"
-                        errors.append(error_msg)
-                        logger.error(error_msg)
-
-                # Save redacted document
-                doc.save(output_path, garbage=4, deflate=True, clean=True)
-            finally:
-                doc.close()
-
-            # Verify text was actually removed
-            self._verify_redaction(output_path, regions)
-
-            logger.info(
-                f"Redacted {redaction_count} regions on {len(pages_affected)} pages: "
-                f"{pdf_path} → {output_path}"
-            )
-
+        if not regions:
+            logger.warning(f"No regions to redact for {pdf_path}")
             return RedactionResult(
                 success=True,
                 output_path=str(output_path),
-                redaction_count=redaction_count,
-                pages_affected=sorted(pages_affected),
-                errors=errors,
+                redaction_count=0,
+                pages_affected=[],
                 input_path=str(pdf_path),
                 redacted_at=datetime.now(UTC),
             )
 
+        try:
+            return self._execute_region_redaction(pdf_path, regions, output_path)
         except (PDFCorruptedError, FileNotFoundError):
             raise
         except Exception as e:
             logger.exception(f"Redaction failed for {pdf_path}: {e}")
-            return RedactionResult(
-                success=False,
-                output_path=None,
-                redaction_count=0,
-                pages_affected=[],
-                errors=[str(e)],
-                input_path=str(pdf_path),
-                redacted_at=datetime.now(UTC),
-            )
+            return make_failure_result(pdf_path, str(e))
+
+    def _execute_region_redaction(
+        self,
+        pdf_path: Path,
+        regions: list[RedactionRegion],
+        output_path: Path,
+    ) -> RedactionResult:
+        """Open PDF, apply all redactions, save, and verify."""
+        try:
+            doc = fitz.open(pdf_path)
+        except Exception as e:
+            raise PDFCorruptedError(pdf_path.name) from e
+
+        errors: list[str] = []
+        pages_affected: set[int] = set()
+        redaction_count = 0
+
+        try:
+            for page_num, page_regions in group_regions_by_page(regions).items():
+                redaction_count += process_page(
+                    doc, page_num, page_regions, self.default_text_color, errors, pages_affected
+                )
+            doc.save(output_path, garbage=4, deflate=True, clean=True)
+        finally:
+            doc.close()
+
+        verify_redaction(output_path, regions)
+
+        logger.info(
+            f"Redacted {redaction_count} regions on {len(pages_affected)} pages: "
+            f"{pdf_path} -> {output_path}"
+        )
+
+        return RedactionResult(
+            success=True,
+            output_path=str(output_path),
+            redaction_count=redaction_count,
+            pages_affected=sorted(pages_affected),
+            errors=errors,
+            input_path=str(pdf_path),
+            redacted_at=datetime.now(UTC),
+        )
 
     def redact_by_pattern(
         self,
@@ -246,107 +153,69 @@ class PDFRedactor:
         output_path: str | Path,
         min_confidence: float = 0.7,
     ) -> RedactionResult:
-        """
-        Auto-detect and redact PII by type.
-
-        Integrates with PIIDetector to automatically find and redact
-        specified types of PII/PHI in the document.
-
-        Args:
-            pdf_path: Path to input PDF
-            pii_types: List of PII types to detect (e.g., ["ssn", "credit_card"])
-            output_path: Path for output redacted PDF
-            min_confidence: Minimum confidence threshold for detection (0.0-1.0)
-
-        Returns:
-            RedactionResult with success status and details
-        """
+        """Auto-detect and redact PII by type."""
         pdf_path = Path(pdf_path)
         output_path = Path(output_path)
 
         try:
-            # Import PII detector
-            try:
-                from pdfsigner.core.detection.pdf_scanner import PDFScanner
-
-                detector = PDFScanner()
-            except ImportError:
-                error_msg = "PII detector not available. Use redact_regions() for manual redaction."
-                logger.error(error_msg)
-                return RedactionResult(
-                    success=False,
-                    output_path=None,
-                    redaction_count=0,
-                    errors=[error_msg],
-                    input_path=str(pdf_path),
-                    redacted_at=datetime.now(UTC),
-                )
-
-            # Convert string types to PIIType enum
-            pii_type_enums = []
-            for pii_type_str in pii_types:
-                try:
-                    pii_type_enums.append(PIIType(pii_type_str))
-                except ValueError:
-                    logger.warning(f"Unknown PII type: {pii_type_str}")
-
-            if not pii_type_enums:
-                return RedactionResult(
-                    success=False,
-                    output_path=None,
-                    redaction_count=0,
-                    errors=["No valid PII types specified"],
-                    input_path=str(pdf_path),
-                    redacted_at=datetime.now(UTC),
-                )
-
-            # Scan document for PII
-            all_matches = detector.scan_pdf(str(pdf_path))
-
-            # Filter by requested PII types
-            matches = [m for m in all_matches if m.pii_type in pii_type_enums]
-
-            # Filter by confidence
-            high_confidence_matches = [m for m in matches if m.confidence >= min_confidence]
-
-            if not high_confidence_matches:
-                logger.info(f"No PII detected above confidence threshold {min_confidence}")
-                return RedactionResult(
-                    success=True,
-                    output_path=str(output_path),
-                    redaction_count=0,
-                    pages_affected=[],
-                    input_path=str(pdf_path),
-                    redacted_at=datetime.now(UTC),
-                )
-
-            # Convert matches to redaction regions
-            regions = [match.to_redaction_region() for match in high_confidence_matches]
-
-            # Perform redaction
-            result = self.redact_regions(pdf_path, regions, output_path)
-
-            # Log to audit trail
-            if result.success:
-                self._log_redaction_event(
-                    pdf_path,
-                    pii_types,
-                    result.redaction_count,
-                    result.pages_affected,
-                )
-
-            return result
-
+            return self._execute_pattern_redaction(pdf_path, output_path, pii_types, min_confidence)
         except Exception as e:
             logger.exception(f"Pattern-based redaction failed for {pdf_path}: {e}")
+            return make_failure_result(pdf_path, str(e))
+
+    def _execute_pattern_redaction(
+        self,
+        pdf_path: Path,
+        output_path: Path,
+        pii_types: list[str],
+        min_confidence: float,
+    ) -> RedactionResult:
+        """Run PII detection pipeline and delegate to region redaction."""
+        scanner = create_scanner()
+        if scanner is None:
+            msg = "PII detector not available. Use redact_regions() for manual redaction."
+            logger.error(msg)
+            return make_failure_result(pdf_path, msg)
+
+        pii_type_enums = parse_pii_types(pii_types)
+        if not pii_type_enums:
+            return make_failure_result(pdf_path, "No valid PII types specified")
+
+        regions = self._detect_and_build_regions(scanner, pdf_path, pii_type_enums, min_confidence)
+        if regions is None:
             return RedactionResult(
-                success=False,
-                output_path=None,
+                success=True,
+                output_path=str(output_path),
                 redaction_count=0,
-                errors=[str(e)],
+                pages_affected=[],
                 input_path=str(pdf_path),
                 redacted_at=datetime.now(UTC),
             )
+
+        result = self.redact_regions(pdf_path, regions, output_path)
+
+        if result.success:
+            log_redaction_event(pdf_path, pii_types, result.redaction_count, result.pages_affected)
+
+        return result
+
+    def _detect_and_build_regions(
+        self,
+        scanner: object,
+        pdf_path: Path,
+        pii_type_enums: list[PIIType],
+        min_confidence: float,
+    ) -> list[RedactionRegion] | None:
+        """Scan PDF for PII and return redaction regions, or None if no matches."""
+        all_matches = scanner.scan_pdf(str(pdf_path))  # type: ignore[attr-defined]
+        matches = [m for m in all_matches if m.pii_type in pii_type_enums]
+        high_confidence = [m for m in matches if m.confidence >= min_confidence]
+
+        if not high_confidence:
+            logger.info(f"No PII detected above confidence threshold {min_confidence}")
+            return None
+
+        return [match.to_redaction_region() for match in high_confidence]
 
     def preview_redactions(
         self,
@@ -357,9 +226,6 @@ class PDFRedactor:
     ) -> bytes:
         """
         Generate preview image showing redaction regions.
-
-        Creates a PNG image of the specified page with redaction
-        regions highlighted (but not yet applied).
 
         Args:
             pdf_path: Path to PDF
@@ -386,99 +252,14 @@ class PDFRedactor:
                 raise ValueError(f"Invalid page number {page_num} (document has {len(doc)} pages)")
 
             page = doc[page_num]
-
-            # Render page to image
-            zoom = dpi / 72  # 72 DPI is PDF default
+            zoom = dpi / 72
             mat = fitz.Matrix(zoom, zoom)
             pix = page.get_pixmap(matrix=mat)
-
-            # Note: Drawing semi-transparent overlays on the preview would require
-            # PIL/Pillow. For now, return the unmodified page render.
-
             png_data = pix.tobytes("png")
         finally:
             doc.close()
 
         return png_data
-
-    def _verify_redaction(self, pdf_path: Path, regions: list[RedactionRegion]) -> None:
-        """
-        Verify that text was actually removed from redacted regions.
-
-        Opens the redacted PDF and checks that no text exists in the
-        redacted coordinates. Logs warnings if text is still present.
-
-        Args:
-            pdf_path: Path to redacted PDF
-            regions: Regions that were redacted
-        """
-        try:
-            doc = fitz.open(pdf_path)
-            try:
-                for region in regions[:5]:  # Sample first 5 regions
-                    if region.page < len(doc):
-                        page = doc[region.page]
-                        rect = fitz.Rect(region.x0, region.y0, region.x1, region.y1)
-
-                        # Extract text from redacted region
-                        text = page.get_text("text", clip=rect).strip()
-
-                        # Check if replacement text is present (expected)
-                        if text and region.replacement_text and region.replacement_text in text:
-                            continue  # OK - replacement text is expected
-
-                        # Check for unexpected text (potential redaction failure)
-                        if text and text != (region.replacement_text or ""):
-                            logger.warning(
-                                f"Potential redaction verification failure on page "
-                                f"{region.page}: found text '{text[:50]}' in redacted region"
-                            )
-            finally:
-                doc.close()
-
-        except Exception as e:
-            logger.warning(f"Could not verify redaction: {e}")
-
-    def _log_redaction_event(
-        self,
-        pdf_path: Path,
-        pii_types: list[str],
-        redaction_count: int,
-        pages_affected: list[int],
-    ) -> None:
-        """
-        Log redaction event to audit trail.
-
-        Args:
-            pdf_path: Path to redacted document
-            pii_types: Types of PII that were redacted
-            redaction_count: Number of redactions performed
-            pages_affected: List of affected page numbers
-        """
-        try:
-            from pdfsigner.core.audit.audit_event import AuditEvent, AuditEventType
-            from pdfsigner.core.audit.audit_logger import AuditLogger
-
-            audit_logger = AuditLogger.get_instance()
-
-            event = AuditEvent(
-                event_type=AuditEventType.ENCRYPT_SUCCESS,  # Reuse encryption type for now
-                status="SUCCESS",
-                document_path=str(pdf_path),
-                details={
-                    "operation": "redaction",
-                    "pii_types": pii_types,
-                    "redaction_count": redaction_count,
-                    "pages_affected": pages_affected,
-                },
-                phi_accessed=True,  # Redaction involves PHI/PII
-            )
-
-            audit_logger.log_event(event)
-
-        except Exception as e:
-            # Non-fatal - log but don't fail redaction
-            logger.warning(f"Could not log redaction event to audit trail: {e}")
 
 
 # Singleton instance
@@ -489,16 +270,7 @@ def get_pdf_redactor(
     default_fill_color: tuple[float, float, float] = (0, 0, 0),
     default_text_color: tuple[float, float, float] = (1, 1, 1),
 ) -> PDFRedactor:
-    """
-    Get or create PDF redactor singleton.
-
-    Args:
-        default_fill_color: Default RGB color for redaction box (0-1 range)
-        default_text_color: Default RGB color for replacement text (0-1 range)
-
-    Returns:
-        PDFRedactor instance
-    """
+    """Get or create PDF redactor singleton."""
     global _redactor_instance
     if _redactor_instance is None:
         _redactor_instance = PDFRedactor(default_fill_color, default_text_color)
