@@ -146,9 +146,9 @@ class TestDSSManager:
         # Should only check first 2 certs (excluding root)
         assert mock_ocsp.call_count == 2
 
-    @patch("pdfsigner.core.signer.dss_manager.requests.post")
-    @patch("pdfsigner.core.signer.dss_manager.ocsp.load_der_ocsp_response")
-    @patch("pdfsigner.core.signer.dss_manager.ocsp.OCSPRequestBuilder")
+    @patch("pdfsigner.core.signer.dss_helpers.requests.post")
+    @patch("pdfsigner.core.signer.dss_helpers.ocsp.load_der_ocsp_response")
+    @patch("pdfsigner.core.signer.dss_helpers.ocsp.OCSPRequestBuilder")
     def test_get_ocsp_response_bytes_success(
         self, mock_builder_class, mock_load_ocsp, mock_post, dss_manager, mock_cert_chain
     ):
@@ -164,8 +164,9 @@ class TestDSSManager:
         mock_builder_class.return_value = mock_builder
 
         # Mock OCSP responder URL extraction
-        with patch.object(
-            dss_manager, "_get_ocsp_responder_url", return_value="https://ocsp.example.com"
+        with patch(
+            "pdfsigner.core.signer.dss_helpers.get_ocsp_responder_url",
+            return_value="https://ocsp.example.com",
         ):
             # Mock successful HTTP response
             mock_response = Mock()
@@ -192,18 +193,19 @@ class TestDSSManager:
         """Test _get_ocsp_response_bytes returns None when no OCSP URL."""
         cert, issuer = mock_cert_chain[0], mock_cert_chain[1]
 
-        with patch.object(dss_manager, "_get_ocsp_responder_url", return_value=None):
+        with patch("pdfsigner.core.signer.dss_helpers.get_ocsp_responder_url", return_value=None):
             result = dss_manager._get_ocsp_response_bytes(cert, issuer)
 
         assert result is None
 
-    @patch("pdfsigner.core.signer.dss_manager.requests.post")
+    @patch("pdfsigner.core.signer.dss_helpers.requests.post")
     def test_get_ocsp_response_bytes_http_error(self, mock_post, dss_manager, mock_cert_chain):
         """Test _get_ocsp_response_bytes handles HTTP errors."""
         cert, issuer = mock_cert_chain[0], mock_cert_chain[1]
 
-        with patch.object(
-            dss_manager, "_get_ocsp_responder_url", return_value="https://ocsp.example.com"
+        with patch(
+            "pdfsigner.core.signer.dss_helpers.get_ocsp_responder_url",
+            return_value="https://ocsp.example.com",
         ):
             mock_post.side_effect = Exception("Connection error")
 
@@ -211,12 +213,13 @@ class TestDSSManager:
 
         assert result is None
 
-    @patch("pdfsigner.core.signer.dss_manager.requests.get")
-    @patch("pdfsigner.core.signer.dss_manager.x509.load_der_x509_crl")
+    @patch("pdfsigner.core.signer.dss_helpers.requests.get")
+    @patch("pdfsigner.core.signer.dss_helpers.x509.load_der_x509_crl")
     def test_get_crl_bytes_success(self, mock_load_crl, mock_get, dss_manager, mock_cert):
         """Test _get_crl_bytes with successful download."""
-        with patch.object(
-            dss_manager, "_get_crl_urls", return_value=["https://crl.example.com/test.crl"]
+        with patch(
+            "pdfsigner.core.signer.dss_helpers.get_crl_urls",
+            return_value=["https://crl.example.com/test.crl"],
         ):
             mock_response = Mock()
             mock_response.content = b"crl_der_data"
@@ -232,12 +235,12 @@ class TestDSSManager:
 
     def test_get_crl_bytes_no_urls(self, dss_manager, mock_cert):
         """Test _get_crl_bytes returns None when no CRL URLs."""
-        with patch.object(dss_manager, "_get_crl_urls", return_value=[]):
+        with patch("pdfsigner.core.signer.dss_helpers.get_crl_urls", return_value=[]):
             result = dss_manager._get_crl_bytes(mock_cert)
 
         assert result is None
 
-    @patch("pdfsigner.core.signer.dss_manager.requests.get")
+    @patch("pdfsigner.core.signer.dss_helpers.requests.get")
     def test_get_crl_bytes_tries_multiple_urls(self, mock_get, dss_manager, mock_cert):
         """Test _get_crl_bytes tries multiple URLs on failure."""
         urls = [
@@ -246,7 +249,7 @@ class TestDSSManager:
             "https://crl3.example.com/test.crl",
         ]
 
-        with patch.object(dss_manager, "_get_crl_urls", return_value=urls):
+        with patch("pdfsigner.core.signer.dss_helpers.get_crl_urls", return_value=urls):
             # First two fail, third succeeds
             mock_get.side_effect = [
                 Exception("Timeout"),
@@ -254,14 +257,16 @@ class TestDSSManager:
                 Mock(content=b"crl_data", raise_for_status=Mock()),
             ]
 
-            with patch("pdfsigner.core.signer.dss_manager.x509.load_der_x509_crl"):
+            with patch("pdfsigner.core.signer.dss_helpers.x509.load_der_x509_crl"):
                 result = dss_manager._get_crl_bytes(mock_cert)
 
         assert result == b"crl_data"
         assert mock_get.call_count == 3
 
     def test_get_ocsp_responder_url_success(self, dss_manager):
-        """Test _get_ocsp_responder_url extracts URL from certificate."""
+        """Test get_ocsp_responder_url extracts URL from certificate."""
+        from pdfsigner.core.signer.dss_helpers import get_ocsp_responder_url
+
         mock_cert = Mock(spec=x509.Certificate)
         mock_ext = Mock()
 
@@ -273,23 +278,27 @@ class TestDSSManager:
         mock_ext.value = [mock_access_desc]
         mock_cert.extensions.get_extension_for_oid.return_value = mock_ext
 
-        result = dss_manager._get_ocsp_responder_url(mock_cert)
+        result = get_ocsp_responder_url(mock_cert)
 
         assert result == "https://ocsp.example.com"
 
     def test_get_ocsp_responder_url_no_extension(self, dss_manager):
-        """Test _get_ocsp_responder_url returns None when extension not found."""
+        """Test get_ocsp_responder_url returns None when extension not found."""
+        from pdfsigner.core.signer.dss_helpers import get_ocsp_responder_url
+
         mock_cert = Mock(spec=x509.Certificate)
         mock_cert.extensions.get_extension_for_oid.side_effect = ExtensionNotFound(
             "Extension not found", ExtensionOID.AUTHORITY_INFORMATION_ACCESS
         )
 
-        result = dss_manager._get_ocsp_responder_url(mock_cert)
+        result = get_ocsp_responder_url(mock_cert)
 
         assert result is None
 
     def test_get_crl_urls_success(self, dss_manager):
-        """Test _get_crl_urls extracts URLs from certificate."""
+        """Test get_crl_urls extracts URLs from certificate."""
+        from pdfsigner.core.signer.dss_helpers import get_crl_urls
+
         mock_cert = Mock(spec=x509.Certificate)
         mock_ext = Mock()
 
@@ -305,20 +314,22 @@ class TestDSSManager:
         mock_ext.value = [mock_dist_point]
         mock_cert.extensions.get_extension_for_oid.return_value = mock_ext
 
-        result = dss_manager._get_crl_urls(mock_cert)
+        result = get_crl_urls(mock_cert)
 
         assert len(result) == 2
         assert "https://crl1.example.com/test.crl" in result
         assert "https://crl2.example.com/test.crl" in result
 
     def test_get_crl_urls_no_extension(self, dss_manager):
-        """Test _get_crl_urls returns empty list when extension not found."""
+        """Test get_crl_urls returns empty list when extension not found."""
+        from pdfsigner.core.signer.dss_helpers import get_crl_urls
+
         mock_cert = Mock(spec=x509.Certificate)
         mock_cert.extensions.get_extension_for_oid.side_effect = ExtensionNotFound(
             "Extension not found", ExtensionOID.CRL_DISTRIBUTION_POINTS
         )
 
-        result = dss_manager._get_crl_urls(mock_cert)
+        result = get_crl_urls(mock_cert)
 
         assert result == []
 
@@ -613,8 +624,8 @@ class TestDSSManagerErrorHandling:
             dss_manager.build_validation_context(validation_info=validation_info)
 
     @pytest.mark.security
-    @patch("pdfsigner.core.signer.dss_manager.requests.post")
-    @patch("pdfsigner.core.signer.dss_manager.ocsp.OCSPRequestBuilder")
+    @patch("pdfsigner.core.signer.dss_helpers.requests.post")
+    @patch("pdfsigner.core.signer.dss_helpers.ocsp.OCSPRequestBuilder")
     def test_collect_validation_info_network_timeout_falls_back_to_crl(
         self, mock_builder_class, mock_post, dss_manager, mock_cert_chain
     ):
@@ -628,8 +639,9 @@ class TestDSSManagerErrorHandling:
         mock_builder_class.return_value = mock_builder
 
         # Mock OCSP URL extraction
-        with patch.object(
-            dss_manager, "_get_ocsp_responder_url", return_value="https://ocsp.example.com"
+        with patch(
+            "pdfsigner.core.signer.dss_helpers.get_ocsp_responder_url",
+            return_value="https://ocsp.example.com",
         ):
             # Mock network timeout
             import requests
@@ -679,9 +691,9 @@ class TestDSSManagerErrorHandling:
         assert result is True
 
     @pytest.mark.security
-    @patch("pdfsigner.core.signer.dss_manager.requests.post")
-    @patch("pdfsigner.core.signer.dss_manager.ocsp.load_der_ocsp_response")
-    @patch("pdfsigner.core.signer.dss_manager.ocsp.OCSPRequestBuilder")
+    @patch("pdfsigner.core.signer.dss_helpers.requests.post")
+    @patch("pdfsigner.core.signer.dss_helpers.ocsp.load_der_ocsp_response")
+    @patch("pdfsigner.core.signer.dss_helpers.ocsp.OCSPRequestBuilder")
     def test_dss_manager_handles_corrupted_response_returns_none(
         self, mock_builder_class, mock_load_ocsp, mock_post, dss_manager, mock_cert_chain
     ):
@@ -696,8 +708,9 @@ class TestDSSManagerErrorHandling:
         mock_builder.build.return_value = mock_request
         mock_builder_class.return_value = mock_builder
 
-        with patch.object(
-            dss_manager, "_get_ocsp_responder_url", return_value="https://ocsp.example.com"
+        with patch(
+            "pdfsigner.core.signer.dss_helpers.get_ocsp_responder_url",
+            return_value="https://ocsp.example.com",
         ):
             # Mock corrupted OCSP response
             mock_response = Mock()

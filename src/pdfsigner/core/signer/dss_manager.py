@@ -7,16 +7,10 @@ Manages the embedding of validation information (OCSP responses and CRLs)
 into signed PDFs to create PAdES-LTV signatures with long-term validation support.
 """
 
-import hashlib
-import time
 from pathlib import Path
 
-import requests
 from cryptography import x509
-from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.serialization import Encoding
-from cryptography.x509 import ocsp
-from cryptography.x509.oid import AuthorityInformationAccessOID, ExtensionOID
 from loguru import logger
 from pyhanko.sign.validation import DocumentSecurityStore
 from pyhanko_certvalidator import ValidationContext
@@ -134,90 +128,39 @@ class DSSManager:
         Returns:
             Respuesta OCSP en bytes DER o None si falla
         """
+        from pdfsigner.core.signer.dss_helpers import (
+            check_ocsp_cache,
+            fetch_ocsp_response,
+            get_ocsp_responder_url,
+            ocsp_cache_key,
+        )
+
         try:
-            responder_url = self._get_ocsp_responder_url(cert)
+            responder_url = get_ocsp_responder_url(cert)
             if not responder_url:
-                logger.debug("No se encontró URL de responder OCSP en el certificado")
+                logger.debug("No se encontro URL de responder OCSP en el certificado")
                 return None
 
-            # Check cache first
-            cache_key = self._ocsp_cache_key(cert, responder_url)
-            cached = self._check_ocsp_cache(cache_key)
+            cache_key = ocsp_cache_key(cert, responder_url)
+            cached = check_ocsp_cache(self._ocsp_cache, cache_key, self._CACHE_TTL)
             if cached is not None:
                 return cached
 
-            # Fetch from network
-            return self._fetch_ocsp_response(cert, issuer_cert, responder_url, cache_key)
+            return fetch_ocsp_response(
+                cert,
+                issuer_cert,
+                responder_url,
+                self.ocsp_checker.timeout,
+                self._ocsp_cache,
+                cache_key,
+            )
 
         except Exception as e:
             logger.warning(f"Error obteniendo respuesta OCSP: {e}")
             return None
 
-    def _check_ocsp_cache(self, cache_key: str) -> bytes | None:
-        """Check OCSP cache for a valid (non-expired) response.
-
-        Args:
-            cache_key: Cache key for the certificate/responder pair
-
-        Returns:
-            Cached OCSP response bytes or None if not found/expired
-        """
-        cached = self._ocsp_cache.get(cache_key)
-        if cached is not None:
-            response_bytes, cached_at = cached
-            if (time.monotonic() - cached_at) < self._CACHE_TTL:
-                logger.debug(f"OCSP cache hit for {cache_key[:16]}...")
-                return response_bytes
-            del self._ocsp_cache[cache_key]
-        return None
-
-    def _fetch_ocsp_response(
-        self,
-        cert: x509.Certificate,
-        issuer_cert: x509.Certificate,
-        responder_url: str,
-        cache_key: str,
-    ) -> bytes | None:
-        """Build, send, and validate an OCSP request. Cache on success.
-
-        Args:
-            cert: Certificate to check
-            issuer_cert: Issuer certificate
-            responder_url: OCSP responder URL
-            cache_key: Key for caching the response
-
-        Returns:
-            OCSP response bytes or None on failure
-        """
-        builder = ocsp.OCSPRequestBuilder()
-        builder = builder.add_certificate(cert, issuer_cert, hashes.SHA256())
-        ocsp_request = builder.build()
-
-        ocsp_request_der = ocsp_request.public_bytes(Encoding.DER)
-        headers = {"Content-Type": "application/ocsp-request"}
-
-        response = requests.post(
-            responder_url,
-            data=ocsp_request_der,
-            headers=headers,
-            timeout=self.ocsp_checker.timeout,
-        )
-        response.raise_for_status()
-
-        ocsp_response = ocsp.load_der_ocsp_response(response.content)
-        if ocsp_response.response_status == ocsp.OCSPResponseStatus.SUCCESSFUL:
-            self._ocsp_cache[cache_key] = (response.content, time.monotonic())
-            return response.content
-
-        logger.warning(f"Respuesta OCSP no exitosa: {ocsp_response.response_status.name}")
-        return None
-
     def _get_crl_bytes(self, cert: x509.Certificate) -> bytes | None:
-        """
-        Obtiene CRL en formato DER, with in-memory caching.
-
-        Uses a TTL cache keyed by CRL URL to avoid repeated downloads
-        during batch signing operations.
+        """Obtiene CRL en formato DER, with in-memory caching.
 
         Args:
             cert: Certificado del cual obtener la CRL
@@ -225,115 +168,9 @@ class DSSManager:
         Returns:
             CRL en bytes DER o None si falla
         """
-        try:
-            # Obtener URLs de distribución de CRL
-            crl_urls = self._get_crl_urls(cert)
-            if not crl_urls:
-                logger.debug("No se encontraron puntos de distribución de CRL")
-                return None
+        from pdfsigner.core.signer.dss_helpers import get_crl_bytes
 
-            # Intentar descargar de cada URL
-            for crl_url in crl_urls:
-                try:
-                    # Check cache before downloading
-                    cached = self._crl_cache.get(crl_url)
-                    if cached is not None:
-                        crl_bytes, cached_at = cached
-                        if (time.monotonic() - cached_at) < self._CACHE_TTL:
-                            logger.debug(f"CRL cache hit for {crl_url}")
-                            return crl_bytes
-                        del self._crl_cache[crl_url]
-
-                    logger.debug(f"Descargando CRL desde {crl_url}")
-                    response = requests.get(crl_url, timeout=self.crl_checker.timeout)
-                    response.raise_for_status()
-
-                    # Validar que es una CRL válida
-                    x509.load_der_x509_crl(response.content)
-                    self._crl_cache[crl_url] = (response.content, time.monotonic())
-                    return response.content
-
-                except Exception as e:
-                    logger.warning(f"Error descargando CRL desde {crl_url}: {e}")
-                    continue
-
-            logger.warning("Todas las URLs de distribución de CRL fallaron")
-            return None
-
-        except Exception as e:
-            logger.warning(f"Error obteniendo CRL: {e}")
-            return None
-
-    @staticmethod
-    def _ocsp_cache_key(cert: x509.Certificate, responder_url: str) -> str:
-        """Generate a cache key for OCSP responses from cert serial + responder URL."""
-        serial = str(cert.serial_number).encode()
-        return hashlib.sha256(serial + responder_url.encode()).hexdigest()
-
-    def _get_ocsp_responder_url(self, cert: x509.Certificate) -> str | None:
-        """
-        Extrae URL del responder OCSP del certificado.
-
-        Args:
-            cert: Certificado
-
-        Returns:
-            URL del responder OCSP o None
-        """
-        try:
-            aia_ext = cert.extensions.get_extension_for_oid(
-                ExtensionOID.AUTHORITY_INFORMATION_ACCESS
-            )
-            aia = aia_ext.value
-
-            for access_description in aia:  # type: ignore[attr-defined]
-                if access_description.access_method == AuthorityInformationAccessOID.OCSP:
-                    return access_description.access_location.value
-
-        except x509.ExtensionNotFound:
-            logger.debug("No se encontró extensión Authority Information Access")
-        except Exception as e:
-            cert_subject = getattr(cert, "subject", "unknown")
-            logger.warning(
-                f"Failed to extract OCSP URL from certificate (subject={cert_subject}): {e}. "
-                "Will fall back to CRL for revocation check."
-            )
-
-        return None
-
-    def _get_crl_urls(self, cert: x509.Certificate) -> list[str]:
-        """
-        Extrae URLs de puntos de distribución de CRL del certificado.
-
-        Args:
-            cert: Certificado
-
-        Returns:
-            Lista de URLs de CRL
-        """
-        urls: list[str] = []
-        try:
-            crl_dist_points_ext = cert.extensions.get_extension_for_oid(
-                ExtensionOID.CRL_DISTRIBUTION_POINTS
-            )
-            crl_dist_points = crl_dist_points_ext.value
-
-            for dist_point in crl_dist_points:  # type: ignore[attr-defined]
-                if dist_point.full_name:
-                    for general_name in dist_point.full_name:
-                        if isinstance(general_name, x509.UniformResourceIdentifier):
-                            urls.append(general_name.value)
-
-        except x509.ExtensionNotFound:
-            logger.debug("No se encontró extensión CRL Distribution Points")
-        except Exception as e:
-            cert_subject = getattr(cert, "subject", "unknown")
-            logger.warning(
-                f"Failed to extract CRL URLs from certificate (subject={cert_subject}): {e}. "
-                "Revocation check may be incomplete for this certificate."
-            )
-
-        return urls
+        return get_crl_bytes(cert, self.crl_checker.timeout, self._crl_cache, self._CACHE_TTL)
 
     def embed_dss(
         self,
