@@ -343,31 +343,19 @@ def _build_tsp_info(sig: SignatureInfo) -> dict[str, Any]:
     }
 
 
-def _build_signature_report(sig: SignatureInfo) -> dict[str, Any]:
-    """Build a single signature's validation report section.
+def _collect_issues_and_recommendations(
+    sig: SignatureInfo,
+    algo_assessment: AlgorithmAssessment | None,
+) -> tuple[list[str], list[str], str]:
+    """Collect issues, recommendations, and PAdES level from a signature.
 
     Args:
         sig: Signature info from core validator
+        algo_assessment: Algorithm assessment result (may be None)
 
     Returns:
-        Dictionary with full signature report
+        Tuple of (issues, recommendations, pades_level_string)
     """
-    # Parse certificate once, pass to both helpers
-    cert = None
-    if sig.certificate_bytes:
-        try:
-            cert = x509.load_der_x509_certificate(sig.certificate_bytes)
-        except Exception as e:
-            logger.debug("Failed to load certificate for signature report: %s", e)
-
-    # Algorithm assessment
-    algo_assessment = _extract_algorithm_info(sig, cert)
-
-    # Main and sub indication
-    main_indication = _determine_main_indication(sig)
-    sub_indication = _determine_sub_indication(sig, algo_assessment)
-
-    # Build issues list
     issues: list[str] = []
     recommendations: list[str] = []
 
@@ -396,35 +384,71 @@ def _build_signature_report(sig: SignatureInfo) -> dict[str, Any]:
     pades_level = PAdESLevel.UNKNOWN.value
     if sig.ltv_info:
         pades_level = sig.ltv_info.pades_level.value
-        if sig.ltv_info.pades_level == PAdESLevel.B_B:
-            recommendations.append("Add timestamp for PAdES B-T long-term validity")
-        elif sig.ltv_info.pades_level == PAdESLevel.B_T:
-            recommendations.append("Add DSS with OCSP/CRL for PAdES B-LT long-term validation")
-        elif sig.ltv_info.pades_level == PAdESLevel.B_LT:
-            recommendations.append("Add archive timestamp for PAdES B-LTA maximum preservation")
+        _PADES_RECOMMENDATIONS = {
+            PAdESLevel.B_B: "Add timestamp for PAdES B-T long-term validity",
+            PAdESLevel.B_T: "Add DSS with OCSP/CRL for PAdES B-LT long-term validation",
+            PAdESLevel.B_LT: "Add archive timestamp for PAdES B-LTA maximum preservation",
+        }
+        rec = _PADES_RECOMMENDATIONS.get(sig.ltv_info.pades_level)
+        if rec:
+            recommendations.append(rec)
 
     # eIDAS qualification recommendations
     sig_quality = _determine_signature_quality(sig)
     if sig_quality == QualificationLevel.BASIC.value:
         recommendations.append("Use a Qualified Certificate from an EU TSP for eIDAS compliance")
 
-    # Algorithm assessment section
-    algo_section: dict[str, Any] | None = None
-    if algo_assessment:
-        algo_section = {
-            "hash_algorithm": algo_assessment.hash_algorithm,
-            "hash_strength": algo_assessment.hash_strength.value,
-            "signature_algorithm": algo_assessment.signature_algorithm,
-            "key_size": algo_assessment.key_size,
-            "key_strength": algo_assessment.key_strength.value,
-            "overall_strength": algo_assessment.overall_strength.value,
-        }
+    return issues, recommendations, pades_level
+
+
+def _build_algo_section(algo_assessment: AlgorithmAssessment | None) -> dict[str, Any] | None:
+    """Build algorithm assessment section dictionary.
+
+    Args:
+        algo_assessment: Algorithm assessment result
+
+    Returns:
+        Dictionary with algorithm details or None
+    """
+    if not algo_assessment:
+        return None
+    return {
+        "hash_algorithm": algo_assessment.hash_algorithm,
+        "hash_strength": algo_assessment.hash_strength.value,
+        "signature_algorithm": algo_assessment.signature_algorithm,
+        "key_size": algo_assessment.key_size,
+        "key_strength": algo_assessment.key_strength.value,
+        "overall_strength": algo_assessment.overall_strength.value,
+    }
+
+
+def _build_signature_report(sig: SignatureInfo) -> dict[str, Any]:
+    """Build a single signature's validation report section.
+
+    Args:
+        sig: Signature info from core validator
+
+    Returns:
+        Dictionary with full signature report
+    """
+    # Parse certificate once, pass to all helpers
+    cert = None
+    if sig.certificate_bytes:
+        try:
+            cert = x509.load_der_x509_certificate(sig.certificate_bytes)
+        except Exception as e:
+            logger.debug("Failed to load certificate for signature report: %s", e)
+
+    algo_assessment = _extract_algorithm_info(sig, cert)
+    main_indication = _determine_main_indication(sig)
+    sub_indication = _determine_sub_indication(sig, algo_assessment)
+    issues, recommendations, pades_level = _collect_issues_and_recommendations(sig, algo_assessment)
 
     return {
         "field_name": sig.field_name,
         "main_indication": main_indication.value,
         "sub_indication": sub_indication.value if sub_indication else None,
-        "signature_quality": sig_quality,
+        "signature_quality": _determine_signature_quality(sig),
         "signer_information": {
             "name": sig.signer_name,
             "email": sig.signer_email,
@@ -437,7 +461,7 @@ def _build_signature_report(sig: SignatureInfo) -> dict[str, Any]:
         },
         "certificate_info": _extract_certificate_info(sig, cert),
         "revocation_status": _build_revocation_info(sig),
-        "algorithm_assessment": algo_section,
+        "algorithm_assessment": _build_algo_section(algo_assessment),
         "trust_service_provider": _build_tsp_info(sig),
         "issues": issues,
         "recommendations": recommendations,
@@ -445,6 +469,91 @@ def _build_signature_report(sig: SignatureInfo) -> dict[str, Any]:
 
 
 # --- Public API ---
+
+
+def _determine_overall_indication(
+    validation_result: ValidationResult,
+    signature_reports: list[dict[str, Any]],
+) -> tuple[str, str | None]:
+    """Determine overall document indication and sub-indication.
+
+    Args:
+        validation_result: Result from PDFValidator.validate()
+        signature_reports: List of per-signature report dicts
+
+    Returns:
+        Tuple of (main_indication, sub_indication)
+    """
+    if not validation_result.is_signed:
+        return ValidationStatus.INDETERMINATE.value, SubIndication.SIGNED_DATA_NOT_FOUND.value
+
+    if validation_result.all_valid:
+        has_revocation_issue = any(
+            sig.revocation_status == "revoked" for sig in validation_result.signatures
+        )
+        if has_revocation_issue:
+            return ValidationStatus.TOTAL_FAILED.value, SubIndication.REVOKED.value
+        return ValidationStatus.TOTAL_PASSED.value, None
+
+    # Find first failing sub-indication
+    overall_sub = None
+    for report in signature_reports:
+        if report["main_indication"] != ValidationStatus.TOTAL_PASSED.value:
+            overall_sub = report["sub_indication"]
+            break
+    return ValidationStatus.TOTAL_FAILED.value, overall_sub
+
+
+def _determine_highest_quality(signature_reports: list[dict[str, Any]]) -> str:
+    """Determine highest eIDAS qualification level across signatures.
+
+    Args:
+        signature_reports: List of per-signature report dicts
+
+    Returns:
+        Highest quality string: "QES", "AdES-QC", "AdES", or "Basic"
+    """
+    quality_hierarchy = {"QES": 3, "AdES-QC": 2, "AdES": 1, "Basic": 0}
+    highest_quality = "Basic"
+    for report in signature_reports:
+        quality = report.get("signature_quality", "Basic")
+        if quality_hierarchy.get(quality, 0) > quality_hierarchy.get(highest_quality, 0):
+            highest_quality = quality
+    return highest_quality
+
+
+def _collect_report_issues(
+    validation_result: ValidationResult,
+    signature_reports: list[dict[str, Any]],
+) -> tuple[list[str], list[str]]:
+    """Collect and deduplicate issues and recommendations from all signatures.
+
+    Args:
+        validation_result: Result from PDFValidator.validate()
+        signature_reports: List of per-signature report dicts
+
+    Returns:
+        Tuple of (all_issues, unique_recommendations)
+    """
+    all_issues: list[str] = []
+    all_recommendations: list[str] = []
+
+    if validation_result.error:
+        all_issues.append(validation_result.error)
+
+    for report in signature_reports:
+        all_issues.extend(report.get("issues", []))
+        all_recommendations.extend(report.get("recommendations", []))
+
+    # Deduplicate recommendations preserving order
+    seen: set[str] = set()
+    unique_recommendations: list[str] = []
+    for rec in all_recommendations:
+        if rec not in seen:
+            seen.add(rec)
+            unique_recommendations.append(rec)
+
+    return all_issues, unique_recommendations
 
 
 def generate_eidas_report(
@@ -467,57 +576,14 @@ def generate_eidas_report(
     pdf_path = Path(pdf_path)
     now = datetime.now(UTC)
 
-    # Build per-signature reports
     signature_reports = [_build_signature_report(sig) for sig in validation_result.signatures]
-
-    # Determine overall document indication
-    if not validation_result.is_signed:
-        overall_indication = ValidationStatus.INDETERMINATE.value
-        overall_sub = SubIndication.SIGNED_DATA_NOT_FOUND.value
-    elif validation_result.all_valid:
-        # Check if any signature has revocation issues
-        has_revocation_issue = any(
-            sig.revocation_status == "revoked" for sig in validation_result.signatures
-        )
-        if has_revocation_issue:
-            overall_indication = ValidationStatus.TOTAL_FAILED.value
-            overall_sub = SubIndication.REVOKED.value
-        else:
-            overall_indication = ValidationStatus.TOTAL_PASSED.value
-            overall_sub = None
-    else:
-        overall_indication = ValidationStatus.TOTAL_FAILED.value
-        # Use the sub-indication from the first failing signature
-        overall_sub = None
-        for report in signature_reports:
-            if report["main_indication"] != ValidationStatus.TOTAL_PASSED.value:
-                overall_sub = report["sub_indication"]
-                break
-
-    # Determine highest eIDAS level
-    quality_hierarchy = {"QES": 3, "AdES-QC": 2, "AdES": 1, "Basic": 0}
-    highest_quality = "Basic"
-    for report in signature_reports:
-        quality = report.get("signature_quality", "Basic")
-        if quality_hierarchy.get(quality, 0) > quality_hierarchy.get(highest_quality, 0):
-            highest_quality = quality
-
-    # Collect all issues and recommendations
-    all_issues: list[str] = []
-    all_recommendations: list[str] = []
-    if validation_result.error:
-        all_issues.append(validation_result.error)
-    for report in signature_reports:
-        all_issues.extend(report.get("issues", []))
-        all_recommendations.extend(report.get("recommendations", []))
-
-    # Deduplicate recommendations
-    seen: set[str] = set()
-    unique_recommendations: list[str] = []
-    for rec in all_recommendations:
-        if rec not in seen:
-            seen.add(rec)
-            unique_recommendations.append(rec)
+    overall_indication, overall_sub = _determine_overall_indication(
+        validation_result, signature_reports
+    )
+    highest_quality = _determine_highest_quality(signature_reports)
+    all_issues, unique_recommendations = _collect_report_issues(
+        validation_result, signature_reports
+    )
 
     return {
         "report_version": "1.0",
