@@ -547,3 +547,143 @@ def test_retention_service_database_columns_creation(temp_db):
         assert "is_anonymized" in columns
         assert "deletion_scheduled_at" in columns
         assert "deletion_date" in columns
+
+
+# --- Fix 1: PurgeResult.failed_users tracks per-user failures ---
+
+
+def test_purge_result_has_failed_users_field():
+    """Test that PurgeResult dataclass has failed_users field."""
+    from pdfsigner.core.gdpr.data_retention import PurgeResult
+
+    result = PurgeResult(
+        success=True,
+        users_deleted=0,
+        audit_records_purged=0,
+        documents_deleted=0,
+    )
+    # Default should be None (no failures)
+    assert result.failed_users is None
+
+    # With explicit failed_users
+    result_with_failures = PurgeResult(
+        success=True,
+        users_deleted=1,
+        audit_records_purged=0,
+        documents_deleted=0,
+        failed_users=["user_abc"],
+    )
+    assert result_with_failures.failed_users == ["user_abc"]
+
+
+def test_purge_expired_data_reports_failed_users(data_retention_service, user_repository):
+    """Test that purge_expired_data reports failed user IDs in PurgeResult."""
+    from unittest.mock import patch
+
+    # Create 3 users scheduled for deletion in the past
+    users = []
+    for i in range(3):
+        user = User(
+            username=f"purge_fail_user{i}",
+            display_name=f"Purge Fail User {i}",
+            email=f"purgefail{i}@example.com",
+            role=UserRole.VIEWER,
+        )
+        users.append(user_repository.create_user(user))
+
+    past_date = datetime.now() - timedelta(days=1)
+    for user in users:
+        with user_repository._get_connection() as conn:
+            conn.execute(
+                """
+                UPDATE users
+                SET deletion_scheduled_at = ?, deletion_date = ?
+                WHERE id = ?
+                """,
+                (past_date.isoformat(), past_date.isoformat(), user.id),
+            )
+
+    # Make delete_user fail for the second user
+    original_delete = user_repository.delete_user
+    fail_user_id = users[1].id
+
+    def flaky_delete(user_id):
+        if user_id == fail_user_id:
+            raise RuntimeError("Simulated DB failure for user")
+        return original_delete(user_id)
+
+    with patch.object(user_repository, "delete_user", side_effect=flaky_delete):
+        result = data_retention_service.purge_expired_data()
+
+    # Overall success=True (partial purge completed)
+    assert result.success is True
+    # 2 of 3 users deleted successfully
+    assert result.users_deleted == 2
+    # The failed user should be reported
+    assert result.failed_users is not None
+    assert fail_user_id in result.failed_users
+    assert len(result.failed_users) == 1
+
+
+def test_purge_expired_data_no_failures_returns_none_failed_users(
+    data_retention_service, test_user
+):
+    """Test that purge with no failures returns failed_users=None."""
+    past_date = datetime.now() - timedelta(days=1)
+    with data_retention_service.user_repo._get_connection() as conn:
+        conn.execute(
+            """
+            UPDATE users
+            SET deletion_scheduled_at = ?, deletion_date = ?
+            WHERE id = ?
+            """,
+            (past_date.isoformat(), past_date.isoformat(), test_user.id),
+        )
+
+    result = data_retention_service.purge_expired_data()
+
+    assert result.success is True
+    assert result.users_deleted == 1
+    assert result.failed_users is None
+
+
+# --- Fix 2: _mark_user_anonymized propagates DB errors ---
+
+
+def test_mark_user_anonymized_propagates_db_error(data_retention_service, test_user):
+    """Test that _mark_user_anonymized propagates exceptions instead of swallowing them."""
+    import sqlite3
+    from unittest.mock import patch
+
+    # Make the DB connection raise an error
+    def broken_connection(*args, **kwargs):
+        raise sqlite3.OperationalError("disk I/O error")
+
+    with patch.object(
+        data_retention_service.user_repo, "_get_connection", side_effect=broken_connection
+    ):
+        with pytest.raises(sqlite3.OperationalError, match="disk I/O error"):
+            data_retention_service._mark_user_anonymized(test_user.id)
+
+
+def test_anonymize_user_fails_when_mark_anonymized_fails(data_retention_service, test_user):
+    """Test that anonymize_user returns success=False when _mark_user_anonymized fails.
+
+    Previously _mark_user_anonymized swallowed the DB error, so anonymize_user
+    would return success=True even though the user wasn't properly marked.
+    Now the error propagates and anonymize_user catches it, returning failure.
+    """
+    import sqlite3
+    from unittest.mock import patch
+
+    # Make _mark_user_anonymized raise
+    with patch.object(
+        data_retention_service,
+        "_mark_user_anonymized",
+        side_effect=sqlite3.OperationalError("disk I/O error"),
+    ):
+        result = data_retention_service.anonymize_user(test_user.id, requested_by="admin")
+
+    # anonymize_user's outer except should catch and return failure
+    assert result.success is False
+    assert "disk I/O error" in result.error_message

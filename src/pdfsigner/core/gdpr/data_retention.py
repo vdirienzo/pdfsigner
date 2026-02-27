@@ -42,6 +42,7 @@ class PurgeResult:
     audit_records_purged: int
     documents_deleted: int
     error_message: str | None = None
+    failed_users: list[str] | None = None
 
 
 @dataclass
@@ -357,6 +358,7 @@ class DataRetentionService:
             users_deleted = 0
             audit_records_purged = 0
             documents_deleted = 0
+            failed_users: list[str] = []
 
             # Find users with deletion_date in the past
             with self.user_repo._get_connection() as conn:
@@ -391,6 +393,7 @@ class DataRetentionService:
 
                 except Exception as e:
                     logger.error(f"Failed to purge user {user_id}: {e}")
+                    failed_users.append(user_id)
 
             # Log purge event
             from pdfsigner.core.audit import AuditEvent
@@ -403,6 +406,7 @@ class DataRetentionService:
                     "action": "purge_expired_data",
                     "users_deleted": users_deleted,
                     "audit_records_purged": audit_records_purged,
+                    "failed_users": failed_users,
                 },
             )
             self.audit_logger.log_event(event)
@@ -416,6 +420,7 @@ class DataRetentionService:
                 users_deleted=users_deleted,
                 audit_records_purged=audit_records_purged,
                 documents_deleted=documents_deleted,
+                failed_users=failed_users if failed_users else None,
             )
 
         except Exception as e:
@@ -511,15 +516,17 @@ class DataRetentionService:
             return False
 
     def _mark_user_anonymized(self, user_id: str) -> None:
-        """Mark user as anonymized in database."""
-        try:
-            with self.user_repo._get_connection() as conn:
-                conn.execute(
-                    "UPDATE users SET is_anonymized = 1 WHERE id = ?",
-                    (user_id,),
-                )
-        except Exception as e:
-            logger.error(f"Failed to mark user as anonymized: {e}")
+        """Mark user as anonymized in database.
+
+        Raises:
+            sqlite3.Error: If the database update fails. Propagated to caller
+                so anonymize_user() can report failure (GDPR Art. 17 compliance).
+        """
+        with self.user_repo._get_connection() as conn:
+            conn.execute(
+                "UPDATE users SET is_anonymized = 1 WHERE id = ?",
+                (user_id,),
+            )
 
     def _anonymize_audit_records(self, user_id: str, user_hash: str) -> int:
         """
