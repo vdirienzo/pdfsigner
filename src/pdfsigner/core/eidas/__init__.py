@@ -55,15 +55,15 @@ from pdfsigner.core.eidas.seal_manager import (
     SealValidationResult,
     get_seal_manager,
 )
-from pdfsigner.core.eidas.tsl_parser import (
+from pdfsigner.core.eidas.tsl_parser import TSLParser
+from pdfsigner.core.eidas.tsl_types import (
     ServiceInfo,
     ServiceStatus,
-    TSLParser,
 )
-from pdfsigner.core.eidas.tsl_parser import (
+from pdfsigner.core.eidas.tsl_types import (
     ServiceType as TSLServiceType,
 )
-from pdfsigner.core.eidas.tsl_parser import (
+from pdfsigner.core.eidas.tsl_types import (
     TSPInfo as TSLTSPInfo,
 )
 from pdfsigner.core.eidas.tsp_registry import (
