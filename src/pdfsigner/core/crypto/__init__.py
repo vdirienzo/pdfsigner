@@ -30,6 +30,14 @@ from pdfsigner.core.crypto.fips_provider import (
     get_fips_provider,
     reset_fips_provider,
 )
+from pdfsigner.core.crypto.key_exceptions import (
+    KeyExpiredError,
+    KeyManagerError,
+    KeyNotFoundError,
+    KeyRevokedError,
+)
+from pdfsigner.core.crypto.key_storage import KeyStorage
+from pdfsigner.core.crypto.key_types import KeyInfo, KeyStatus, KeyType
 
 __all__ = [
     "FIPSCryptoProvider",
@@ -37,4 +45,15 @@ __all__ = [
     "reset_fips_provider",
     "AlgorithmCategory",
     "FIPSModeError",
+    # Key management types
+    "KeyType",
+    "KeyStatus",
+    "KeyInfo",
+    # Key management exceptions
+    "KeyManagerError",
+    "KeyNotFoundError",
+    "KeyRevokedError",
+    "KeyExpiredError",
+    # Key storage
+    "KeyStorage",
 ]
