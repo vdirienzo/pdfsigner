@@ -7,16 +7,18 @@ This module provides automated data retention and cleanup capabilities:
 - Audit log archiving (6-year HIPAA requirement)
 - Scheduled retention runs
 
-HIPAA Reference: §164.530(j) - 6-year retention requirement for audit logs
+HIPAA Reference: SS164.530(j) - 6-year retention requirement for audit logs
 """
 
 from pdfsigner.core.retention.retention_manager import (
-    RetentionAction,
     RetentionManager,
+    get_retention_manager,
+)
+from pdfsigner.core.retention.retention_types import (
+    RetentionAction,
     RetentionPolicy,
     RetentionResult,
     RetentionTarget,
-    get_retention_manager,
 )
 
 __all__ = [
