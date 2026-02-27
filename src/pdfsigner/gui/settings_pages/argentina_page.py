@@ -1,10 +1,7 @@
 """
-argentina_page.py - Argentina Compliance settings page
+argentina_page.py - Argentina Compliance settings page (Ley 25.506)
 
-Author: Homero Thompson del Lago del Terror
-
-Creates the Argentina Compliance (Ley 25.506) settings page with licensed
-certifier information and validation options.
+Licensed certifier information and validation options.
 """
 
 import gi
@@ -96,6 +93,22 @@ def _build_preset_group(settings, dialog) -> Adw.PreferencesGroup:
     return preset_group
 
 
+def _build_certifier_row(
+    title: str, subtitle: str, tooltip: str, url: str | None = None, a11y_name: str = ""
+) -> Adw.ActionRow:
+    """Build a single certifier information row with optional link."""
+    row = Adw.ActionRow()
+    row.set_title(title)
+    row.set_subtitle(subtitle)
+    row.set_tooltip_text(tooltip)
+    if url:
+        link = Gtk.LinkButton(uri=url)
+        link.set_label(_("Website"))
+        set_accessible(link, _(f"{a11y_name} website"), _(f"Visit {a11y_name} website"))
+        row.add_suffix(link)
+    return row
+
+
 def _build_gov_certifiers_group() -> Adw.PreferencesGroup:
     """Build the governmental (free) certifiers information group."""
     gov_group = Adw.PreferencesGroup()
@@ -104,81 +117,55 @@ def _build_gov_certifiers_group() -> Adw.PreferencesGroup:
         _("Licensed certifiers that provide free certificates to citizens and taxpayers")
     )
 
-    # AFIP
-    afip_row = Adw.ActionRow()
-    afip_row.set_title("AFIP")
-    afip_row.set_subtitle(_("For taxpayers with CUIT - Token/Software - Free"))
-    afip_row.set_tooltip_text(
-        "AFIP - Administraci\u00f3n Federal de Ingresos P\u00fablicos\n"
-        "Certificados gratuitos para contribuyentes con CUIT.\n"
-        "Requiere Clave Fiscal nivel 3 o superior.\n"
-        "Modalidad: Token USB (SafeNet eToken) o Software.\n"
-        "Renovaci\u00f3n anual gratuita."
+    gov_group.add(
+        _build_certifier_row(
+            "AFIP",
+            _("For taxpayers with CUIT - Token/Software - Free"),
+            "AFIP - Administraci\u00f3n Federal de Ingresos P\u00fablicos\n"
+            "Certificados gratuitos para contribuyentes con CUIT.\n"
+            "Requiere Clave Fiscal nivel 3 o superior.\n"
+            "Modalidad: Token USB (SafeNet eToken) o Software.\n"
+            "Renovaci\u00f3n anual gratuita.",
+            "https://www.afip.gob.ar/cl_fiscal/",
+            "AFIP",
+        )
     )
-    afip_link = Gtk.LinkButton(uri="https://www.afip.gob.ar/cl_fiscal/")
-    afip_link.set_label(_("Website"))
-    set_accessible(
-        afip_link,
-        _("AFIP website"),
-        _("Visit AFIP Clave Fiscal website for certificate information"),
+    gov_group.add(
+        _build_certifier_row(
+            "RENAPER",
+            _("Digital DNI - Remote signature - Free for citizens"),
+            "RENAPER - Registro Nacional de las Personas\n"
+            "Certificado digital integrado en el DNI argentino.\n"
+            "Disponible para todos los ciudadanos argentinos.\n"
+            "Modalidad: Token USB integrado en el DNI.\n"
+            "Gratuito, requiere DNI actualizado (emitido despu\u00e9s de 2019).",
+            "https://www.argentina.gob.ar/interior/renaper",
+            "RENAPER",
+        )
     )
-    afip_row.add_suffix(afip_link)
-    gov_group.add(afip_row)
-
-    # RENAPER
-    renaper_row = Adw.ActionRow()
-    renaper_row.set_title("RENAPER")
-    renaper_row.set_subtitle(_("Digital DNI - Remote signature - Free for citizens"))
-    renaper_row.set_tooltip_text(
-        "RENAPER - Registro Nacional de las Personas\n"
-        "Certificado digital integrado en el DNI argentino.\n"
-        "Disponible para todos los ciudadanos argentinos.\n"
-        "Modalidad: Token USB integrado en el DNI.\n"
-        "Gratuito, requiere DNI actualizado (emitido despu\u00e9s de 2019)."
+    gov_group.add(
+        _build_certifier_row(
+            "FDR (Firma Digital Remota)",
+            _("Remote signature with HSM - Free for citizens"),
+            "FDR - Firma Digital Remota (Secretar\u00eda de Innovaci\u00f3n P\u00fablica)\n"
+            "Firma remota con m\u00f3dulo de seguridad hardware (HSM).\n"
+            "No requiere token f\u00edsico - 100% online.\n"
+            "Autenticaci\u00f3n mediante DNI y video-selfie.\n"
+            "Ideal para usuarios sin token USB.",
+            "https://fdr.psi.gob.ar/",
+            "FDR",
+        )
     )
-    renaper_link = Gtk.LinkButton(uri="https://www.argentina.gob.ar/interior/renaper")
-    renaper_link.set_label(_("Website"))
-    set_accessible(
-        renaper_link,
-        _("RENAPER website"),
-        _("Visit RENAPER website for Digital DNI information"),
+    gov_group.add(
+        _build_certifier_row(
+            "IOSFA",
+            _("Social security works - Token - Free"),
+            "IOSFA - Instituto de Obra Social de las Fuerzas Armadas\n"
+            "Certificados digitales para personal de las fuerzas armadas.\n"
+            "Gratuito para afiliados a IOSFA.\n"
+            "Modalidad: Token USB (PKCS#11 compatible).",
+        )
     )
-    renaper_row.add_suffix(renaper_link)
-    gov_group.add(renaper_row)
-
-    # FDR
-    fdr_row = Adw.ActionRow()
-    fdr_row.set_title("FDR (Firma Digital Remota)")
-    fdr_row.set_subtitle(_("Remote signature with HSM - Free for citizens"))
-    fdr_row.set_tooltip_text(
-        "FDR - Firma Digital Remota (Secretar\u00eda de Innovaci\u00f3n P\u00fablica)\n"
-        "Firma remota con m\u00f3dulo de seguridad hardware (HSM).\n"
-        "No requiere token f\u00edsico - 100% online.\n"
-        "Autenticaci\u00f3n mediante DNI y video-selfie.\n"
-        "Ideal para usuarios sin token USB."
-    )
-    fdr_link = Gtk.LinkButton(uri="https://fdr.psi.gob.ar/")
-    fdr_link.set_label(_("Website"))
-    set_accessible(
-        fdr_link,
-        _("FDR website"),
-        _("Visit FDR website for remote signature service"),
-    )
-    fdr_row.add_suffix(fdr_link)
-    gov_group.add(fdr_row)
-
-    # IOSFA
-    iosfa_row = Adw.ActionRow()
-    iosfa_row.set_title("IOSFA")
-    iosfa_row.set_subtitle(_("Social security works - Token - Free"))
-    iosfa_row.set_tooltip_text(
-        "IOSFA - Instituto de Obra Social de las Fuerzas Armadas\n"
-        "Certificados digitales para personal de las fuerzas armadas.\n"
-        "Gratuito para afiliados a IOSFA.\n"
-        "Modalidad: Token USB (PKCS#11 compatible)."
-    )
-    gov_group.add(iosfa_row)
-
     return gov_group
 
 
@@ -188,82 +175,56 @@ def _build_private_certifiers_group() -> Adw.PreferencesGroup:
     private_group.set_title(_("Private Certifiers"))
     private_group.set_description(_("Licensed certifiers with annual subscription fees"))
 
-    # Andreani
-    andreani_row = Adw.ActionRow()
-    andreani_row.set_title("Andreani")
-    andreani_row.set_subtitle(_("Token - USD 80-200/year"))
-    andreani_row.set_tooltip_text(
-        "Andreani - Certificadora Digital Privada\n"
-        "Token SafeNet eToken certificado por ONTI.\n"
-        "Compatible con PDFSigner y Linux/GNOME.\n"
-        "Costo: USD 80-200/a\u00f1o seg\u00fan nivel de certificaci\u00f3n.\n"
-        "Renovaci\u00f3n anual con soporte t\u00e9cnico incluido."
+    private_group.add(
+        _build_certifier_row(
+            "Andreani",
+            _("Token - USD 80-200/year"),
+            "Andreani - Certificadora Digital Privada\n"
+            "Token SafeNet eToken certificado por ONTI.\n"
+            "Compatible con PDFSigner y Linux/GNOME.\n"
+            "Costo: USD 80-200/a\u00f1o seg\u00fan nivel de certificaci\u00f3n.\n"
+            "Renovaci\u00f3n anual con soporte t\u00e9cnico incluido.",
+            "https://www.andreani.com/",
+            "Andreani",
+        )
     )
-    andreani_link = Gtk.LinkButton(uri="https://www.andreani.com/")
-    andreani_link.set_label(_("Website"))
-    set_accessible(
-        andreani_link,
-        _("Andreani website"),
-        _("Visit Andreani website for certificate information"),
+    private_group.add(
+        _build_certifier_row(
+            "E-CERT",
+            _("Token/Software - USD 100-300/year"),
+            "E-CERT - NIC Argentina\n"
+            "M\u00faltiples niveles de certificaci\u00f3n disponibles.\n"
+            "Modalidad: Token USB o Certificado Software.\n"
+            "Costo: USD 100-300/a\u00f1o seg\u00fan nivel.\n"
+            "Certificados con validaci\u00f3n de identidad presencial o remota.",
+            "https://www.e-cert.com.ar/",
+            "E-CERT",
+        )
     )
-    andreani_row.add_suffix(andreani_link)
-    private_group.add(andreani_row)
-
-    # E-CERT
-    ecert_row = Adw.ActionRow()
-    ecert_row.set_title("E-CERT")
-    ecert_row.set_subtitle(_("Token/Software - USD 100-300/year"))
-    ecert_row.set_tooltip_text(
-        "E-CERT - NIC Argentina\n"
-        "M\u00faltiples niveles de certificaci\u00f3n disponibles.\n"
-        "Modalidad: Token USB o Certificado Software.\n"
-        "Costo: USD 100-300/a\u00f1o seg\u00fan nivel.\n"
-        "Certificados con validaci\u00f3n de identidad presencial o remota."
+    private_group.add(
+        _build_certifier_row(
+            "Certant",
+            _("Token - USD 100-250/year"),
+            "Certant - Certificadora Digital Privada\n"
+            "Tokens PKCS#11 compatibles con Linux.\n"
+            "Costo: USD 100-250/a\u00f1o.\n"
+            "Validaci\u00f3n presencial de identidad.\n"
+            "Soporte t\u00e9cnico especializado.",
+            "https://www.certant.com/",
+            "Certant",
+        )
     )
-    ecert_link = Gtk.LinkButton(uri="https://www.e-cert.com.ar/")
-    ecert_link.set_label(_("Website"))
-    set_accessible(
-        ecert_link,
-        _("E-CERT website"),
-        _("Visit E-CERT website for certificate information"),
+    private_group.add(
+        _build_certifier_row(
+            _("College of Notaries CABA"),
+            _("For notaries - Token - Annual fee"),
+            "Colegio de Escribanos de la Ciudad de Buenos Aires\n"
+            "Exclusivo para escribanos matriculados en CABA.\n"
+            "Token USB PKCS#11 compatible.\n"
+            "Costo: USD 150/a\u00f1o aproximadamente.\n"
+            "Incluye cobertura legal y soporte especializado.",
+        )
     )
-    ecert_row.add_suffix(ecert_link)
-    private_group.add(ecert_row)
-
-    # Certant
-    certant_row = Adw.ActionRow()
-    certant_row.set_title("Certant")
-    certant_row.set_subtitle(_("Token - USD 100-250/year"))
-    certant_row.set_tooltip_text(
-        "Certant - Certificadora Digital Privada\n"
-        "Tokens PKCS#11 compatibles con Linux.\n"
-        "Costo: USD 100-250/a\u00f1o.\n"
-        "Validaci\u00f3n presencial de identidad.\n"
-        "Soporte t\u00e9cnico especializado."
-    )
-    certant_link = Gtk.LinkButton(uri="https://www.certant.com/")
-    certant_link.set_label(_("Website"))
-    set_accessible(
-        certant_link,
-        _("Certant website"),
-        _("Visit Certant website for certificate information"),
-    )
-    certant_row.add_suffix(certant_link)
-    private_group.add(certant_row)
-
-    # Escribanos CABA
-    escribanos_row = Adw.ActionRow()
-    escribanos_row.set_title(_("College of Notaries CABA"))
-    escribanos_row.set_subtitle(_("For notaries - Token - Annual fee"))
-    escribanos_row.set_tooltip_text(
-        "Colegio de Escribanos de la Ciudad de Buenos Aires\n"
-        "Exclusivo para escribanos matriculados en CABA.\n"
-        "Token USB PKCS#11 compatible.\n"
-        "Costo: USD 150/a\u00f1o aproximadamente.\n"
-        "Incluye cobertura legal y soporte especializado."
-    )
-    private_group.add(escribanos_row)
-
     return private_group
 
 
@@ -326,14 +287,7 @@ def _build_legal_group() -> Adw.PreferencesGroup:
 
 
 def add_argentina_groups(page: Adw.PreferencesPage, settings, dialog) -> None:
-    """
-    Add Argentina compliance groups to an existing page.
-
-    Args:
-        page: Target PreferencesPage to add groups to
-        settings: Settings object with current configuration
-        dialog: Parent dialog for storing widget references
-    """
+    """Add Argentina compliance groups to an existing page."""
     page.add(_build_compliance_group(settings, dialog))
     page.add(_build_preset_group(settings, dialog))
     page.add(_build_gov_certifiers_group())
@@ -342,16 +296,7 @@ def add_argentina_groups(page: Adw.PreferencesPage, settings, dialog) -> None:
 
 
 def create_argentina_page(settings, dialog) -> Adw.PreferencesPage:
-    """
-    Creates the Argentina Compliance settings page.
-
-    Args:
-        settings: Settings object with current configuration
-        dialog: Parent dialog for storing widget references
-
-    Returns:
-        Configured PreferencesPage for Argentine compliance (Ley 25.506)
-    """
+    """Creates the Argentina Compliance (Ley 25.506) settings page."""
     page = Adw.PreferencesPage()
     page.set_title(_("Argentina"))
     page.set_icon_name("emblem-documents-symbolic")
@@ -362,17 +307,7 @@ def create_argentina_page(settings, dialog) -> Adw.PreferencesPage:
 
 
 def _on_apply_preset_clicked(button: Gtk.Button, settings, dialog) -> None:
-    """
-    Handle Argentina preset button click.
-
-    Applies the Argentina preset configuration to current settings and
-    updates UI widgets to reflect the changes.
-
-    Args:
-        button: Button that triggered the action
-        settings: Settings object to modify
-        dialog: Parent dialog with widget references
-    """
+    """Apply Argentina preset and update UI widgets."""
     from loguru import logger
 
     preset_manager = get_preset_manager()
