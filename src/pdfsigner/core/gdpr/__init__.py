@@ -14,6 +14,7 @@ GDPR Articles:
 - Article 20: Right to data portability
 """
 
+from pdfsigner.core.gdpr.anonymization_service import AnonymizationService
 from pdfsigner.core.gdpr.consent_manager import ConsentManager, get_consent_manager
 from pdfsigner.core.gdpr.consent_repository import (
     ConsentRecord,
@@ -23,16 +24,19 @@ from pdfsigner.core.gdpr.consent_repository import (
 from pdfsigner.core.gdpr.consent_types import ConsentType
 from pdfsigner.core.gdpr.data_export import UserDataExport, UserDataExporter
 from pdfsigner.core.gdpr.data_retention import (
-    AnonymizationResult,
     DataRetentionService,
+    get_data_retention_service,
+)
+from pdfsigner.core.gdpr.data_retention_types import (
+    AnonymizationResult,
     PurgeResult,
     RetentionStatus,
-    get_data_retention_service,
 )
 
 __all__ = [
     # Data retention
     "DataRetentionService",
+    "AnonymizationService",
     "AnonymizationResult",
     "PurgeResult",
     "RetentionStatus",

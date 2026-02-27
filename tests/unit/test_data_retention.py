@@ -676,9 +676,9 @@ def test_anonymize_user_fails_when_mark_anonymized_fails(data_retention_service,
     import sqlite3
     from unittest.mock import patch
 
-    # Make _mark_user_anonymized raise
+    # Make _mark_user_anonymized raise (patched on the internal AnonymizationService)
     with patch.object(
-        data_retention_service,
+        data_retention_service._anonymization,
         "_mark_user_anonymized",
         side_effect=sqlite3.OperationalError("disk I/O error"),
     ):

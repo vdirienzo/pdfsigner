@@ -1,15 +1,13 @@
 """
-mfa_manager.py - Multi-Factor Authentication manager
+mfa_manager.py - Multi-Factor Authentication manager (orchestrator)
 
-Manages MFA enrollment, verification, and lifecycle.
-Integrates TOTP provider, backup codes, and encrypted storage.
+Orchestrates MFA enrollment, verification, and lifecycle by delegating
+to specialized services: MFAEnrollmentService and MFAVerificationService.
 """
 
-import base64
 import sqlite3
 import threading
-from dataclasses import dataclass
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
 
 from loguru import logger
@@ -17,40 +15,19 @@ from loguru import logger
 from pdfsigner.core.audit.audit_event import AuditEventType
 from pdfsigner.core.audit.helpers import emit_audit_event
 from pdfsigner.core.auth.mfa.backup_codes import BackupCodeManager
+from pdfsigner.core.auth.mfa.mfa_enrollment import MFAEnrollmentService
+from pdfsigner.core.auth.mfa.mfa_types import MFAEnrollment, MFAStatus
+from pdfsigner.core.auth.mfa.mfa_verification import MFAVerificationService
 from pdfsigner.core.auth.mfa.totp_provider import TOTPProvider
-
-
-@dataclass
-class MFAEnrollment:
-    """MFA enrollment data for user setup."""
-
-    secret: str
-    qr_code_base64: str
-    provisioning_uri: str
-    backup_codes: list[str]
-
-
-@dataclass
-class MFAStatus:
-    """MFA status for a user."""
-
-    enabled: bool
-    enrolled_at: datetime | None
-    last_used_at: datetime | None
-    backup_codes_remaining: int
 
 
 class MFAManager:
     """
     Multi-Factor Authentication manager.
 
-    Features:
-    - TOTP enrollment with QR code generation
-    - TOTP verification with time window tolerance
-    - Backup code generation and verification
-    - Encrypted secret storage using KeyManager
-    - Audit logging for all MFA operations
-    - SQLite-based persistence
+    Orchestrates MFA operations by delegating to:
+    - MFAEnrollmentService: enrollment, secret storage, backup codes
+    - MFAVerificationService: TOTP/backup code verification, activation
     """
 
     _instance: "MFAManager | None" = None
@@ -75,6 +52,20 @@ class MFAManager:
         # Initialize backup code manager
         self.backup_manager = BackupCodeManager(self._get_connection())
 
+        # Initialize sub-services
+        self._enrollment_service = MFAEnrollmentService(
+            totp_provider=self.totp_provider,
+            backup_manager=self.backup_manager,
+            get_connection=self._get_connection,
+            get_status=self.get_status,
+        )
+        self._verification_service = MFAVerificationService(
+            totp_provider=self.totp_provider,
+            backup_manager=self.backup_manager,
+            get_connection=self._get_connection,
+            get_status=self.get_status,
+        )
+
         logger.info("MFA manager initialized")
 
     @classmethod
@@ -87,9 +78,6 @@ class MFAManager:
 
         Returns:
             MFAManager singleton instance
-
-        Raises:
-            ValueError: If db_path not provided on first call
         """
         if cls._instance is None:
             with cls._lock:
@@ -151,174 +139,32 @@ class MFAManager:
         conn.commit()
         conn.close()
 
+    # --- Enrollment (delegated) ---
+
     def enroll(self, user_id: str, account_name: str | None = None) -> MFAEnrollment:
         """
         Start MFA enrollment for user.
 
         Generates TOTP secret, QR code, and backup codes.
         Does not enable MFA until verify_and_activate() is called.
-
-        Args:
-            user_id: User ID to enroll
-            account_name: Account name for QR code (default: user_id)
-
-        Returns:
-            MFAEnrollment with secret, QR code, and backup codes
-
-        Raises:
-            ValueError: If user already has MFA enabled
         """
-        # Check if already enrolled
-        if self.get_status(user_id).enabled:
-            raise ValueError(f"User {user_id} already has MFA enabled")
+        return self._enrollment_service.enroll(user_id, account_name)
 
-        # Generate TOTP secret
-        secret = self.totp_provider.generate_secret()
+    def regenerate_backup_codes(self, user_id: str) -> list[str]:
+        """Regenerate backup codes for user."""
+        return self._enrollment_service.regenerate_backup_codes(user_id)
 
-        # Generate QR code
-        account_name = account_name or user_id
-        qr_bytes = self.totp_provider.generate_qr_code(secret, account_name)
-        qr_base64 = base64.b64encode(qr_bytes).decode()
-
-        # Generate provisioning URI
-        provisioning_uri = self.totp_provider.get_provisioning_uri(secret, account_name)
-
-        # Generate backup codes
-        backup_codes = self.backup_manager.generate_codes(count=10)
-
-        # Store encrypted secret (but keep enabled=0 until verified)
-        self._store_secret(user_id, secret, enabled=False)
-
-        # Store backup codes
-        self.backup_manager.store_codes(user_id, backup_codes)
-
-        # Emit audit event
-        emit_audit_event(
-            AuditEventType.MFA_ENROLLED,
-            details={"action": "enrollment_started"},
-            user_id=user_id,
-            status="SUCCESS",
-        )
-
-        logger.info("MFA enrollment started")
-        logger.debug(f"MFA enrollment started for user {user_id}")
-
-        return MFAEnrollment(
-            secret=secret,
-            qr_code_base64=qr_base64,
-            provisioning_uri=provisioning_uri,
-            backup_codes=backup_codes,
-        )
+    # --- Verification (delegated) ---
 
     def verify_and_activate(self, user_id: str, code: str) -> bool:
-        """
-        Verify TOTP code and activate MFA.
-
-        Args:
-            user_id: User ID
-            code: TOTP code to verify
-
-        Returns:
-            True if code is valid and MFA activated
-
-        Raises:
-            ValueError: If user has no pending enrollment
-        """
-        # Get secret
-        secret = self._get_secret(user_id)
-        if not secret:
-            raise ValueError(f"No MFA enrollment found for user {user_id}")
-
-        # Verify code
-        if not self.totp_provider.verify_totp(secret, code):
-            emit_audit_event(
-                AuditEventType.MFA_VERIFICATION_FAILED,
-                details={"reason": "invalid_code"},
-                user_id=user_id,
-                status="FAILURE",
-            )
-            logger.warning("MFA activation failed: invalid code")
-            logger.debug(f"MFA activation failed for user {user_id}")
-            return False
-
-        # Enable MFA
-        self._enable_mfa(user_id)
-
-        # Emit audit event
-        emit_audit_event(
-            AuditEventType.MFA_VERIFIED,
-            details={"action": "mfa_activated"},
-            user_id=user_id,
-            status="SUCCESS",
-        )
-
-        logger.info("MFA activated successfully")
-        logger.debug(f"MFA activated for user {user_id}")
-        return True
+        """Verify TOTP code and activate MFA."""
+        return self._verification_service.verify_and_activate(user_id, code)
 
     def verify(self, user_id: str, code: str, is_backup: bool = False) -> bool:
-        """
-        Verify TOTP or backup code.
+        """Verify TOTP or backup code."""
+        return self._verification_service.verify(user_id, code, is_backup)
 
-        Args:
-            user_id: User ID
-            code: TOTP code or backup code
-            is_backup: Whether code is a backup code (default: False)
-
-        Returns:
-            True if code is valid
-        """
-        # Get status
-        status = self.get_status(user_id)
-        if not status.enabled:
-            logger.warning("MFA verification attempted for non-enrolled user")
-            logger.debug(f"MFA verification attempted for non-enrolled user {user_id}")
-            return False
-
-        # Verify backup code
-        if is_backup:
-            if self.backup_manager.verify_code(user_id, code):
-                self._update_last_used(user_id)
-                emit_audit_event(
-                    AuditEventType.MFA_BACKUP_USED,
-                    details={"remaining_codes": status.backup_codes_remaining - 1},
-                    user_id=user_id,
-                    status="SUCCESS",
-                )
-                logger.info("Backup code verified successfully")
-                logger.debug(f"Backup code verified for user {user_id}")
-                return True
-            else:
-                emit_audit_event(
-                    AuditEventType.MFA_VERIFICATION_FAILED,
-                    details={"reason": "invalid_backup_code"},
-                    user_id=user_id,
-                    status="FAILURE",
-                )
-                return False
-
-        # Verify TOTP code
-        secret = self._get_secret(user_id)
-        if not secret:
-            return False
-
-        if self.totp_provider.verify_totp(secret, code):
-            self._update_last_used(user_id)
-            emit_audit_event(
-                AuditEventType.MFA_VERIFIED,
-                details={"action": "totp_verified"},
-                user_id=user_id,
-                status="SUCCESS",
-            )
-            return True
-        else:
-            emit_audit_event(
-                AuditEventType.MFA_VERIFICATION_FAILED,
-                details={"reason": "invalid_totp"},
-                user_id=user_id,
-                status="FAILURE",
-            )
-            return False
+    # --- Status & lifecycle (kept in orchestrator) ---
 
     def disable(self, user_id: str, admin_id: str | None = None) -> bool:
         """
@@ -436,164 +282,23 @@ class MFAManager:
 
         return False
 
-    def regenerate_backup_codes(self, user_id: str) -> list[str]:
-        """
-        Regenerate backup codes for user.
-
-        Args:
-            user_id: User ID
-
-        Returns:
-            List of new backup codes
-
-        Raises:
-            ValueError: If MFA not enabled for user
-        """
-        status = self.get_status(user_id)
-        if not status.enabled:
-            raise ValueError(f"MFA not enabled for user {user_id}")
-
-        # Generate and store new codes
-        backup_codes = self.backup_manager.generate_codes(count=10)
-        self.backup_manager.store_codes(user_id, backup_codes)
-
-        # Emit audit event
-        emit_audit_event(
-            AuditEventType.MFA_BACKUP_REGENERATED,
-            details={"new_code_count": len(backup_codes)},
-            user_id=user_id,
-            status="SUCCESS",
-        )
-
-        logger.info("Backup codes regenerated")
-        logger.debug(f"Backup codes regenerated for user {user_id}")
-        return backup_codes
+    # --- Internal helpers exposed for backward compatibility ---
 
     def _store_secret(self, user_id: str, secret: str, enabled: bool = False) -> None:
-        """
-        Store TOTP secret with AES-256-GCM encryption.
-
-        Security: Uses KeyManager for proper encryption instead of base64 obfuscation.
-        """
-        try:
-            # Try to use KeyManager for proper encryption
-            try:
-                from pdfsigner.core.crypto.key_manager import get_key_manager
-
-                key_mgr = get_key_manager()
-                mfa_key_id = key_mgr.get_or_create_mfa_key()
-
-                # Encrypt the secret
-                encrypted_bytes = key_mgr.encrypt_data(mfa_key_id, secret.encode())
-                encoded_secret = base64.b64encode(encrypted_bytes).decode()
-                key_id = mfa_key_id
-
-                logger.debug("MFA secret encrypted with AES-256-GCM")
-
-            except RuntimeError:
-                raise RuntimeError(
-                    "KeyManager not initialized. MFA enrollment requires KeyManager "
-                    "for secure secret storage. Call init_key_manager() first."
-                )
-
-            # Store in database
-            conn = self._get_connection()
-            cursor = conn.cursor()
-
-            enrolled_at = datetime.now(UTC).isoformat() if enabled else None
-
-            cursor.execute(
-                """
-                INSERT OR REPLACE INTO mfa_secrets
-                (user_id, encrypted_secret, key_id, enabled, enrolled_at, last_used_at)
-                VALUES (?, ?, ?, ?, ?, NULL)
-            """,
-                (user_id, encoded_secret, key_id, int(enabled), enrolled_at),
-            )
-            conn.commit()
-            conn.close()
-
-        except Exception as e:
-            logger.error("Failed to store MFA secret")
-            logger.debug(f"Failed to store MFA secret for user {user_id}: {e}")
-            raise
+        """Store TOTP secret (delegates to enrollment service)."""
+        self._enrollment_service.store_secret(user_id, secret, enabled)
 
     def _get_secret(self, user_id: str) -> str | None:
-        """
-        Retrieve and decrypt TOTP secret.
-
-        Supports both AES-256-GCM encrypted secrets and legacy base64 encoded secrets.
-        """
-        try:
-            conn = self._get_connection()
-            cursor = conn.cursor()
-
-            cursor.execute(
-                "SELECT encrypted_secret, key_id FROM mfa_secrets WHERE user_id = ?",
-                (user_id,),
-            )
-            row = cursor.fetchone()
-            conn.close()
-
-            if not row:
-                return None
-
-            encoded_secret = row[0]
-            key_id = row[1]
-
-            # Handle legacy base64 encoding
-            if key_id == "base64":
-                logger.warning(
-                    "MFA secret uses legacy base64 encoding. "
-                    "Consider re-enrolling for AES-256-GCM encryption."
-                )
-                return base64.b64decode(encoded_secret).decode()
-
-            # Decrypt with KeyManager
-            try:
-                from pdfsigner.core.crypto.key_manager import get_key_manager
-
-                key_mgr = get_key_manager()
-                encrypted_bytes = base64.b64decode(encoded_secret)
-                decrypted = key_mgr.decrypt_data(key_id, encrypted_bytes)
-                return decrypted.decode()
-
-            except RuntimeError:
-                logger.error("KeyManager not initialized but MFA secret requires decryption key")
-                return None
-
-        except Exception as e:
-            logger.error("Failed to retrieve MFA secret")
-            logger.debug(f"Failed to retrieve MFA secret for user {user_id}: {e}")
-            return None
+        """Retrieve and decrypt TOTP secret (delegates to verification service)."""
+        return self._verification_service.get_secret(user_id)
 
     def _enable_mfa(self, user_id: str) -> None:
-        """Enable MFA for user."""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-
-        cursor.execute(
-            """
-            UPDATE mfa_secrets
-            SET enabled = 1, enrolled_at = ?
-            WHERE user_id = ?
-        """,
-            (datetime.now(UTC).isoformat(), user_id),
-        )
-        conn.commit()
-        conn.close()
+        """Enable MFA for user (delegates to verification service)."""
+        self._verification_service._enable_mfa(user_id)
 
     def _update_last_used(self, user_id: str) -> None:
-        """Update last used timestamp."""
-        conn = self._get_connection()
-        cursor = conn.cursor()
-
-        cursor.execute(
-            "UPDATE mfa_secrets SET last_used_at = ? WHERE user_id = ?",
-            (datetime.now(UTC).isoformat(), user_id),
-        )
-        conn.commit()
-        conn.close()
+        """Update last used timestamp (delegates to verification service)."""
+        self._verification_service._update_last_used(user_id)
 
 
 # Singleton accessor
