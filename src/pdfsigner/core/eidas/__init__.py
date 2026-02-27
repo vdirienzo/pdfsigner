@@ -40,10 +40,12 @@ from pdfsigner.core.eidas.qualified_tsa_selector import (
     get_qualified_tsas_from_registry,
     select_best_tsa,
 )
-from pdfsigner.core.eidas.qualified_validator import (
+from pdfsigner.core.eidas.qualified_types import (
     QESValidationResult,
-    QualifiedSignatureValidator,
     SignatureValidation,
+)
+from pdfsigner.core.eidas.qualified_validator import (
+    QualifiedSignatureValidator,
 )
 from pdfsigner.core.eidas.seal_manager import (
     OrganizationInfo,
