@@ -241,91 +241,19 @@ class DataRetentionService:
         Remove data past retention period.
 
         Deletes users whose deletion_date has passed.
-        Optionally anonymizes audit logs.
+        Optionally anonymizes audit logs. Delegates to purge_service.
 
         Returns:
             PurgeResult with counts of deleted items
         """
-        logger.info("Starting purge of expired data")
+        from pdfsigner.core.gdpr.purge_service import purge_expired_users
 
-        try:
-            users_deleted = 0
-            audit_records_purged = 0
-            documents_deleted = 0
-            failed_users: list[str] = []
-
-            # Find users with deletion_date in the past
-            with self.user_repo._get_connection() as conn:
-                cursor = conn.execute(
-                    """
-                    SELECT id, username FROM users
-                    WHERE deletion_date IS NOT NULL
-                    AND deletion_date <= ?
-                    """,
-                    (datetime.now(UTC).isoformat(),),
-                )
-                expired_users = cursor.fetchall()
-
-            logger.info(f"Found {len(expired_users)} users to purge")
-
-            # Delete each user
-            for row in expired_users:
-                user_id = row[0]
-                username = row[1]
-
-                try:
-                    # Anonymize first if not already done
-                    if not self._is_user_anonymized(user_id):
-                        result = self.anonymize_user(user_id, "system")
-                        if result.success:
-                            audit_records_purged += result.audit_records_anonymized
-
-                    # Hard delete user
-                    if self.user_repo.delete_user(user_id):
-                        users_deleted += 1
-                        logger.info(f"Purged user: {username} (id={user_id})")
-
-                except Exception as e:
-                    logger.error(f"Failed to purge user {user_id}: {e}")
-                    failed_users.append(user_id)
-
-            # Log purge event
-            from pdfsigner.core.audit import AuditEvent
-
-            event = AuditEvent(
-                event_type=AuditEventType.SYSTEM_EVENT,
-                status="SUCCESS",
-                user_id="system",
-                details={
-                    "action": "purge_expired_data",
-                    "users_deleted": users_deleted,
-                    "audit_records_purged": audit_records_purged,
-                    "failed_users": failed_users,
-                },
-            )
-            self.audit_logger.log_event(event)
-
-            logger.info(
-                f"Data purge completed: {users_deleted} users, {audit_records_purged} audit records"
-            )
-
-            return PurgeResult(
-                success=True,
-                users_deleted=users_deleted,
-                audit_records_purged=audit_records_purged,
-                documents_deleted=documents_deleted,
-                failed_users=failed_users if failed_users else None,
-            )
-
-        except Exception as e:
-            logger.error(f"Failed to purge expired data: {e}")
-            return PurgeResult(
-                success=False,
-                users_deleted=0,
-                audit_records_purged=0,
-                documents_deleted=0,
-                error_message=str(e),
-            )
+        return purge_expired_users(
+            user_repo=self.user_repo,
+            audit_logger=self.audit_logger,
+            anonymize_user_fn=self.anonymize_user,
+            is_user_anonymized_fn=self._is_user_anonymized,
+        )
 
     def get_retention_status(self, user_id: str) -> RetentionStatus:
         """
