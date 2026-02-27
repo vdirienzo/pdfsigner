@@ -307,25 +307,21 @@ class BreachManager:
             incident: Breach incident
             status: Event status
         """
-        try:
-            event = AuditEvent(
-                event_type=event_type,
-                user_id=incident.user_id,
-                status=status,
-                details={
-                    "breach_id": incident.id,
-                    "breach_type": incident.breach_type.value,
-                    "severity": incident.severity.value,
-                    "affected_users": incident.affected_users,
-                    "affected_records": incident.affected_records,
-                    "description": incident.description,
-                },
-            )
+        event = AuditEvent(
+            event_type=event_type,
+            user_id=incident.user_id,
+            status=status,
+            details={
+                "breach_id": incident.id,
+                "breach_type": incident.breach_type.value,
+                "severity": incident.severity.value,
+                "affected_users": incident.affected_users,
+                "affected_records": incident.affected_records,
+                "description": incident.description,
+            },
+        )
 
-            self.audit_logger.log_event(event)
-
-        except Exception as e:
-            logger.error(f"Failed to log breach event to audit trail: {e}")
+        self.audit_logger.log_event(event)
 
 
 # Singleton instance

@@ -7,13 +7,20 @@ Tests breach incident management workflow.
 from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import MagicMock
 
 import pytest
 
+from pdfsigner.core.audit.audit_event import AuditEventType
 from pdfsigner.core.breach.breach_detector import BreachDetector
 from pdfsigner.core.breach.breach_manager import BreachManager, BreachManagerError
 from pdfsigner.core.breach.breach_repository import BreachRepository
-from pdfsigner.core.breach.breach_types import BreachSeverity, BreachStatus, BreachType
+from pdfsigner.core.breach.breach_types import (
+    BreachIncident,
+    BreachSeverity,
+    BreachStatus,
+    BreachType,
+)
 
 
 @pytest.fixture
@@ -288,3 +295,60 @@ def test_list_incidents_respects_pagination(manager):
     page1_ids = {inc.id for inc in page1}
     page2_ids = {inc.id for inc in page2}
     assert page1_ids.isdisjoint(page2_ids)
+
+
+def test_log_breach_event_propagates_audit_logger_exception():
+    """Test _log_breach_event propagates exceptions from audit logger.
+
+    GDPR Art. 33 requires breach notifications to have a reliable audit trail.
+    If audit logging fails, the caller must know — silencing the error could
+    cause a breach to be reported as "successful" without an audit record.
+    """
+    manager = BreachManager.__new__(BreachManager)
+    manager.audit_logger = MagicMock()
+    manager.audit_logger.log_event.side_effect = OSError("Disk full - audit log write failed")
+
+    incident = BreachIncident(
+        breach_type=BreachType.MASS_EXPORT,
+        severity=BreachSeverity.HIGH,
+        status=BreachStatus.DETECTED,
+        description="Test breach",
+        affected_users=10,
+        affected_records=100,
+    )
+
+    with pytest.raises(OSError, match="Disk full"):
+        manager._log_breach_event(
+            event_type=AuditEventType.SYSTEM_EVENT,
+            incident=incident,
+            status="DETECTED",
+        )
+
+
+def test_report_breach_raises_when_audit_logging_fails():
+    """Test report_breach wraps audit failure as BreachManagerError.
+
+    When _log_breach_event propagates an exception, report_breach's
+    own try/except converts it to BreachManagerError, ensuring the
+    caller knows the breach report is incomplete.
+    """
+
+    repo = MagicMock()
+    repo.save_incident.return_value = BreachIncident(
+        breach_type=BreachType.MASS_EXPORT,
+        severity=BreachSeverity.HIGH,
+        status=BreachStatus.DETECTED,
+        description="Test",
+    )
+
+    manager = BreachManager.__new__(BreachManager)
+    manager.repository = repo
+    manager.audit_logger = MagicMock()
+    manager.audit_logger.log_event.side_effect = OSError("Audit write failed")
+
+    with pytest.raises(BreachManagerError, match="Failed to report breach"):
+        manager.report_breach(
+            breach_type=BreachType.MASS_EXPORT,
+            severity=BreachSeverity.HIGH,
+            description="Test breach",
+        )
