@@ -146,7 +146,7 @@ def _build_tsa_group(page: Adw.PreferencesPage, settings, dialog) -> None:
 
     tsa_pass_row = Adw.PasswordEntryRow()
     tsa_pass_row.set_title(_("TSA Password (optional)"))
-    tsa_pass_row.set_text(settings.tsa_password or "")
+    tsa_pass_row.set_text(settings.tsa_password.get_secret_value() if settings.tsa_password else "")
     tsa_pass_row.set_show_apply_button(True)
     set_accessible(tsa_pass_row, _("TSA password"), _("Password for TSA authentication"))
     tsa_group.add(tsa_pass_row)

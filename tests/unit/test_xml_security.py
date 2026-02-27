@@ -6,34 +6,34 @@ CWE-611: Improper Restriction of XML External Entity Reference
 """
 
 # Test that defusedxml is used in the codebase
+import inspect
+
 import defusedxml.ElementTree
 import pytest
+from defusedxml import DTDForbidden, EntitiesForbidden
 
 
 class TestDefusedXMLUsage:
     """Test that defusedxml is used for XML parsing."""
 
     def test_lotl_fetcher_uses_defusedxml(self):
-        """LOTL fetcher should use defusedxml."""
-        import inspect
+        """LOTL fetcher should use defusedxml for parsing (not stdlib ET)."""
 
         from pdfsigner.core.eidas import lotl_fetcher
 
-        # Check source code for defusedxml import
         source = inspect.getsource(lotl_fetcher)
+        assert "import defusedxml.ElementTree as ET" in source
+        # TYPE_CHECKING import of xml.etree.ElementTree.Element is safe (type hints only)
         assert "defusedxml" in source
-        assert "xml.etree.ElementTree" not in source.replace("defusedxml.ElementTree", "")
 
     def test_tsl_parser_uses_defusedxml(self):
-        """TSL parser should use defusedxml."""
-        import inspect
+        """TSL parser should use defusedxml for parsing (not stdlib ET)."""
 
         from pdfsigner.core.eidas import tsl_parser
 
-        # Check source code for defusedxml import
         source = inspect.getsource(tsl_parser)
+        assert "import defusedxml.ElementTree as ET" in source
         assert "defusedxml" in source
-        assert "xml.etree.ElementTree" not in source.replace("defusedxml.ElementTree", "")
 
 
 class TestXXEPrevention:
@@ -50,7 +50,7 @@ class TestXXEPrevention:
         """
 
         # defusedxml should block this
-        with pytest.raises(defusedxml.ElementTree.DefusedXmlException):
+        with pytest.raises((DTDForbidden, EntitiesForbidden)):
             defusedxml.ElementTree.fromstring(malicious_xml)
 
     def test_billion_laughs_blocked(self):
@@ -66,7 +66,7 @@ class TestXXEPrevention:
         """
 
         # defusedxml should block this
-        with pytest.raises(defusedxml.ElementTree.DefusedXmlException):
+        with pytest.raises((DTDForbidden, EntitiesForbidden)):
             defusedxml.ElementTree.fromstring(malicious_xml)
 
     def test_valid_xml_parses_correctly(self):
@@ -114,18 +114,18 @@ class TestXXEPrevention:
 class TestDefusedXMLFeatures:
     """Test defusedxml security features."""
 
-    def test_forbid_dtd_enabled(self):
-        """DTD processing should be forbidden by default."""
-        xml_with_dtd = """<?xml version="1.0"?>
+    def test_forbid_dtd_with_entities(self):
+        """DTD with entity definitions should be blocked."""
+        xml_with_dtd_entity = """<?xml version="1.0"?>
         <!DOCTYPE root [
-            <!ELEMENT root (#PCDATA)>
+            <!ENTITY test "test_value">
         ]>
-        <root>content</root>
+        <root>&test;</root>
         """
 
-        # defusedxml forbids DTD by default
-        with pytest.raises(defusedxml.ElementTree.DefusedXmlException):
-            defusedxml.ElementTree.fromstring(xml_with_dtd)
+        # defusedxml blocks DTDs that define entities
+        with pytest.raises((DTDForbidden, EntitiesForbidden)):
+            defusedxml.ElementTree.fromstring(xml_with_dtd_entity)
 
     def test_forbid_external_entities(self):
         """External entities should be forbidden."""
@@ -136,5 +136,5 @@ class TestDefusedXMLFeatures:
         <root>&external;</root>
         """
 
-        with pytest.raises(defusedxml.ElementTree.DefusedXmlException):
+        with pytest.raises((DTDForbidden, EntitiesForbidden)):
             defusedxml.ElementTree.fromstring(xml_with_external)

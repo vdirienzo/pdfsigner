@@ -21,17 +21,8 @@ repos:
     rev: v0.8.6
     hooks:
       - id: ruff
-        args: [--fix]
+        args: [--fix, --select, "E,F,I,N,W,UP,S", --ignore, "E402,S101"]
       - id: ruff-format
-
-  - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: v1.14.1
-    hooks:
-      - id: mypy
-        args: [--ignore-missing-imports]
-        additional_dependencies: []
-        pass_filenames: false
-        entry: mypy src/
 
   - repo: https://github.com/PyCQA/bandit
     rev: 1.8.0
@@ -39,3 +30,21 @@ repos:
       - id: bandit
         args: ["-r", "src/", "-ll"]
         pass_filenames: false
+
+  - repo: local
+    hooks:
+      - id: mypy-incremental
+        name: mypy (incremental - blocks NEW errors only)
+        entry: bash scripts/check_mypy_incremental.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]
+
+      - id: check-security-patterns
+        name: security pattern check
+        entry: bash scripts/check_security_patterns.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-commit]

@@ -117,7 +117,7 @@ class TestSettings:
             tsa_password="pass",
         )
         assert settings.tsa_username == "user"
-        assert settings.tsa_password == "pass"
+        assert settings.tsa_password.get_secret_value() == "pass"
 
 
 class TestGetSettings:

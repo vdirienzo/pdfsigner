@@ -70,6 +70,10 @@ class AuditEventType(Enum):
     USER_UPDATE = "user_update"  # Usuario actualizado
     USER_DELETE = "user_delete"  # Usuario eliminado/anonimizado
 
+    # PHI/PII detection events
+    PHI_DETECTED = "phi_detected"  # PHI/PII detected in document
+    DOCUMENT_VALIDATED = "document_validated"  # Document validation completed
+
     # System events
     SYSTEM_EVENT = "system_event"  # Evento del sistema (purge, cleanup, etc.)
 
