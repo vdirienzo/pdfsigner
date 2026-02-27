@@ -14,8 +14,8 @@ from pathlib import Path
 
 from loguru import logger
 
-from pdfsigner.core.audit import get_audit_logger
-from pdfsigner.core.audit.audit_event import AuditEvent, AuditEventType
+from pdfsigner.core.audit.audit_event import AuditEventType
+from pdfsigner.core.audit.helpers import emit_audit_event
 from pdfsigner.core.auth.mfa.backup_codes import BackupCodeManager
 from pdfsigner.core.auth.mfa.totp_provider import TOTPProvider
 
@@ -140,8 +140,8 @@ class MFAManager:
         # Migration: add salt column if missing (existing databases)
         try:
             cursor.execute("ALTER TABLE mfa_backup_codes ADD COLUMN salt TEXT NOT NULL DEFAULT ''")
-        except Exception:
-            pass  # Column already exists
+        except Exception as e:
+            logger.debug(f"ALTER TABLE mfa_backup_codes (column may already exist): {e}")
 
         # Indexes
         cursor.execute("CREATE INDEX IF NOT EXISTS idx_mfa_user ON mfa_secrets(user_id)")
@@ -193,11 +193,11 @@ class MFAManager:
         self.backup_manager.store_codes(user_id, backup_codes)
 
         # Emit audit event
-        self._emit_audit_event(
+        emit_audit_event(
             AuditEventType.MFA_ENROLLED,
-            user_id,
-            "SUCCESS",
-            {"action": "enrollment_started"},
+            details={"action": "enrollment_started"},
+            user_id=user_id,
+            status="SUCCESS",
         )
 
         logger.info("MFA enrollment started")
@@ -231,11 +231,11 @@ class MFAManager:
 
         # Verify code
         if not self.totp_provider.verify_totp(secret, code):
-            self._emit_audit_event(
+            emit_audit_event(
                 AuditEventType.MFA_VERIFICATION_FAILED,
-                user_id,
-                "FAILURE",
-                {"reason": "invalid_code"},
+                details={"reason": "invalid_code"},
+                user_id=user_id,
+                status="FAILURE",
             )
             logger.warning("MFA activation failed: invalid code")
             logger.debug(f"MFA activation failed for user {user_id}")
@@ -245,11 +245,11 @@ class MFAManager:
         self._enable_mfa(user_id)
 
         # Emit audit event
-        self._emit_audit_event(
+        emit_audit_event(
             AuditEventType.MFA_VERIFIED,
-            user_id,
-            "SUCCESS",
-            {"action": "mfa_activated"},
+            details={"action": "mfa_activated"},
+            user_id=user_id,
+            status="SUCCESS",
         )
 
         logger.info("MFA activated successfully")
@@ -279,21 +279,21 @@ class MFAManager:
         if is_backup:
             if self.backup_manager.verify_code(user_id, code):
                 self._update_last_used(user_id)
-                self._emit_audit_event(
+                emit_audit_event(
                     AuditEventType.MFA_BACKUP_USED,
-                    user_id,
-                    "SUCCESS",
-                    {"remaining_codes": status.backup_codes_remaining - 1},
+                    details={"remaining_codes": status.backup_codes_remaining - 1},
+                    user_id=user_id,
+                    status="SUCCESS",
                 )
                 logger.info("Backup code verified successfully")
                 logger.debug(f"Backup code verified for user {user_id}")
                 return True
             else:
-                self._emit_audit_event(
+                emit_audit_event(
                     AuditEventType.MFA_VERIFICATION_FAILED,
-                    user_id,
-                    "FAILURE",
-                    {"reason": "invalid_backup_code"},
+                    details={"reason": "invalid_backup_code"},
+                    user_id=user_id,
+                    status="FAILURE",
                 )
                 return False
 
@@ -304,19 +304,19 @@ class MFAManager:
 
         if self.totp_provider.verify_totp(secret, code):
             self._update_last_used(user_id)
-            self._emit_audit_event(
+            emit_audit_event(
                 AuditEventType.MFA_VERIFIED,
-                user_id,
-                "SUCCESS",
-                {"action": "totp_verified"},
+                details={"action": "totp_verified"},
+                user_id=user_id,
+                status="SUCCESS",
             )
             return True
         else:
-            self._emit_audit_event(
+            emit_audit_event(
                 AuditEventType.MFA_VERIFICATION_FAILED,
-                user_id,
-                "FAILURE",
-                {"reason": "invalid_totp"},
+                details={"reason": "invalid_totp"},
+                user_id=user_id,
+                status="FAILURE",
             )
             return False
 
@@ -342,7 +342,12 @@ class MFAManager:
 
             # Emit audit event
             details = {"disabled_by": admin_id or user_id}
-            self._emit_audit_event(AuditEventType.MFA_DISABLED, user_id, "SUCCESS", details)
+            emit_audit_event(
+                AuditEventType.MFA_DISABLED,
+                details=details,
+                user_id=user_id,
+                status="SUCCESS",
+            )
 
             logger.info("MFA disabled successfully")
             logger.debug(
@@ -453,11 +458,11 @@ class MFAManager:
         self.backup_manager.store_codes(user_id, backup_codes)
 
         # Emit audit event
-        self._emit_audit_event(
+        emit_audit_event(
             AuditEventType.MFA_BACKUP_REGENERATED,
-            user_id,
-            "SUCCESS",
-            {"new_code_count": len(backup_codes)},
+            details={"new_code_count": len(backup_codes)},
+            user_id=user_id,
+            status="SUCCESS",
         )
 
         logger.info("Backup codes regenerated")
@@ -589,22 +594,6 @@ class MFAManager:
         )
         conn.commit()
         conn.close()
-
-    def _emit_audit_event(
-        self, event_type: AuditEventType, user_id: str, status: str, details: dict
-    ) -> None:
-        """Emit audit event for MFA operation."""
-        try:
-            audit_logger = get_audit_logger()
-            event = AuditEvent(
-                event_type=event_type,
-                status=status,
-                user_id=user_id,
-                details=details,
-            )
-            audit_logger.log_event(event)
-        except Exception as e:
-            logger.warning(f"Failed to emit audit event: {e}")
 
 
 # Singleton accessor

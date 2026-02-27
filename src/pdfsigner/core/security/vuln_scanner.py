@@ -219,8 +219,8 @@ class PipAuditScanner:
                     if "CVSS:" in alias:
                         try:
                             cvss_score = float(alias.split("CVSS:")[1].split("/")[0])
-                        except (ValueError, IndexError):
-                            pass
+                        except (ValueError, IndexError) as e:
+                            logger.debug(f"Failed to parse CVSS score from alias '{alias}': {e}")
 
                 severity = self._cvss_to_severity(cvss_score)
 
@@ -289,16 +289,16 @@ def run_all_scans(
     if semgrep.available and Path(code_path).exists():
         try:
             all_vulns.extend(semgrep.scan_path(code_path))
-        except ScannerNotAvailableError:
-            pass
+        except ScannerNotAvailableError as e:
+            logger.debug(f"Semgrep scanner not available: {e}")
 
     # Run pip-audit
     pip_audit = PipAuditScanner()
     if pip_audit.available:
         try:
             all_vulns.extend(pip_audit.scan_dependencies(requirements_file))
-        except ScannerNotAvailableError:
-            pass
+        except ScannerNotAvailableError as e:
+            logger.debug(f"pip-audit scanner not available: {e}")
 
     logger.info(f"Total vulnerabilities found: {len(all_vulns)}")
     return all_vulns

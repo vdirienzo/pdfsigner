@@ -229,8 +229,10 @@ class EUTSPRegistry:
                 if self._progress_callback:
                     try:
                         self._progress_callback(pointer.country_code, idx + 1, total_pointers)
-                    except Exception:
-                        pass  # Don't let callback errors break fetching
+                    except Exception as e:
+                        logger.warning(
+                            "Progress callback error for %s: %s", pointer.country_code, e
+                        )
 
                 try:
                     logger.info("Fetching TSL for %s...", pointer.country_code)
@@ -827,8 +829,8 @@ def get_tsp_registry(
                 settings = get_settings()
                 if settings.eidas_eutl_territories:
                     territories = settings.eidas_eutl_territories
-            except Exception:
-                pass  # Settings not available, use default (all)
+            except Exception as e:
+                logger.warning("Could not load eIDAS territory settings: %s", e)
 
         _registry = EUTSPRegistry(
             use_mock_data=use_mock_data,

@@ -60,37 +60,35 @@ class PasswordEncryptionHandler:
 
             # Open PDF
             doc = fitz.open(input_path)
+            try:
+                # Validate PDF
+                if doc.is_closed or doc.page_count == 0:
+                    raise PDFCorruptedError(input_path.name)
 
-            # Validate PDF
-            if doc.is_closed or doc.page_count == 0:
+                # Check if already encrypted
+                if doc.is_encrypted:
+                    raise PDFEncryptionError(f"PDF '{input_path.name}' is already encrypted")
+
+                # Map encryption strength
+                encrypt_method = self._map_encryption_strength(config.strength)
+
+                # Calculate permission flags
+                permissions = config.permissions.to_pymupdf_flags()
+
+                # Ensure we have at least owner password
+                owner_pw = config.owner_password or config.user_password or ""
+                user_pw = config.user_password or ""
+
+                # Apply encryption and save
+                doc.save(
+                    output_path,
+                    encryption=encrypt_method,
+                    owner_pw=owner_pw,
+                    user_pw=user_pw,
+                    permissions=permissions,
+                )
+            finally:
                 doc.close()
-                raise PDFCorruptedError(input_path.name)
-
-            # Check if already encrypted
-            if doc.is_encrypted:
-                doc.close()
-                raise PDFEncryptionError(f"PDF '{input_path.name}' is already encrypted")
-
-            # Map encryption strength
-            encrypt_method = self._map_encryption_strength(config.strength)
-
-            # Calculate permission flags
-            permissions = config.permissions.to_pymupdf_flags()
-
-            # Ensure we have at least owner password
-            owner_pw = config.owner_password or config.user_password or ""
-            user_pw = config.user_password or ""
-
-            # Apply encryption and save
-            doc.save(
-                output_path,
-                encryption=encrypt_method,
-                owner_pw=owner_pw,
-                user_pw=user_pw,
-                permissions=permissions,
-            )
-
-            doc.close()
 
             logger.success(
                 f"PDF encrypted successfully: {input_path.name} "
@@ -166,27 +164,26 @@ class PasswordEncryptionHandler:
 
             # Open PDF
             doc = fitz.open(input_path)
+            try:
+                # Check if actually encrypted
+                if not doc.is_encrypted:
+                    logger.warning(f"PDF '{input_path.name}' is not encrypted")
+                    return EncryptionResult(
+                        success=True,
+                        input_path=input_path,
+                        output_path=input_path,
+                        error="PDF is not encrypted",
+                    )
 
-            # Check if actually encrypted
-            if not doc.is_encrypted:
+                # Authenticate
+                auth_result = doc.authenticate(password)
+                if auth_result == 0:
+                    raise PasswordIncorrectError(input_path.name)
+
+                # Save without encryption
+                doc.save(output_path, encryption=fitz.PDF_ENCRYPT_NONE)
+            finally:
                 doc.close()
-                logger.warning(f"PDF '{input_path.name}' is not encrypted")
-                return EncryptionResult(
-                    success=True,
-                    input_path=input_path,
-                    output_path=input_path,
-                    error="PDF is not encrypted",
-                )
-
-            # Authenticate
-            auth_result = doc.authenticate(password)
-            if auth_result == 0:
-                doc.close()
-                raise PasswordIncorrectError(input_path.name)
-
-            # Save without encryption
-            doc.save(output_path, encryption=fitz.PDF_ENCRYPT_NONE)
-            doc.close()
 
             logger.success(f"PDF decrypted successfully: {input_path.name} → {output_path.name}")
 
@@ -255,29 +252,27 @@ class PasswordEncryptionHandler:
             logger.info(f"Changing password for: {pdf_path.name}")
 
             doc = fitz.open(pdf_path)
+            try:
+                if not doc.is_encrypted:
+                    raise PDFEncryptionError("PDF is not encrypted")
 
-            if not doc.is_encrypted:
+                # Authenticate with old password
+                auth_result = doc.authenticate(old_password)
+                if auth_result == 0:
+                    raise PasswordIncorrectError(pdf_path.name)
+
+                # Determine output path
+                final_output = output_path or pdf_path
+
+                # Re-encrypt with new passwords
+                doc.save(
+                    final_output,
+                    encryption=fitz.PDF_ENCRYPT_AES_256,
+                    owner_pw=new_owner_password or old_password,
+                    user_pw=new_user_password or "",
+                )
+            finally:
                 doc.close()
-                raise PDFEncryptionError("PDF is not encrypted")
-
-            # Authenticate with old password
-            auth_result = doc.authenticate(old_password)
-            if auth_result == 0:
-                doc.close()
-                raise PasswordIncorrectError(pdf_path.name)
-
-            # Determine output path
-            final_output = output_path or pdf_path
-
-            # Re-encrypt with new passwords
-            doc.save(
-                final_output,
-                encryption=fitz.PDF_ENCRYPT_AES_256,
-                owner_pw=new_owner_password or old_password,
-                user_pw=new_user_password or "",
-            )
-
-            doc.close()
 
             logger.success(f"Password changed for: {pdf_path.name}")
 

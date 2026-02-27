@@ -9,9 +9,12 @@ Supports: English (en), Spanish (es), Portuguese (pt), French (fr), German (de)
 
 import gettext
 import locale
+import logging
 import os
 from collections.abc import Callable
 from pathlib import Path
+
+_logger = logging.getLogger(__name__)
 
 # Supported languages
 SUPPORTED_LANGUAGES = {
@@ -55,8 +58,8 @@ def get_system_language() -> str:
             lang = loc.split("_")[0]
             if lang in SUPPORTED_LANGUAGES:
                 return lang
-    except Exception:
-        pass
+    except Exception as e:
+        _logger.debug("Locale detection failed: %s", e)
 
     return DEFAULT_LANGUAGE
 

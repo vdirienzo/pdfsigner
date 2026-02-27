@@ -14,8 +14,6 @@ NIST 800-53 IA-5 Compliance:
 
 import re
 import sqlite3
-from collections.abc import Generator
-from contextlib import contextmanager
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -23,6 +21,7 @@ from typing import TYPE_CHECKING
 from loguru import logger
 
 from pdfsigner.core.auth.password_policy import PasswordPolicy
+from pdfsigner.core.base_repository import BaseSQLiteRepository
 
 if TYPE_CHECKING:
     pass
@@ -453,7 +452,7 @@ class PasswordValidator:
             return False
 
 
-class PasswordHistoryRepository:
+class PasswordHistoryRepository(BaseSQLiteRepository):
     """
     SQLite-based password history storage.
 
@@ -464,33 +463,7 @@ class PasswordHistoryRepository:
     """
 
     def __init__(self, db_path: Path | None = None):
-        """
-        Initialize password history repository.
-
-        Args:
-            db_path: Path to SQLite database (default: ~/.config/pdfsigner/password_history.db)
-        """
-        if db_path is None:
-            config_dir = Path.home() / ".config" / "pdfsigner"
-            config_dir.mkdir(parents=True, exist_ok=True)
-            db_path = config_dir / "password_history.db"
-
-        self.db_path = db_path
-        self._init_schema()
-
-    @contextmanager
-    def _get_connection(self) -> Generator[sqlite3.Connection, None, None]:
-        """Get database connection with automatic cleanup."""
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        try:
-            yield conn
-            conn.commit()
-        except Exception:
-            conn.rollback()
-            raise
-        finally:
-            conn.close()
+        super().__init__(db_path=db_path, default_db_name="password_history.db")
 
     def _init_schema(self) -> None:
         """Initialize database schema."""

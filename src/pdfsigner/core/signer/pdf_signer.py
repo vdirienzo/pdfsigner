@@ -94,6 +94,7 @@ class PDFSigner:
         self.signing_mode = signing_mode or SigningMode.LOCAL_PKCS11
         self._signer: signers.Signer | None = None
         self._remote_signer = None  # Set by create_remote()
+        self._dss_manager: DSSManager | None = None
 
     @classmethod
     def create_remote(
@@ -280,25 +281,26 @@ class PDFSigner:
         import fitz  # PyMuPDF
 
         doc = fitz.open(input_path)
+        try:
+            for pos in stamp_positions:
+                if pos.page < len(doc):
+                    page = doc[pos.page]
+                    # PDF coordinates: origin at bottom-left, but fitz uses top-left
+                    # The position from position_finder is already in PDF coords (bottom-left)
+                    # fitz.Rect uses (x0, y0, x1, y1) with origin at TOP-LEFT
+                    page_height = page.rect.height
+                    rect = fitz.Rect(
+                        pos.x,
+                        page_height - pos.y - pos.height,  # Convert Y from bottom to top
+                        pos.x + pos.width,
+                        page_height - pos.y,
+                    )
+                    page.insert_image(rect, filename=str(stamp_image_path))
+                    logger.debug(f"Added visual stamp to page {pos.page + 1}")
 
-        for pos in stamp_positions:
-            if pos.page < len(doc):
-                page = doc[pos.page]
-                # PDF coordinates: origin at bottom-left, but fitz uses top-left
-                # The position from position_finder is already in PDF coords (bottom-left)
-                # fitz.Rect uses (x0, y0, x1, y1) with origin at TOP-LEFT
-                page_height = page.rect.height
-                rect = fitz.Rect(
-                    pos.x,
-                    page_height - pos.y - pos.height,  # Convert Y from bottom to top
-                    pos.x + pos.width,
-                    page_height - pos.y,
-                )
-                page.insert_image(rect, filename=str(stamp_image_path))
-                logger.debug(f"Added visual stamp to page {pos.page + 1}")
-
-        doc.save(output_path)
-        doc.close()
+            doc.save(output_path)
+        finally:
+            doc.close()
 
     def _create_stretch_layout(self):
         """Create the standard stretch layout for stamp styles."""
@@ -675,11 +677,14 @@ class PDFSigner:
         """
         settings = get_settings()
 
-        dss_manager = DSSManager(
-            ocsp_timeout=settings.ltv_ocsp_timeout,
-            crl_timeout=settings.ltv_crl_timeout,
-            prefer_ocsp=settings.ltv_prefer_ocsp,
-        )
+        # Reuse DSSManager across batch operations (no per-file state)
+        if self._dss_manager is None:
+            self._dss_manager = DSSManager(
+                ocsp_timeout=settings.ltv_ocsp_timeout,
+                crl_timeout=settings.ltv_crl_timeout,
+                prefer_ocsp=settings.ltv_prefer_ocsp,
+            )
+        dss_manager = self._dss_manager
 
         logger.info("Collecting validation info for LTV")
         validation_info = dss_manager.collect_validation_info(cert_chain)

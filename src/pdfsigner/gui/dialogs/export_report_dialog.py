@@ -255,8 +255,8 @@ class ExportReportDialog(Adw.Window):
             if file:
                 self._output_path = file.get_path()
                 self._file_row.set_subtitle(Path(self._output_path).name)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"File dialog cancelled or failed: {e}")
 
     def _on_export_clicked(self, button: Gtk.Button) -> None:
         """Handle export button click."""
@@ -286,6 +286,9 @@ class ExportReportDialog(Adw.Window):
                 include_certificate_info=self._cert_info_row.get_active(),
                 title=_("PDF Validation Report"),
             )
+
+            if not self._output_path:
+                return False, _("No output path configured")
 
             report_format = self.get_format()
             generator = ValidationReportGenerator(options=options)

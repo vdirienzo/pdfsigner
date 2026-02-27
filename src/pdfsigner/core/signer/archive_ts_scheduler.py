@@ -267,7 +267,7 @@ class ArchiveTSScheduler:
                         )
                         pending.append(PendingPDF(pdf_path=pdf_path, reason=reason))
 
-            except Exception as e:
+            except (OSError, ValueError, RuntimeError) as e:
                 logger.error(f"Error checking {pdf_path.name}: {e}")
                 # Don't add to pending if we can't determine status
 

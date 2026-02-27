@@ -102,39 +102,39 @@ class PDFScanner:
 
         try:
             doc = fitz.open(pdf_path)
+            try:
+                for page_num in range(len(doc)):
+                    page = doc[page_num]
 
-            for page_num in range(len(doc)):
-                page = doc[page_num]
+                    # Extract text with bounding boxes
+                    # Use "blocks" mode to get text blocks with coordinates
+                    blocks = page.get_text("blocks")
 
-                # Extract text with bounding boxes
-                # Use "blocks" mode to get text blocks with coordinates
-                blocks = page.get_text("blocks")
+                    for block in blocks:
+                        # Block format: (x0, y0, x1, y1, "text", block_no, block_type)
+                        x0, y0, x1, y1, text, *_ = block
 
-                for block in blocks:
-                    # Block format: (x0, y0, x1, y1, "text", block_no, block_type)
-                    x0, y0, x1, y1, text, *_ = block
+                        # Skip empty blocks
+                        if not text or not text.strip():
+                            continue
 
-                    # Skip empty blocks
-                    if not text or not text.strip():
-                        continue
+                        bbox = (float(x0), float(y0), float(x1), float(y1))
+                        start_pos = char_position
+                        end_pos = char_position + len(text)
 
-                    bbox = (float(x0), float(y0), float(x1), float(y1))
-                    start_pos = char_position
-                    end_pos = char_position + len(text)
-
-                    text_blocks.append(
-                        TextBlock(
-                            text=text,
-                            page=page_num,
-                            bbox=bbox,
-                            start_pos=start_pos,
-                            end_pos=end_pos,
+                        text_blocks.append(
+                            TextBlock(
+                                text=text,
+                                page=page_num,
+                                bbox=bbox,
+                                start_pos=start_pos,
+                                end_pos=end_pos,
+                            )
                         )
-                    )
 
-                    char_position = end_pos
-
-            doc.close()
+                        char_position = end_pos
+            finally:
+                doc.close()
 
             return text_blocks
 

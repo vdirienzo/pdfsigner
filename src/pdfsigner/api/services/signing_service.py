@@ -4,6 +4,7 @@ Signing service for background PDF signing operations.
 Manages signing jobs, coordinates with PDFSigner, and handles file lifecycle.
 """
 
+import threading
 import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -48,6 +49,7 @@ class SigningService:
     def __init__(self):
         """Initialize signing service with job storage."""
         self._jobs: dict[str, SigningJob] = {}
+        self._lock = threading.Lock()
         self._settings = get_api_settings()
 
     def create_job(
@@ -79,7 +81,11 @@ class SigningService:
             user_id=user_id,
         )
 
-        self._jobs[job_id] = job
+        with self._lock:
+            # Prevent unbounded memory growth
+            if len(self._jobs) > 1000:
+                self.cleanup_old_jobs()
+            self._jobs[job_id] = job
         logger.info(f"Created signing job {job_id} for {filename}")
         return job_id
 
@@ -93,7 +99,8 @@ class SigningService:
         Returns:
             SigningJob if found, None otherwise
         """
-        return self._jobs.get(job_id)
+        with self._lock:
+            return self._jobs.get(job_id)
 
     def verify_job_ownership(self, job_id: str, user_id: str) -> bool:
         """
@@ -106,7 +113,8 @@ class SigningService:
         Returns:
             True if user owns the job
         """
-        job = self._jobs.get(job_id)
+        with self._lock:
+            job = self._jobs.get(job_id)
         if not job:
             return False
         return job.user_id == user_id
@@ -129,13 +137,15 @@ class SigningService:
             nss_handler: Authenticated NSS handler
             lta_handler: LTA handler for timestamping
         """
-        job = self._jobs.get(job_id)
+        with self._lock:
+            job = self._jobs.get(job_id)
         if not job:
             logger.error(f"Job {job_id} not found")
             return
 
         try:
-            job.status = "processing"
+            with self._lock:
+                job.status = "processing"
             logger.info(f"Starting signing job {job_id}")
 
             # Create PDFSigner
@@ -159,27 +169,31 @@ class SigningService:
             )
 
             if result.success:
-                job.status = "completed"
-                job.completed_at = datetime.now(UTC)
-                job.output_path = result.output_path
-                job.pades_level = self._determine_pades_level(request)
+                with self._lock:
+                    job.status = "completed"
+                    job.completed_at = datetime.now(UTC)
+                    job.output_path = result.output_path
+                    job.pades_level = self._determine_pades_level(request)
                 logger.info(f"Job {job_id} completed successfully")
             else:
-                job.status = "failed"
-                job.completed_at = datetime.now(UTC)
-                job.error = result.error or "Unknown signing error"
+                with self._lock:
+                    job.status = "failed"
+                    job.completed_at = datetime.now(UTC)
+                    job.error = result.error or "Unknown signing error"
                 logger.error(f"Job {job_id} failed: {job.error}")
 
         except (PDFCorruptedError, PDFProtectedError) as e:
-            job.status = "failed"
-            job.completed_at = datetime.now(UTC)
-            job.error = str(e)
+            with self._lock:
+                job.status = "failed"
+                job.completed_at = datetime.now(UTC)
+                job.error = str(e)
             logger.error(f"Job {job_id} failed with PDF error: {e}")
 
         except Exception as e:
-            job.status = "failed"
-            job.completed_at = datetime.now(UTC)
-            job.error = f"Signing error: {str(e)}"
+            with self._lock:
+                job.status = "failed"
+                job.completed_at = datetime.now(UTC)
+                job.error = f"Signing error: {str(e)}"
             logger.exception(f"Job {job_id} failed with unexpected error")
 
         finally:
@@ -193,7 +207,8 @@ class SigningService:
         Args:
             job_id: Job identifier
         """
-        job = self._jobs.get(job_id)
+        with self._lock:
+            job = self._jobs.get(job_id)
         if not job:
             return
 
@@ -214,15 +229,19 @@ class SigningService:
         cutoff_time = datetime.now(UTC).timestamp() - (max_age * 3600)
         cleaned = 0
 
-        job_ids_to_remove = []
-        for job_id, job in self._jobs.items():
-            if job.created_at.timestamp() < cutoff_time:
-                self.cleanup_job_files(job_id)
-                job_ids_to_remove.append(job_id)
-                cleaned += 1
+        with self._lock:
+            job_ids_to_remove = []
+            for job_id, job in self._jobs.items():
+                if job.created_at.timestamp() < cutoff_time:
+                    job_ids_to_remove.append(job_id)
 
         for job_id in job_ids_to_remove:
-            del self._jobs[job_id]
+            self.cleanup_job_files(job_id)
+            cleaned += 1
+
+        with self._lock:
+            for job_id in job_ids_to_remove:
+                self._jobs.pop(job_id, None)
 
         if cleaned > 0:
             logger.info(f"Cleaned up {cleaned} old signing jobs")
@@ -334,11 +353,13 @@ class SigningService:
 
 # Global service instance (singleton for MVP)
 _signing_service: SigningService | None = None
+_signing_service_lock = threading.Lock()
 
 
 def get_signing_service() -> SigningService:
     """Get signing service instance (singleton)."""
     global _signing_service
-    if _signing_service is None:
-        _signing_service = SigningService()
-    return _signing_service
+    with _signing_service_lock:
+        if _signing_service is None:
+            _signing_service = SigningService()
+        return _signing_service

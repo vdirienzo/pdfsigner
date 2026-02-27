@@ -194,16 +194,21 @@ class ComplianceChecker:
             ComplianceStandard.SOC2: self.check_soc2(),
         }
 
-    def get_overall_score(self) -> float:
+    def get_overall_score(
+        self, reports: dict[ComplianceStandard, ComplianceReport] | None = None
+    ) -> float:
         """
         Calculate weighted overall compliance score (0-100).
 
         Averages scores across all standards with equal weighting.
 
+        Args:
+            reports: Pre-computed reports from check_all() to avoid re-running checks
+
         Returns:
             Overall compliance score
         """
-        all_reports = self.check_all()
+        all_reports = reports if reports is not None else self.check_all()
         if not all_reports:
             return 0.0
 

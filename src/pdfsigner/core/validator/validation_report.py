@@ -232,8 +232,8 @@ def _extract_algorithm_info(
     if cert is None and sig.certificate_bytes:
         try:
             cert = x509.load_der_x509_certificate(sig.certificate_bytes)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed to load certificate for algorithm assessment: %s", e)
 
     if cert is None:
         return None
@@ -360,8 +360,8 @@ def _build_signature_report(sig: SignatureInfo) -> dict[str, Any]:
     if sig.certificate_bytes:
         try:
             cert = x509.load_der_x509_certificate(sig.certificate_bytes)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("Failed to load certificate for signature report: %s", e)
 
     # Algorithm assessment
     algo_assessment = _extract_algorithm_info(sig, cert)

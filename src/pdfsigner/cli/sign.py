@@ -98,7 +98,7 @@ def _sign_dry_run(args: argparse.Namespace, pdf_files: list[Path]) -> int:
         print("[DRY-RUN] QR code requires visible signature, enabling --visible")
 
     def progress_callback(progress):
-        pct = progress.current / progress.total * 100
+        pct = progress.percentage
         current = progress.current_file or "Completed"
         status = f"[{progress.status}]" if progress.status else ""
         print(f"\r[DRY-RUN] [{pct:5.1f}%] {current:<40} {status}", end="", flush=True)
@@ -300,7 +300,7 @@ def _sign_real(args: argparse.Namespace, pdf_files: list[Path]) -> int:
     batch_manager = BatchManager(nss_handler, lta_handler)
 
     def progress_callback(progress):
-        pct = (progress.completed + progress.failed) / progress.total * 100
+        pct = progress.percentage
         current = progress.current_file or "Completed"
         print(f"\r[{pct:5.1f}%] {current:<50}", end="", flush=True)
 

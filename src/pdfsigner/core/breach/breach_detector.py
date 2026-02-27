@@ -17,6 +17,16 @@ from pdfsigner.core.breach.breach_types import (
     BreachType,
 )
 
+# Severity thresholds for export record counts
+BREACH_THRESHOLD_EXPORT_CRITICAL = 10000
+BREACH_THRESHOLD_EXPORT_HIGH = 5000
+BREACH_THRESHOLD_EXPORT_MEDIUM = 2000
+
+# Severity thresholds for PHI record access counts
+BREACH_THRESHOLD_PHI_CRITICAL = 5000
+BREACH_THRESHOLD_PHI_HIGH = 1000
+BREACH_THRESHOLD_PHI_MEDIUM = 500
+
 
 class BreachDetector:
     """
@@ -364,22 +374,22 @@ class BreachDetector:
 
     def _calculate_export_severity(self, records: int) -> BreachSeverity:
         """Calculate severity based on number of records exported."""
-        if records > 10000:
+        if records > BREACH_THRESHOLD_EXPORT_CRITICAL:
             return BreachSeverity.CRITICAL
-        elif records > 5000:
+        elif records > BREACH_THRESHOLD_EXPORT_HIGH:
             return BreachSeverity.HIGH
-        elif records > 2000:
+        elif records > BREACH_THRESHOLD_EXPORT_MEDIUM:
             return BreachSeverity.MEDIUM
         else:
             return BreachSeverity.LOW
 
     def _calculate_phi_severity(self, records: int) -> BreachSeverity:
         """Calculate severity based on PHI records accessed."""
-        if records > 5000:
+        if records > BREACH_THRESHOLD_PHI_CRITICAL:
             return BreachSeverity.CRITICAL
-        elif records > 1000:
+        elif records > BREACH_THRESHOLD_PHI_HIGH:
             return BreachSeverity.HIGH
-        elif records > 500:
+        elif records > BREACH_THRESHOLD_PHI_MEDIUM:
             return BreachSeverity.MEDIUM
         else:
             return BreachSeverity.LOW

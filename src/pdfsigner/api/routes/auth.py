@@ -23,6 +23,7 @@ from pdfsigner.api.middleware.auth import (
     http_bearer,
     verify_token,
 )
+from pdfsigner.api.middleware.rate_limit import rate_limit_auth
 from pdfsigner.config.settings import get_settings
 from pdfsigner.core.auth.password_validator import get_password_validator
 from pdfsigner.core.session import get_session_manager
@@ -160,6 +161,7 @@ class LogoutResponse(BaseModel):
     When healthcare_mode is enabled, creates a session with sliding window expiration.
     """,
 )
+@rate_limit_auth
 async def login_for_access_token(form_data: TokenRequest, request: Request) -> TokenResponse:
     """
     Authenticate and get JWT token.
@@ -248,6 +250,13 @@ async def refresh_token(
     token_data = verify_token(credentials.credentials)
     session_id = token_data.session_id if token_data else None
 
+    # Blacklist old token to prevent reuse (M1: token rotation)
+    if token_data.jti and token_data.exp:
+        from pdfsigner.core.auth.jwt_blacklist import get_jwt_blacklist
+
+        blacklist = get_jwt_blacklist()
+        blacklist.add_token(jti=token_data.jti, expires_at=token_data.exp, reason="refresh")
+
     access_token = create_access_token(
         data={
             "sub": current_user.username,
@@ -256,6 +265,7 @@ async def refresh_token(
         },
         expires_delta=timedelta(minutes=settings.jwt_expire_minutes),
         session_id=session_id,
+        mfa_verified=token_data.mfa_verified,
     )
 
     return TokenResponse(

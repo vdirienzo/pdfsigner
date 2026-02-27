@@ -102,10 +102,11 @@ def cleanup_temp_file(file_path: Path) -> None:
     try:
         if file_path.exists():
             file_path.unlink()
-    except Exception:
-        # Silently ignore cleanup errors
+    except Exception as e:
+        from loguru import logger
+
         # File will be removed by periodic cleanup task
-        pass
+        logger.debug(f"Temp file cleanup failed for {file_path}: {e}")
 
 
 def cleanup_temp_directory(

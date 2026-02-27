@@ -20,6 +20,7 @@ from pdfsigner.core.audit.audit_integrity import (
     verify_audit_integrity,
 )
 from pdfsigner.core.audit.audit_logger import AuditLogger
+from pdfsigner.core.audit.helpers import emit_audit_event
 from pdfsigner.core.audit.siem_exporter import (
     SIEMConfig,
     SIEMExporter,
@@ -47,6 +48,7 @@ __all__ = [
     "log_encryption_event",
     "log_access_event",
     "get_audit_logger",
+    "emit_audit_event",
 ]
 
 

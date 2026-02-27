@@ -84,30 +84,31 @@ class PDFReportFormatter(ReportFormatter):
             PDF content as bytes
         """
         doc = fitz.open()  # Create new PDF
+        try:
+            # Get the main report
+            report_obj = reports.get("all")
+            if not report_obj or not isinstance(report_obj, ComplianceReport):
+                raise ValueError("No compliance report found")
+            report: ComplianceReport = report_obj
 
-        # Get the main report
-        report_obj = reports.get("all")
-        if not report_obj or not isinstance(report_obj, ComplianceReport):
-            raise ValueError("No compliance report found")
-        report: ComplianceReport = report_obj
+            # Add title page
+            self._add_title_page(doc, report)
 
-        # Add title page
-        self._add_title_page(doc, report)
+            # Add executive summary if requested
+            if config.executive_summary:
+                self._add_executive_summary(doc, report)
 
-        # Add executive summary if requested
-        if config.executive_summary:
-            self._add_executive_summary(doc, report)
+            # Add detailed findings
+            self._add_detailed_findings(doc, report, config)
 
-        # Add detailed findings
-        self._add_detailed_findings(doc, report, config)
+            # Add recommendations if requested
+            if config.include_recommendations:
+                self._add_recommendations(doc, report)
 
-        # Add recommendations if requested
-        if config.include_recommendations:
-            self._add_recommendations(doc, report)
-
-        # Convert to bytes
-        pdf_bytes = doc.tobytes()
-        doc.close()
+            # Convert to bytes
+            pdf_bytes = doc.tobytes()
+        finally:
+            doc.close()
 
         return pdf_bytes
 

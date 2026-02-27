@@ -5,6 +5,7 @@ Electronic seals are for organizations (legal persons), not individuals.
 """
 
 import tempfile
+import threading
 import time
 import uuid
 from datetime import UTC, datetime
@@ -47,6 +48,7 @@ router = APIRouter(prefix="/api/v1/seal", tags=["sealing"])
 # In-memory job storage (production would use database)
 _seal_jobs: dict[str, dict] = {}
 _seal_job_timestamps: dict[str, float] = {}
+_seal_lock = threading.Lock()
 _MAX_SEAL_JOBS = 1000
 _SEAL_JOB_TTL_SECONDS = 86400  # 24 hours
 
@@ -54,10 +56,11 @@ _SEAL_JOB_TTL_SECONDS = 86400  # 24 hours
 def _cleanup_seal_jobs() -> None:
     """Remove expired seal job entries."""
     now = time.time()
-    expired = [k for k, t in _seal_job_timestamps.items() if now - t > _SEAL_JOB_TTL_SECONDS]
-    for k in expired:
-        _seal_jobs.pop(k, None)
-        _seal_job_timestamps.pop(k, None)
+    with _seal_lock:
+        expired = [k for k, t in _seal_job_timestamps.items() if now - t > _SEAL_JOB_TTL_SECONDS]
+        for k in expired:
+            _seal_jobs.pop(k, None)
+            _seal_job_timestamps.pop(k, None)
 
 
 def _pydantic_to_org_info(schema: OrganizationInfoSchema) -> OrganizationInfo:
@@ -115,41 +118,45 @@ async def _process_seal_job(
     """
     try:
         logger.info(f"Processing seal job {job_id}")
-        _seal_jobs[job_id]["status"] = "processing"
+        with _seal_lock:
+            _seal_jobs[job_id]["status"] = "processing"
 
         # Create seal
         result = seal_manager.create_seal(pdf_path=pdf_path, config=seal_config, dry_run=False)
 
         if result.success:
-            _seal_jobs[job_id].update(
-                {
-                    "status": "completed",
-                    "completed_at": datetime.now(UTC).isoformat(),
-                    "output_path": str(result.output_path),
-                    "signature_id": result.signature_id,
-                    "download_url": f"/api/v1/seal/{job_id}/download",
-                }
-            )
+            with _seal_lock:
+                _seal_jobs[job_id].update(
+                    {
+                        "status": "completed",
+                        "completed_at": datetime.now(UTC).isoformat(),
+                        "output_path": str(result.output_path),
+                        "signature_id": result.signature_id,
+                        "download_url": f"/api/v1/seal/{job_id}/download",
+                    }
+                )
             logger.info(f"Seal job {job_id} completed successfully")
         else:
-            _seal_jobs[job_id].update(
-                {
-                    "status": "failed",
-                    "completed_at": datetime.now(UTC).isoformat(),
-                    "error": "; ".join(result.errors),
-                }
-            )
+            with _seal_lock:
+                _seal_jobs[job_id].update(
+                    {
+                        "status": "failed",
+                        "completed_at": datetime.now(UTC).isoformat(),
+                        "error": "; ".join(result.errors),
+                    }
+                )
             logger.error(f"Seal job {job_id} failed: {result.errors}")
 
     except Exception as e:
         logger.exception(f"Error processing seal job {job_id}: {e}")
-        _seal_jobs[job_id].update(
-            {
-                "status": "failed",
-                "completed_at": datetime.now(UTC).isoformat(),
-                "error": str(e),
-            }
-        )
+        with _seal_lock:
+            _seal_jobs[job_id].update(
+                {
+                    "status": "failed",
+                    "completed_at": datetime.now(UTC).isoformat(),
+                    "error": str(e),
+                }
+            )
 
 
 @router.post("/", response_model=SealResponse)
@@ -227,23 +234,29 @@ async def seal_document(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=f"Invalid filename: {e}",
         ) from e
-    # Check file size
-    content = await file.read()
-    if len(content) > settings.max_upload_size_mb * 1024 * 1024:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"File too large (max {settings.max_upload_size_mb}MB)",
-        )
-
-    # Save uploaded file to temp directory
+    # Stream file to temp directory in chunks to avoid loading entire PDF in memory
+    max_size_bytes = settings.max_upload_size_mb * 1024 * 1024
     temp_dir = Path(tempfile.gettempdir()) / "pdfsigner_api_seals"
     temp_dir.mkdir(exist_ok=True)
 
     job_id = f"seal_{uuid.uuid4().hex[:12]}"
     input_path = temp_dir / f"{job_id}_input.pdf"
 
-    with open(input_path, "wb") as f:
-        f.write(content)
+    try:
+        total_size = 0
+        with open(input_path, "wb") as f:
+            while chunk := await file.read(8192):
+                total_size += len(chunk)
+                if total_size > max_size_bytes:
+                    raise HTTPException(
+                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        detail=f"File too large (max {settings.max_upload_size_mb}MB)",
+                    )
+                f.write(chunk)
+    except HTTPException:
+        if input_path.exists():
+            input_path.unlink()
+        raise
 
     # Create seal configuration
     org_info = OrganizationInfo(
@@ -282,28 +295,29 @@ async def seal_document(
 
     # Cleanup old entries before adding new ones
     _cleanup_seal_jobs()
-    if len(_seal_jobs) >= _MAX_SEAL_JOBS:
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="Too many pending seal jobs. Please try again later.",
-        )
+    with _seal_lock:
+        if len(_seal_jobs) >= _MAX_SEAL_JOBS:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Too many pending seal jobs. Please try again later.",
+            )
 
-    # Store job info
-    _seal_job_timestamps[job_id] = time.time()
-    _seal_jobs[job_id] = {
-        "job_id": job_id,
-        "user_id": current_user.id,
-        "status": "pending",
-        "filename": file.filename,
-        "organization": organization_name,
-        "seal_type": seal_type,
-        "created_at": datetime.now(UTC).isoformat(),
-        "input_path": str(input_path),
-        "completed_at": None,
-        "error": None,
-        "download_url": None,
-        "signature_id": None,
-    }
+        # Store job info
+        _seal_job_timestamps[job_id] = time.time()
+        _seal_jobs[job_id] = {
+            "job_id": job_id,
+            "user_id": current_user.id,
+            "status": "pending",
+            "filename": file.filename,
+            "organization": organization_name,
+            "seal_type": seal_type,
+            "created_at": datetime.now(UTC).isoformat(),
+            "input_path": str(input_path),
+            "completed_at": None,
+            "error": None,
+            "download_url": None,
+            "signature_id": None,
+        }
 
     # Start background sealing task
     background_tasks.add_task(_process_seal_job, job_id, input_path, seal_config, seal_manager)
@@ -337,19 +351,20 @@ async def get_seal_status(
     Raises:
         HTTPException: 404 if job not found
     """
-    if job_id not in _seal_jobs:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Job not found",
-        )
+    with _seal_lock:
+        if job_id not in _seal_jobs:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Job not found",
+            )
 
-    if _seal_jobs[job_id].get("user_id") != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Job not found",
-        )
+        if _seal_jobs[job_id].get("user_id") != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Job not found",
+            )
 
-    job = _seal_jobs[job_id]
+        job = _seal_jobs[job_id].copy()
 
     return SealJobStatus(
         job_id=job["job_id"],
@@ -383,19 +398,20 @@ async def download_sealed_pdf(
         HTTPException: 404 if job not found or not completed
         HTTPException: 400 if job failed
     """
-    if job_id not in _seal_jobs:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Job not found",
-        )
+    with _seal_lock:
+        if job_id not in _seal_jobs:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Job not found",
+            )
 
-    if _seal_jobs[job_id].get("user_id") != current_user.id:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Job not found",
-        )
+        if _seal_jobs[job_id].get("user_id") != current_user.id:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Job not found",
+            )
 
-    job = _seal_jobs[job_id]
+        job = _seal_jobs[job_id].copy()
 
     if job["status"] == "failed":
         raise HTTPException(
@@ -483,20 +499,27 @@ async def validate_seal(
 
     settings = get_api_settings()
 
-    content = await file.read()
     max_size = (
         settings.max_upload_size_mb * 1024 * 1024
         if hasattr(settings, "max_upload_size_mb")
         else 50 * 1024 * 1024
     )
-    if len(content) > max_size:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="File too large",
-        )
 
-    with open(temp_path, "wb") as f:
-        f.write(content)
+    try:
+        total_size = 0
+        with open(temp_path, "wb") as f:
+            while chunk := await file.read(8192):
+                total_size += len(chunk)
+                if total_size > max_size:
+                    raise HTTPException(
+                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        detail="File too large",
+                    )
+                f.write(chunk)
+    except HTTPException:
+        if temp_path.exists():
+            temp_path.unlink()
+        raise
 
     try:
         # Validate seal

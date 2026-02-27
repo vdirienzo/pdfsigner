@@ -7,6 +7,7 @@ Orchestrates signing of multiple PDFs, handling
 progress, partial errors, and reports.
 """
 
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -101,7 +102,7 @@ class BatchManager:
         """
         self.nss_handler = nss_handler
         self.lta_handler = lta_handler
-        self._cancelled = False
+        self._cancelled = threading.Event()
         self._signer: PDFSigner | None = None
 
     def _get_signer(self) -> PDFSigner:
@@ -112,12 +113,12 @@ class BatchManager:
 
     def cancel(self) -> None:
         """Requests cancellation of the current batch."""
-        self._cancelled = True
+        self._cancelled.set()
         logger.info("Cancellation requested")
 
     def reset(self) -> None:
         """Resets the cancellation state."""
-        self._cancelled = False
+        self._cancelled.clear()
 
     def sign_batch(
         self,
@@ -165,7 +166,7 @@ class BatchManager:
 
         for i, pdf_path in enumerate(pdf_files):
             # Check for cancellation
-            if self._cancelled:
+            if self._cancelled.is_set():
                 logger.info("Signing cancelled by user")
                 break
 

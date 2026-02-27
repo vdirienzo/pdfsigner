@@ -117,35 +117,36 @@ class SignaturePreviewWidget(Gtk.Box):
 
         try:
             doc = fitz.open(str(self._pdf_path))
-            page = doc[self._page_number]
+            try:
+                page = doc[self._page_number]
 
-            # Calcular zoom para ajustar al preview
-            page_rect = page.rect
-            zoom_x = self.PREVIEW_WIDTH / page_rect.width
-            zoom_y = self.PREVIEW_HEIGHT / page_rect.height
-            zoom = min(zoom_x, zoom_y) * 0.9  # 90% para dejar margen
+                # Calcular zoom para ajustar al preview
+                page_rect = page.rect
+                zoom_x = self.PREVIEW_WIDTH / page_rect.width
+                zoom_y = self.PREVIEW_HEIGHT / page_rect.height
+                zoom = min(zoom_x, zoom_y) * 0.9  # 90% para dejar margen
 
-            # Renderizar
-            mat = fitz.Matrix(zoom, zoom)
-            pix = page.get_pixmap(matrix=mat, alpha=False)
+                # Renderizar
+                mat = fitz.Matrix(zoom, zoom)
+                pix = page.get_pixmap(matrix=mat, alpha=False)
 
-            # Convertir a GdkPixbuf
-            self._page_pixbuf = GdkPixbuf.Pixbuf.new_from_data(
-                pix.samples,
-                GdkPixbuf.Colorspace.RGB,
-                False,
-                8,
-                pix.width,
-                pix.height,
-                pix.stride,
-            )
+                # Convertir a GdkPixbuf
+                self._page_pixbuf = GdkPixbuf.Pixbuf.new_from_data(
+                    pix.samples,
+                    GdkPixbuf.Colorspace.RGB,
+                    False,
+                    8,
+                    pix.width,
+                    pix.height,
+                    pix.stride,
+                )
 
-            # Guardar factor de escala para dibujar firma
-            self._scale = zoom
-            self._page_width = page_rect.width
-            self._page_height = page_rect.height
-
-            doc.close()
+                # Guardar factor de escala para dibujar firma
+                self._scale = zoom
+                self._page_width = page_rect.width
+                self._page_height = page_rect.height
+            finally:
+                doc.close()
 
         except Exception as e:
             self._page_pixbuf = None

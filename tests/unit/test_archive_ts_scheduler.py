@@ -342,7 +342,7 @@ class TestArchiveTSScheduler:
     def test_get_pending_pdfs_handles_check_errors(self, mock_manager_class, scheduler, mock_pdf):
         """Test get_pending_pdfs handles errors gracefully."""
         mock_manager = Mock(spec=ArchiveTimestampManager)
-        mock_manager.needs_archive_timestamp.side_effect = Exception("Check failed")
+        mock_manager.needs_archive_timestamp.side_effect = RuntimeError("Check failed")
         mock_manager_class.return_value = mock_manager
 
         scheduler.register_pdf(mock_pdf)

@@ -63,9 +63,9 @@ class Settings(BaseSettings):
         default=None,
         description="Username for TSA authentication (if applicable)",
     )
-    tsa_password: str | None = Field(
+    tsa_password: SecretStr | None = Field(
         default=None,
-        description="Password for TSA authentication (if applicable)",
+        description="TSA password (use PDFSIGNER_TSA_PASSWORD env var)",
     )
 
     # --- Visible Signature ---
@@ -719,19 +719,24 @@ class Settings(BaseSettings):
 
 
 # Configuration singleton
+import threading
+
 _settings: Settings | None = None
+_settings_lock = threading.Lock()
 
 
 def get_settings() -> Settings:
     """Get configuration instance (singleton)."""
     global _settings
-    if _settings is None:
-        _settings = Settings()
-    return _settings
+    with _settings_lock:
+        if _settings is None:
+            _settings = Settings()
+        return _settings
 
 
 def reload_settings() -> Settings:
     """Reload configuration from disk."""
     global _settings
-    _settings = Settings()
-    return _settings
+    with _settings_lock:
+        _settings = Settings()
+        return _settings

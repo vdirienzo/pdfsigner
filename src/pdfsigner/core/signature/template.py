@@ -19,6 +19,12 @@ from loguru import logger
 LayerType = Literal["background", "image", "text", "qr", "border"]
 TextAlignment = Literal["left", "center", "right"]
 
+# Template dimension limits (mm)
+TEMPLATE_MIN_WIDTH_MM = 10
+TEMPLATE_MAX_WIDTH_MM = 200
+TEMPLATE_MIN_HEIGHT_MM = 5
+TEMPLATE_MAX_HEIGHT_MM = 100
+
 
 @dataclass
 class Layer:
@@ -171,11 +177,17 @@ class Template:
         if not self.name:
             errors.append("Template name is required")
 
-        if self.width_mm < 10 or self.width_mm > 200:
-            errors.append(f"Invalid width_mm: {self.width_mm} (must be 10-200)")
+        if self.width_mm < TEMPLATE_MIN_WIDTH_MM or self.width_mm > TEMPLATE_MAX_WIDTH_MM:
+            errors.append(
+                f"Invalid width_mm: {self.width_mm} "
+                f"(must be {TEMPLATE_MIN_WIDTH_MM}-{TEMPLATE_MAX_WIDTH_MM})"
+            )
 
-        if self.height_mm < 5 or self.height_mm > 100:
-            errors.append(f"Invalid height_mm: {self.height_mm} (must be 5-100)")
+        if self.height_mm < TEMPLATE_MIN_HEIGHT_MM or self.height_mm > TEMPLATE_MAX_HEIGHT_MM:
+            errors.append(
+                f"Invalid height_mm: {self.height_mm} "
+                f"(must be {TEMPLATE_MIN_HEIGHT_MM}-{TEMPLATE_MAX_HEIGHT_MM})"
+            )
 
         if not self.layers:
             errors.append("Template must have at least one layer")

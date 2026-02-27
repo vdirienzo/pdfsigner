@@ -184,29 +184,28 @@ class PHIScanner:
         try:
             # Open PDF
             doc = fitz.open(pdf_path)
+            try:
+                # Check if encrypted
+                if doc.is_encrypted:
+                    logger.warning(f"PDF is encrypted, cannot scan: {pdf_path}")
+                    return PHIScanResult(
+                        has_phi=False,
+                        error="PDF is encrypted",
+                    )
 
-            # Check if encrypted
-            if doc.is_encrypted:
-                logger.warning(f"PDF is encrypted, cannot scan: {pdf_path}")
+                # Scan all pages
+                all_matches: list[PHIMatch] = []
+                page_count = len(doc)
+
+                for page_num in range(page_count):
+                    page = doc[page_num]
+                    text = page.get_text("text")
+
+                    # Scan text with position tracking
+                    page_matches = self._scan_text_with_positions(text, page_num, page)
+                    all_matches.extend(page_matches)
+            finally:
                 doc.close()
-                return PHIScanResult(
-                    has_phi=False,
-                    error="PDF is encrypted",
-                )
-
-            # Scan all pages
-            all_matches: list[PHIMatch] = []
-            page_count = len(doc)
-
-            for page_num in range(page_count):
-                page = doc[page_num]
-                text = page.get_text("text")
-
-                # Scan text with position tracking
-                page_matches = self._scan_text_with_positions(text, page_num, page)
-                all_matches.extend(page_matches)
-
-            doc.close()
 
             # Calculate statistics
             by_type = self._count_by_type(all_matches)

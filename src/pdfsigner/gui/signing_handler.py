@@ -284,8 +284,10 @@ class SigningHandler:
             if self._nss_handler is not None:
                 try:
                     self._nss_handler.close()
-                except Exception:
-                    pass
+                except Exception as e:
+                    from loguru import logger
+
+                    logger.debug(f"NSS handler close failed: {e}")
                 self._nss_handler = None
 
     def _update_progress(self, progress) -> None:

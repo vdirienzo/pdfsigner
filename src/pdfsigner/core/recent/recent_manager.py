@@ -103,7 +103,10 @@ class RecentFilesManager:
                         exists=path.exists(),
                     )
                 )
-            except Exception:
+            except Exception as e:
+                from loguru import logger
+
+                logger.debug(f"Failed to parse recent file entry: {e}")
                 continue
 
         # Sort by time (newest first) and limit
@@ -127,8 +130,10 @@ class RecentFilesManager:
                 try:
                     self._manager.remove_item(item.get_uri())
                     removed += 1
-                except Exception:
-                    pass
+                except Exception as e:
+                    from loguru import logger
+
+                    logger.debug(f"Failed to remove recent item {item.get_uri()}: {e}")
 
         return removed
 

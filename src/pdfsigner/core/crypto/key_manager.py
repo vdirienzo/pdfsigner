@@ -8,6 +8,8 @@ HIPAA compliance: §164.312(a)(2)(iv) - Encryption mechanism
 import json
 import secrets
 import sqlite3
+from collections.abc import Generator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import Enum
@@ -17,7 +19,23 @@ from typing import Any
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
-from loguru import logger as log
+
+from pdfsigner.core.audit.helpers import emit_audit_event
+
+
+def _emit_key_audit(action: str, key_id: str, algorithm: str, detail: str) -> None:
+    """Emit audit event for key operations using the shared helper."""
+    from pdfsigner.core.audit.audit_event import AuditEventType
+
+    emit_audit_event(
+        AuditEventType.CONFIG_CHANGE,
+        details={
+            "action": action,
+            "key_id": key_id,
+            "algorithm": algorithm,
+            "detail": detail,
+        },
+    )
 
 
 class KeyType(str, Enum):
@@ -147,104 +165,99 @@ class KeyManager:
         # Initialize database
         self._init_database()
 
+    @contextmanager
+    def _get_connection(self) -> Generator[sqlite3.Connection]:
+        """Context manager for SQLite connections with auto commit/rollback."""
+        conn = sqlite3.connect(str(self.db_path))
+        try:
+            yield conn
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
     def _init_fernet(self, password: str) -> Fernet:
         """Initialize Fernet cipher with password-derived key."""
-        # Use a fixed salt for master key derivation (stored in DB)
-        # In production, this should be stored securely
         salt = self._get_or_create_salt()
         key = self._derive_encryption_key(password, salt)
         return Fernet(key)
 
     def _get_or_create_salt(self) -> bytes:
         """Get or create the master salt for key derivation."""
-        # Check if DB exists
         if not self.db_path.exists():
-            # Generate new salt
             salt = secrets.token_bytes(self.SALT_LENGTH)
-            # Will be stored when DB is initialized
             self._master_salt = salt
             return salt
 
-        # Read from DB
         try:
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
-            cursor.execute("SELECT value FROM metadata WHERE key = 'master_salt'")
-            row = cursor.fetchone()
-            conn.close()
-
-            if row:
-                return bytes.fromhex(row[0])
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute("SELECT value FROM metadata WHERE key = 'master_salt'")
+                row = cursor.fetchone()
+                if row:
+                    return bytes.fromhex(row[0])
         except sqlite3.OperationalError:
             pass  # Table doesn't exist yet
 
-        # Generate new salt
         salt = secrets.token_bytes(self.SALT_LENGTH)
         self._master_salt = salt
         return salt
 
     def _init_database(self) -> None:
         """Initialize SQLite database schema."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
 
-        # Metadata table for salt storage
-        cursor.execute(
-            """
-            CREATE TABLE IF NOT EXISTS metadata (
-                key TEXT PRIMARY KEY,
-                value TEXT NOT NULL
-            )
-        """
-        )
-
-        # Store master salt and sentinel if new DB
-        if hasattr(self, "_master_salt"):
             cursor.execute(
-                "INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)",
-                ("master_salt", self._master_salt.hex()),
-            )
-            sentinel = self._fernet.encrypt(self._SENTINEL_PLAINTEXT).decode()
-            cursor.execute(
-                "INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)",
-                ("sentinel", sentinel),
-            )
-        else:
-            # Existing DB: verify master password via sentinel
-            cursor.execute("SELECT value FROM metadata WHERE key = 'sentinel'")
-            row = cursor.fetchone()
-            if row:
-                try:
-                    self._fernet.decrypt(row[0].encode())
-                except Exception:
-                    conn.close()
-                    raise ValueError("Wrong master password")
-
-        # Keys table
-        cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS metadata (
+                    key TEXT PRIMARY KEY,
+                    value TEXT NOT NULL
+                )
             """
-            CREATE TABLE IF NOT EXISTS keys (
-                key_id TEXT PRIMARY KEY,
-                key_type TEXT NOT NULL,
-                algorithm TEXT NOT NULL,
-                status TEXT NOT NULL,
-                encrypted_key BLOB NOT NULL,
-                created_at TEXT NOT NULL,
-                expires_at TEXT,
-                rotated_from TEXT,
-                metadata TEXT,
-                FOREIGN KEY (rotated_from) REFERENCES keys(key_id)
             )
-        """
-        )
 
-        # Index for faster queries
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_key_type ON keys(key_type)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_status ON keys(status)")
-        cursor.execute("CREATE INDEX IF NOT EXISTS idx_expires_at ON keys(expires_at)")
+            if hasattr(self, "_master_salt"):
+                cursor.execute(
+                    "INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)",
+                    ("master_salt", self._master_salt.hex()),
+                )
+                sentinel = self._fernet.encrypt(self._SENTINEL_PLAINTEXT).decode()
+                cursor.execute(
+                    "INSERT OR REPLACE INTO metadata (key, value) VALUES (?, ?)",
+                    ("sentinel", sentinel),
+                )
+            else:
+                cursor.execute("SELECT value FROM metadata WHERE key = 'sentinel'")
+                row = cursor.fetchone()
+                if row:
+                    try:
+                        self._fernet.decrypt(row[0].encode())
+                    except Exception:
+                        raise ValueError("Wrong master password")
 
-        conn.commit()
-        conn.close()
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS keys (
+                    key_id TEXT PRIMARY KEY,
+                    key_type TEXT NOT NULL,
+                    algorithm TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    encrypted_key BLOB NOT NULL,
+                    created_at TEXT NOT NULL,
+                    expires_at TEXT,
+                    rotated_from TEXT,
+                    metadata TEXT,
+                    FOREIGN KEY (rotated_from) REFERENCES keys(key_id)
+                )
+            """
+            )
+
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_key_type ON keys(key_type)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_status ON keys(status)")
+            cursor.execute("CREATE INDEX IF NOT EXISTS idx_expires_at ON keys(expires_at)")
 
     def generate_key(
         self,
@@ -273,48 +286,34 @@ class KeyManager:
         if key_size < 128:
             raise ValueError("Key size must be at least 128 bits")
 
-        # Generate key material
         key_bytes = secrets.token_bytes(key_size // 8)
-
-        # Generate unique key ID
         key_id = secrets.token_urlsafe(32)
-
-        # Calculate expiration
         created_at = datetime.now(UTC)
         expires_at = created_at + timedelta(days=expires_days) if expires_days else None
-
-        # Encrypt key material
         encrypted_key = self._fernet.encrypt(key_bytes)
 
-        # Store in database
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                INSERT INTO keys (key_id, key_type, algorithm, status, encrypted_key,
+                                created_at, expires_at, rotated_from, metadata)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+                (
+                    key_id,
+                    key_type.value,
+                    algorithm,
+                    KeyStatus.ACTIVE.value,
+                    encrypted_key,
+                    created_at.isoformat(),
+                    expires_at.isoformat() if expires_at else None,
+                    None,
+                    json.dumps(metadata or {}),
+                ),
+            )
 
-        cursor.execute(
-            """
-            INSERT INTO keys (key_id, key_type, algorithm, status, encrypted_key,
-                            created_at, expires_at, rotated_from, metadata)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-            (
-                key_id,
-                key_type.value,
-                algorithm,
-                KeyStatus.ACTIVE.value,
-                encrypted_key,
-                created_at.isoformat(),
-                expires_at.isoformat() if expires_at else None,
-                None,
-                json.dumps(metadata or {}),
-            ),
-        )
-
-        conn.commit()
-        conn.close()
-
-        # Emit audit event
-        self._emit_audit_event("key_generated", key_id, algorithm, key_type.value)
-
+        _emit_key_audit("key_generated", key_id, algorithm, key_type.value)
         return key_id
 
     def get_key(self, key_id: str) -> bytes:
@@ -332,36 +331,38 @@ class KeyManager:
             KeyRevokedError: If key is revoked
             KeyExpiredError: If key is expired
         """
-        info = self._get_key_info_from_db(key_id)
-
-        # Check status
-        if info.status == KeyStatus.REVOKED:
-            raise KeyRevokedError(f"Key {key_id} has been revoked")
-
-        # Check expiration
-        if info.expires_at:
-            now = datetime.now(UTC)
-            expires = info.expires_at
-            # Ensure both are timezone-aware for comparison
-            if expires.tzinfo is None:
-                expires = expires.replace(tzinfo=UTC)
-            if now > expires:
-                # Auto-mark as expired
-                self._update_key_status(key_id, KeyStatus.EXPIRED)
-                raise KeyExpiredError(f"Key {key_id} has expired")
-
-        # Retrieve and decrypt
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-
-        cursor.execute("SELECT encrypted_key FROM keys WHERE key_id = ?", (key_id,))
-        row = cursor.fetchone()
-        conn.close()
+        # Single query for both metadata and encrypted key to avoid N+1
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT key_type, algorithm, status, created_at, expires_at,
+                       rotated_from, metadata, encrypted_key
+                FROM keys WHERE key_id = ?
+            """,
+                (key_id,),
+            )
+            row = cursor.fetchone()
 
         if not row:
             raise KeyNotFoundError(f"Key {key_id} not found")
 
-        encrypted_key = row[0]
+        status = KeyStatus(row[2])
+        expires_at = datetime.fromisoformat(row[4]) if row[4] else None
+        encrypted_key = row[7]
+
+        if status == KeyStatus.REVOKED:
+            raise KeyRevokedError(f"Key {key_id} has been revoked")
+
+        if expires_at:
+            now = datetime.now(UTC)
+            expires = expires_at
+            if expires.tzinfo is None:
+                expires = expires.replace(tzinfo=UTC)
+            if now > expires:
+                self._update_key_status(key_id, KeyStatus.EXPIRED)
+                raise KeyExpiredError(f"Key {key_id} has expired")
+
         return self._fernet.decrypt(encrypted_key)
 
     def rotate_key(self, key_id: str) -> str:
@@ -377,10 +378,8 @@ class KeyManager:
         Raises:
             KeyNotFoundError: If key doesn't exist
         """
-        # Get old key info
         old_info = self._get_key_info_from_db(key_id)
 
-        # Generate new key with same properties
         expires_days = None
         if old_info.expires_at:
             days_remaining = (old_info.expires_at - datetime.now(UTC)).days
@@ -389,14 +388,12 @@ class KeyManager:
         new_key_id = self.generate_key(
             key_type=old_info.key_type,
             algorithm=old_info.algorithm,
-            key_size=256,  # Default size
+            key_size=256,
             expires_days=expires_days,
             metadata={**old_info.metadata, "rotated_from": key_id},
         )
 
-        # Atomic update: set rotated_from and mark old key as rotated
-        conn = sqlite3.connect(self.db_path)
-        try:
+        with self._get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute(
                 "UPDATE keys SET rotated_from = ? WHERE key_id = ?", (key_id, new_key_id)
@@ -405,13 +402,8 @@ class KeyManager:
                 "UPDATE keys SET status = ? WHERE key_id = ?",
                 (KeyStatus.ROTATED.value, key_id),
             )
-            conn.commit()
-        finally:
-            conn.close()
 
-        # Emit audit event
-        self._emit_audit_event("key_rotated", key_id, old_info.algorithm, new_key_id)
-
+        _emit_key_audit("key_rotated", key_id, old_info.algorithm, new_key_id)
         return new_key_id
 
     def revoke_key(self, key_id: str) -> bool:
@@ -430,13 +422,10 @@ class KeyManager:
         info = self._get_key_info_from_db(key_id)
 
         if info.status == KeyStatus.REVOKED:
-            return True  # Already revoked
+            return True
 
         self._update_key_status(key_id, KeyStatus.REVOKED)
-
-        # Emit audit event
-        self._emit_audit_event("key_revoked", key_id, info.algorithm, info.key_type.value)
-
+        _emit_key_audit("key_revoked", key_id, info.algorithm, info.key_type.value)
         return True
 
     def list_keys(
@@ -452,28 +441,27 @@ class KeyManager:
         Returns:
             List of KeyInfo objects
         """
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
 
-        query = (
-            "SELECT key_id, key_type, algorithm, status, created_at, expires_at, "
-            "rotated_from, metadata FROM keys WHERE 1=1"
-        )
-        params: list[str] = []
+            query = (
+                "SELECT key_id, key_type, algorithm, status, created_at, expires_at, "
+                "rotated_from, metadata FROM keys WHERE 1=1"
+            )
+            params: list[str] = []
 
-        if key_type:
-            query += " AND key_type = ?"
-            params.append(key_type.value)
+            if key_type:
+                query += " AND key_type = ?"
+                params.append(key_type.value)
 
-        if status:
-            query += " AND status = ?"
-            params.append(status.value)
+            if status:
+                query += " AND status = ?"
+                params.append(status.value)
 
-        query += " ORDER BY created_at DESC"
+            query += " ORDER BY created_at DESC"
 
-        cursor.execute(query, params)
-        rows = cursor.fetchall()
-        conn.close()
+            cursor.execute(query, params)
+            rows = cursor.fetchall()
 
         keys = []
         for row in rows:
@@ -510,11 +498,9 @@ class KeyManager:
         if not export_password:
             raise ValueError("Export password cannot be empty")
 
-        # Get key info and material
         info = self._get_key_info_from_db(key_id)
         key_material = self.get_key(key_id)
 
-        # Create export package
         export_data = {
             "version": 1,
             "key_info": info.to_dict(),
@@ -522,22 +508,18 @@ class KeyManager:
             "exported_at": datetime.now(UTC).isoformat(),
         }
 
-        # Encrypt with export password
         export_salt = secrets.token_bytes(self.SALT_LENGTH)
         export_key = self._derive_encryption_key(export_password, export_salt)
         export_fernet = Fernet(export_key)
 
         encrypted_data = export_fernet.encrypt(json.dumps(export_data).encode())
 
-        # Package with salt
         package = {
             "salt": export_salt.hex(),
             "data": encrypted_data.hex(),
         }
 
-        # Emit audit event
-        self._emit_audit_event("key_exported", key_id, info.algorithm, "export")
-
+        _emit_key_audit("key_exported", key_id, info.algorithm, "export")
         return json.dumps(package).encode()
 
     def import_key(
@@ -562,24 +544,19 @@ class KeyManager:
             raise ValueError("Import password cannot be empty")
 
         try:
-            # Parse package
             package = json.loads(key_data.decode())
             export_salt = bytes.fromhex(package["salt"])
             encrypted_data = bytes.fromhex(package["data"])
 
-            # Decrypt with import password
             import_key_derived = self._derive_encryption_key(import_password, export_salt)
             import_fernet = Fernet(import_key_derived)
             decrypted_data = import_fernet.decrypt(encrypted_data)
 
-            # Parse export data
             export_data = json.loads(decrypted_data.decode())
 
-            # Validate version
             if export_data.get("version") != 1:
                 raise ValueError("Unsupported export format version")
 
-            # Validate key type and algorithm
             key_info = export_data["key_info"]
             if key_info["key_type"] != key_type.value:
                 raise ValueError(
@@ -590,16 +567,10 @@ class KeyManager:
                     f"Algorithm mismatch: expected {algorithm}, got {key_info['algorithm']}"
                 )
 
-            # Import key material
             key_material = bytes.fromhex(export_data["key_material"])
-
-            # Generate new key ID
             new_key_id = secrets.token_urlsafe(32)
-
-            # Encrypt with master password
             encrypted_key = self._fernet.encrypt(key_material)
 
-            # Store in database
             created_at = datetime.now(UTC)
             expires_at = (
                 datetime.fromisoformat(key_info["expires_at"])
@@ -607,34 +578,28 @@ class KeyManager:
                 else None
             )
 
-            conn = sqlite3.connect(self.db_path)
-            cursor = conn.cursor()
+            with self._get_connection() as conn:
+                cursor = conn.cursor()
+                cursor.execute(
+                    """
+                    INSERT INTO keys (key_id, key_type, algorithm, status, encrypted_key,
+                                    created_at, expires_at, rotated_from, metadata)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                    (
+                        new_key_id,
+                        key_type.value,
+                        algorithm,
+                        KeyStatus.ACTIVE.value,
+                        encrypted_key,
+                        created_at.isoformat(),
+                        expires_at.isoformat() if expires_at else None,
+                        None,
+                        json.dumps({**key_info.get("metadata", {}), "imported": True}),
+                    ),
+                )
 
-            cursor.execute(
-                """
-                INSERT INTO keys (key_id, key_type, algorithm, status, encrypted_key,
-                                created_at, expires_at, rotated_from, metadata)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-                (
-                    new_key_id,
-                    key_type.value,
-                    algorithm,
-                    KeyStatus.ACTIVE.value,
-                    encrypted_key,
-                    created_at.isoformat(),
-                    expires_at.isoformat() if expires_at else None,
-                    None,
-                    json.dumps({**key_info.get("metadata", {}), "imported": True}),
-                ),
-            )
-
-            conn.commit()
-            conn.close()
-
-            # Emit audit event
-            self._emit_audit_event("key_imported", new_key_id, algorithm, key_type.value)
-
+            _emit_key_audit("key_imported", new_key_id, algorithm, key_type.value)
             return new_key_id
 
         except ValueError:
@@ -660,11 +625,8 @@ class KeyManager:
             KeyRevokedError: If key is revoked
             KeyExpiredError: If key is expired
         """
-        # Get the key material
         key_bytes = self.get_key(key_id)
 
-        # Use Fernet for symmetric encryption
-        # Key must be 32 bytes, URL-safe base64 encoded
         import base64
 
         fernet_key = base64.urlsafe_b64encode(key_bytes[:32])
@@ -689,10 +651,8 @@ class KeyManager:
             KeyExpiredError: If key is expired
             ValueError: If decryption fails (invalid token)
         """
-        # Get the key material
         key_bytes = self.get_key(key_id)
 
-        # Use Fernet for symmetric decryption
         import base64
 
         fernet_key = base64.urlsafe_b64encode(key_bytes[:32])
@@ -710,14 +670,12 @@ class KeyManager:
         Returns:
             key_id: Key identifier for MFA encryption
         """
-        # Look for existing active MFA key
         keys = self.list_keys(key_type=KeyType.SYMMETRIC, status=KeyStatus.ACTIVE)
         mfa_keys = [k for k in keys if k.metadata.get("purpose") == "mfa_encryption"]
 
         if mfa_keys:
             return mfa_keys[0].key_id
 
-        # Create new MFA encryption key
         key_id = self.generate_key(
             key_type=KeyType.SYMMETRIC,
             algorithm="AES-256-GCM",
@@ -735,32 +693,23 @@ class KeyManager:
         Returns:
             count: Number of keys removed
         """
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
 
-        # First, mark expired keys
-        now = datetime.now(UTC).isoformat()
-        cursor.execute(
-            "UPDATE keys SET status = ? WHERE expires_at < ? AND status = ?",
-            (KeyStatus.EXPIRED.value, now, KeyStatus.ACTIVE.value),
-        )
+            now = datetime.now(UTC).isoformat()
+            cursor.execute(
+                "UPDATE keys SET status = ? WHERE expires_at < ? AND status = ?",
+                (KeyStatus.EXPIRED.value, now, KeyStatus.ACTIVE.value),
+            )
 
-        # Get count of expired keys to delete
-        cursor.execute(
-            "SELECT COUNT(*) FROM keys WHERE status = ? AND expires_at < ?",
-            (KeyStatus.EXPIRED.value, now),
-        )
-        count = cursor.fetchone()[0]
-
-        # Delete expired keys (optionally, keep for audit)
-        # For now, we'll just mark them as expired
-        # cursor.execute("DELETE FROM keys WHERE status = ?", (KeyStatus.EXPIRED.value,))
-
-        conn.commit()
-        conn.close()
+            cursor.execute(
+                "SELECT COUNT(*) FROM keys WHERE status = ? AND expires_at < ?",
+                (KeyStatus.EXPIRED.value, now),
+            )
+            count = cursor.fetchone()[0]
 
         if count > 0:
-            self._emit_audit_event("keys_cleaned_up", "system", "cleanup", str(count))
+            _emit_key_audit("keys_cleaned_up", "system", "cleanup", str(count))
 
         return count
 
@@ -783,7 +732,6 @@ class KeyManager:
         )
         key_bytes = kdf.derive(password.encode())
 
-        # Fernet requires base64url encoded key
         import base64
 
         return base64.urlsafe_b64encode(key_bytes)
@@ -795,31 +743,24 @@ class KeyManager:
         Args:
             key_id: Key to delete
         """
-        # In Python, secure memory deletion is limited
-        # We can only remove from DB and hope garbage collector clears memory
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute("DELETE FROM keys WHERE key_id = ?", (key_id,))
-        conn.commit()
-        conn.close()
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("DELETE FROM keys WHERE key_id = ?", (key_id,))
 
-        # Emit audit event
-        self._emit_audit_event("key_deleted", key_id, "secure_delete", "permanent")
+        _emit_key_audit("key_deleted", key_id, "secure_delete", "permanent")
 
     def _get_key_info_from_db(self, key_id: str) -> KeyInfo:
         """Get key info from database."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-
-        cursor.execute(
-            """
-            SELECT key_type, algorithm, status, created_at, expires_at, rotated_from, metadata
-            FROM keys WHERE key_id = ?
-        """,
-            (key_id,),
-        )
-        row = cursor.fetchone()
-        conn.close()
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute(
+                """
+                SELECT key_type, algorithm, status, created_at, expires_at, rotated_from, metadata
+                FROM keys WHERE key_id = ?
+            """,
+                (key_id,),
+            )
+            row = cursor.fetchone()
 
         if not row:
             raise KeyNotFoundError(f"Key {key_id} not found")
@@ -837,31 +778,9 @@ class KeyManager:
 
     def _update_key_status(self, key_id: str, status: KeyStatus) -> None:
         """Update key status in database."""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        cursor.execute("UPDATE keys SET status = ? WHERE key_id = ?", (status.value, key_id))
-        conn.commit()
-        conn.close()
-
-    def _emit_audit_event(self, action: str, key_id: str, algorithm: str, detail: str) -> None:
-        """Emit audit event for key operations."""
-        try:
-            from pdfsigner.core.audit import get_audit_logger
-            from pdfsigner.core.audit.audit_event import AuditEvent, AuditEventType
-
-            audit_logger = get_audit_logger()
-            event = AuditEvent(
-                event_type=AuditEventType.CONFIG_CHANGE,
-                details={
-                    "action": action,
-                    "key_id": key_id,
-                    "algorithm": algorithm,
-                    "detail": detail,
-                },
-            )
-            audit_logger.log_event(event)
-        except Exception as e:
-            log.warning(f"Failed to emit audit event for key operation '{action}': {e}")
+        with self._get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE keys SET status = ? WHERE key_id = ?", (status.value, key_id))
 
 
 # Singleton instance

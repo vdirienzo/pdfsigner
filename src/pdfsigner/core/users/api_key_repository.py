@@ -8,12 +8,12 @@ NIST: IA-5(1) - Password-based authentication → adapted for API keys
 import hashlib
 import secrets
 import sqlite3
-from collections.abc import Generator
-from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from loguru import logger
+
+from pdfsigner.core.base_repository import BaseSQLiteRepository
 
 
 class APIKey:
@@ -61,7 +61,7 @@ class APIKey:
         }
 
 
-class APIKeyRepository:
+class APIKeyRepository(BaseSQLiteRepository):
     """
     SQLite-based API key repository.
 
@@ -70,33 +70,7 @@ class APIKeyRepository:
     """
 
     def __init__(self, db_path: Path | None = None):
-        """
-        Initialize repository.
-
-        Args:
-            db_path: Path to SQLite database. Default: ~/.config/pdfsigner/users.db
-        """
-        if db_path is None:
-            config_dir = Path.home() / ".config" / "pdfsigner"
-            config_dir.mkdir(parents=True, exist_ok=True)
-            db_path = config_dir / "users.db"
-
-        self.db_path = db_path
-        self._init_schema()
-
-    @contextmanager
-    def _get_connection(self) -> Generator[sqlite3.Connection, None, None]:
-        """Get database connection with automatic cleanup."""
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        try:
-            yield conn
-            conn.commit()
-        except Exception:
-            conn.rollback()
-            raise
-        finally:
-            conn.close()
+        super().__init__(db_path=db_path, default_db_name="users.db")
 
     def _init_schema(self) -> None:
         """Initialize database schema."""

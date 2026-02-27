@@ -185,7 +185,6 @@ class SessionManager:
                     (user_id, now_iso),
                 ).fetchone()[0]
                 if active_count >= max_sessions:
-                    conn.execute("ROLLBACK")
                     raise MaxSessionsExceededError(
                         max_sessions=max_sessions,
                         message=(
@@ -493,12 +492,16 @@ class SessionManager:
 
 
 # Singleton instance
+import threading
+
 _session_manager: SessionManager | None = None
+_session_manager_lock = threading.Lock()
 
 
 def get_session_manager() -> SessionManager:
     """Get singleton session manager."""
     global _session_manager
-    if _session_manager is None:
-        _session_manager = SessionManager()
-    return _session_manager
+    with _session_manager_lock:
+        if _session_manager is None:
+            _session_manager = SessionManager()
+        return _session_manager

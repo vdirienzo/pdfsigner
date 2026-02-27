@@ -300,9 +300,9 @@ class ArchiveTimestampManager:
                     if sid.name == "issuer_and_serial_number":
                         issuer = sid.chosen["issuer"]
                         tsa_name = issuer.human_friendly
-            except Exception:
+            except Exception as e:
                 # TSA name extraction is best-effort
-                pass
+                logger.debug(f"TSA name extraction failed: {e}")
 
             return ArchiveTimestampInfo(
                 timestamp=gen_time,

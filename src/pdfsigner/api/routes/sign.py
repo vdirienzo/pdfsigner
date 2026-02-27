@@ -4,6 +4,8 @@ Sign endpoints for PDF signing operations.
 Provides REST API for asynchronous PDF signing with job tracking.
 """
 
+import asyncio
+import os
 import tempfile
 from pathlib import Path
 
@@ -70,15 +72,10 @@ def get_lta_handler() -> LTAHandler | None:
     Returns:
         LTAHandler if TSA is configured, None otherwise
     """
-    from pdfsigner.config.settings import get_settings
-
-    settings = get_settings()
-
-    if not settings.tsa_url:
-        return None
+    from pdfsigner.core.signer.lta_handler import create_lta_handler_from_settings
 
     try:
-        return LTAHandler()
+        return create_lta_handler_from_settings()
     except Exception as e:
         logger.warning(f"Failed to initialize LTA handler: {e}")
         return None
@@ -169,58 +166,59 @@ async def sign_document(
             detail="Only PDF files are accepted",
         )
 
-    # Read file content
-    try:
-        file_content = await file.read()
-    except Exception as e:
-        logger.error(f"Failed to read uploaded file: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Failed to read uploaded file",
-        ) from e
-
-    # Validate file size
+    # Stream file to temp directory in chunks to avoid loading entire PDF in memory
     max_size_bytes = settings.max_upload_size_mb * 1024 * 1024
-    if len(file_content) > max_size_bytes:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"File size exceeds maximum ({settings.max_upload_size_mb}MB)",
-        )
+    temp_dir = settings.temp_dir
+    temp_dir.mkdir(parents=True, exist_ok=True)
 
-    # Validate PDF content
+    temp_fd, temp_path_str = tempfile.mkstemp(
+        suffix=".pdf",
+        prefix=f"upload_{current_user.username}_",
+        dir=str(temp_dir),
+    )
+    temp_path = Path(temp_path_str)
+
     try:
-        SigningService.validate_pdf_file(file_content, safe_filename_str)
-    except ValueError as e:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail=str(e),
-        ) from e
-
-    # Save to temporary file
-    try:
-        temp_dir = settings.temp_dir
-        temp_dir.mkdir(parents=True, exist_ok=True)
-
-        # Create temp file with PDF extension
-        temp_fd, temp_path_str = tempfile.mkstemp(
-            suffix=".pdf",
-            prefix=f"upload_{current_user.username}_",
-            dir=str(temp_dir),
-        )
-
-        temp_path = Path(temp_path_str)
-
-        # Write content
+        total_size = 0
         with open(temp_fd, "wb") as f:
-            f.write(file_content)
+            while chunk := await file.read(8192):
+                total_size += len(chunk)
+                if total_size > max_size_bytes:
+                    raise HTTPException(
+                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        detail=f"File size exceeds maximum ({settings.max_upload_size_mb}MB)",
+                    )
+                f.write(chunk)
 
-        logger.debug(f"Saved uploaded file to {temp_path}")
+        if total_size == 0:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Uploaded file is empty",
+            )
 
+        logger.debug(f"Saved uploaded file to {temp_path} ({total_size} bytes)")
+
+    except HTTPException:
+        os.unlink(temp_path_str)
+        raise
     except Exception as e:
+        os.unlink(temp_path_str)
         logger.error(f"Failed to save uploaded file: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to save uploaded file",
+        ) from e
+
+    # Validate PDF content from temp file
+    try:
+        file_content = await asyncio.to_thread(temp_path.read_bytes)
+        SigningService.validate_pdf_file(file_content, safe_filename_str)
+        del file_content  # Free memory after validation
+    except ValueError as e:
+        os.unlink(temp_path_str)
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e),
         ) from e
 
     # Create signing request

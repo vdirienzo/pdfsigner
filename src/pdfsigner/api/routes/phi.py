@@ -153,8 +153,10 @@ async def scan_for_phi(
 
         # Count pages
         doc = fitz.open(temp_path)
-        pages_scanned = len(doc)
-        doc.close()
+        try:
+            pages_scanned = len(doc)
+        finally:
+            doc.close()
 
         # Calculate by_type counts
         by_type: dict[str, int] = {}
@@ -223,10 +225,10 @@ async def scan_for_phi(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error scanning PDF for PII: {e}")
+        logger.error(f"PII scan failed: {e}", exc_info=True)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"PII scan failed: {str(e)}",
+            detail="PII scan failed",
         ) from e
 
     finally:

@@ -36,22 +36,18 @@ class LTAHandler:
 
     Configures and manages the services necessary to
     create PAdES-LTV signatures with long-term validity.
+
+    Use create_lta_handler_from_settings() to create from app configuration.
     """
 
-    def __init__(self, tsa_config: TSAConfig | None = None):
+    def __init__(self, tsa_config: TSAConfig):
         """
         Initializes the LTA handler.
 
         Args:
-            tsa_config: TSA configuration (None = from settings)
+            tsa_config: TSA configuration (required).
+                Use create_lta_handler_from_settings() to create from app settings.
         """
-        if tsa_config is None:
-            settings = get_settings()
-            tsa_config = TSAConfig(
-                url=settings.tsa_url,
-                username=settings.tsa_username,
-                password=settings.tsa_password,
-            )
         self.tsa_config = tsa_config
         self._timestamper: HTTPTimeStamper | None = None
 
@@ -197,7 +193,7 @@ def create_lta_handler_from_settings() -> LTAHandler:
     config = TSAConfig(
         url=settings.tsa_url,
         username=settings.tsa_username,
-        password=settings.tsa_password,
+        password=settings.tsa_password.get_secret_value() if settings.tsa_password else None,
     )
 
     handler = LTAHandler(config)

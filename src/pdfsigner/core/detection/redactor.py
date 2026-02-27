@@ -142,66 +142,70 @@ class PDFRedactor:
             except Exception as e:
                 raise PDFCorruptedError(pdf_path.name) from e
 
-            # Group regions by page for efficiency
-            regions_by_page: dict[int, list[RedactionRegion]] = {}
-            for region in regions:
-                if region.page not in regions_by_page:
-                    regions_by_page[region.page] = []
-                regions_by_page[region.page].append(region)
+            try:
+                # Group regions by page for efficiency
+                regions_by_page: dict[int, list[RedactionRegion]] = {}
+                for region in regions:
+                    if region.page not in regions_by_page:
+                        regions_by_page[region.page] = []
+                    regions_by_page[region.page].append(region)
 
-            # Apply redactions page by page
-            redaction_count = 0
-            for page_num, page_regions in regions_by_page.items():
-                try:
-                    # Validate page number
-                    if page_num < 0 or page_num >= len(doc):
-                        error_msg = (
-                            f"Invalid page number {page_num} (document has {len(doc)} pages)"
-                        )
-                        errors.append(error_msg)
-                        logger.warning(error_msg)
-                        continue
-
-                    page = doc[page_num]
-
-                    # Add redaction annotations for each region
-                    for region in page_regions:
-                        try:
-                            # Create rectangle (PyMuPDF uses bottom-left origin like PDF spec)
-                            rect = fitz.Rect(region.x0, region.y0, region.x1, region.y1)
-
-                            # Add redaction annotation
-                            annot = page.add_redact_annot(
-                                rect,
-                                text=region.replacement_text or "",
-                                fill=region.fill_color,
-                                text_color=self.default_text_color,
+                # Apply redactions page by page
+                redaction_count = 0
+                for page_num, page_regions in regions_by_page.items():
+                    try:
+                        # Validate page number
+                        if page_num < 0 or page_num >= len(doc):
+                            error_msg = (
+                                f"Invalid page number {page_num} (document has {len(doc)} pages)"
                             )
+                            errors.append(error_msg)
+                            logger.warning(error_msg)
+                            continue
 
-                            if annot:
-                                redaction_count += 1
-                            else:
-                                error_msg = f"Failed to add redaction annotation on page {page_num}"
+                        page = doc[page_num]
+
+                        # Add redaction annotations for each region
+                        for region in page_regions:
+                            try:
+                                # Create rectangle (PyMuPDF uses bottom-left origin)
+                                rect = fitz.Rect(region.x0, region.y0, region.x1, region.y1)
+
+                                # Add redaction annotation
+                                annot = page.add_redact_annot(
+                                    rect,
+                                    text=region.replacement_text or "",
+                                    fill=region.fill_color,
+                                    text_color=self.default_text_color,
+                                )
+
+                                if annot:
+                                    redaction_count += 1
+                                else:
+                                    error_msg = (
+                                        f"Failed to add redaction annotation on page {page_num}"
+                                    )
+                                    errors.append(error_msg)
+                                    logger.warning(error_msg)
+
+                            except Exception as e:
+                                error_msg = f"Error adding redaction on page {page_num}: {e}"
                                 errors.append(error_msg)
                                 logger.warning(error_msg)
 
-                        except Exception as e:
-                            error_msg = f"Error adding redaction on page {page_num}: {e}"
-                            errors.append(error_msg)
-                            logger.warning(error_msg)
+                        # Apply all redactions on this page (removes the actual text)
+                        page.apply_redactions()
+                        pages_affected.add(page_num)
 
-                    # Apply all redactions on this page (this removes the actual text)
-                    page.apply_redactions()
-                    pages_affected.add(page_num)
+                    except Exception as e:
+                        error_msg = f"Error processing page {page_num}: {e}"
+                        errors.append(error_msg)
+                        logger.error(error_msg)
 
-                except Exception as e:
-                    error_msg = f"Error processing page {page_num}: {e}"
-                    errors.append(error_msg)
-                    logger.error(error_msg)
-
-            # Save redacted document
-            doc.save(output_path, garbage=4, deflate=True, clean=True)
-            doc.close()
+                # Save redacted document
+                doc.save(output_path, garbage=4, deflate=True, clean=True)
+            finally:
+                doc.close()
 
             # Verify text was actually removed
             self._verify_redaction(output_path, regions)
@@ -377,21 +381,23 @@ class PDFRedactor:
         except Exception as e:
             raise PDFCorruptedError(pdf_path.name) from e
 
-        if page_num < 0 or page_num >= len(doc):
-            raise ValueError(f"Invalid page number {page_num} (document has {len(doc)} pages)")
+        try:
+            if page_num < 0 or page_num >= len(doc):
+                raise ValueError(f"Invalid page number {page_num} (document has {len(doc)} pages)")
 
-        page = doc[page_num]
+            page = doc[page_num]
 
-        # Render page to image
-        zoom = dpi / 72  # 72 DPI is PDF default
-        mat = fitz.Matrix(zoom, zoom)
-        pix = page.get_pixmap(matrix=mat)
+            # Render page to image
+            zoom = dpi / 72  # 72 DPI is PDF default
+            mat = fitz.Matrix(zoom, zoom)
+            pix = page.get_pixmap(matrix=mat)
 
-        # Note: Drawing semi-transparent overlays on the preview would require
-        # PIL/Pillow. For now, return the unmodified page render.
+            # Note: Drawing semi-transparent overlays on the preview would require
+            # PIL/Pillow. For now, return the unmodified page render.
 
-        png_data = pix.tobytes("png")
-        doc.close()
+            png_data = pix.tobytes("png")
+        finally:
+            doc.close()
 
         return png_data
 
@@ -408,27 +414,27 @@ class PDFRedactor:
         """
         try:
             doc = fitz.open(pdf_path)
+            try:
+                for region in regions[:5]:  # Sample first 5 regions
+                    if region.page < len(doc):
+                        page = doc[region.page]
+                        rect = fitz.Rect(region.x0, region.y0, region.x1, region.y1)
 
-            for region in regions[:5]:  # Sample first 5 regions
-                if region.page < len(doc):
-                    page = doc[region.page]
-                    rect = fitz.Rect(region.x0, region.y0, region.x1, region.y1)
+                        # Extract text from redacted region
+                        text = page.get_text("text", clip=rect).strip()
 
-                    # Extract text from redacted region
-                    text = page.get_text("text", clip=rect).strip()
+                        # Check if replacement text is present (expected)
+                        if text and region.replacement_text and region.replacement_text in text:
+                            continue  # OK - replacement text is expected
 
-                    # Check if replacement text is present (expected)
-                    if text and region.replacement_text and region.replacement_text in text:
-                        continue  # OK - replacement text is expected
-
-                    # Check for unexpected text (potential redaction failure)
-                    if text and text != (region.replacement_text or ""):
-                        logger.warning(
-                            f"Potential redaction verification failure on page {region.page}: "
-                            f"found text '{text[:50]}' in redacted region"
-                        )
-
-            doc.close()
+                        # Check for unexpected text (potential redaction failure)
+                        if text and text != (region.replacement_text or ""):
+                            logger.warning(
+                                f"Potential redaction verification failure on page "
+                                f"{region.page}: found text '{text[:50]}' in redacted region"
+                            )
+            finally:
+                doc.close()
 
         except Exception as e:
             logger.warning(f"Could not verify redaction: {e}")

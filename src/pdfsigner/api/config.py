@@ -277,6 +277,27 @@ class APISettings(BaseSettings):
         # This allows the settings to be loaded even if files don't exist yet
         return v
 
+    @field_validator("cors_origins")
+    @classmethod
+    def validate_cors_origins(cls, v: list[str]) -> list[str]:
+        """
+        Validate CORS origins configuration.
+
+        Security: Using wildcard "*" with credentials is insecure per the CORS spec.
+        Browsers will reject the response if Access-Control-Allow-Origin is "*"
+        and Access-Control-Allow-Credentials is true.
+        """
+        if "*" in v:
+            warnings.warn(
+                "CORS origins contains wildcard '*' which is insecure when "
+                "cors_allow_credentials is enabled. "
+                "Consider explicitly listing allowed origins: "
+                "['http://localhost:3000', 'http://localhost:8000']",
+                UserWarning,
+                stacklevel=2,
+            )
+        return v
+
     @field_validator("cors_allow_methods")
     @classmethod
     def validate_cors_methods(cls, v: list[str]) -> list[str]:

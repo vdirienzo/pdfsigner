@@ -7,13 +7,12 @@ NIST: RA-5 - Vulnerability scanning and tracking
 
 import json
 import sqlite3
-from collections.abc import Generator
-from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 
 from loguru import logger
 
+from pdfsigner.core.base_repository import BaseSQLiteRepository
 from pdfsigner.core.security.vuln_types import (
     Vulnerability,
     VulnSeverity,
@@ -22,7 +21,7 @@ from pdfsigner.core.security.vuln_types import (
 )
 
 
-class VulnRepository:
+class VulnRepository(BaseSQLiteRepository):
     """
     SQLite-based vulnerability repository.
 
@@ -31,33 +30,7 @@ class VulnRepository:
     """
 
     def __init__(self, db_path: Path | None = None):
-        """
-        Initialize repository.
-
-        Args:
-            db_path: Path to SQLite database. Default: ~/.config/pdfsigner/vulnerabilities.db
-        """
-        if db_path is None:
-            config_dir = Path.home() / ".config" / "pdfsigner"
-            config_dir.mkdir(parents=True, exist_ok=True)
-            db_path = config_dir / "vulnerabilities.db"
-
-        self.db_path = db_path
-        self._init_schema()
-
-    @contextmanager
-    def _get_connection(self) -> Generator[sqlite3.Connection, None, None]:
-        """Get database connection with automatic cleanup."""
-        conn = sqlite3.connect(self.db_path)
-        conn.row_factory = sqlite3.Row
-        try:
-            yield conn
-            conn.commit()
-        except Exception:
-            conn.rollback()
-            raise
-        finally:
-            conn.close()
+        super().__init__(db_path=db_path, default_db_name="vulnerabilities.db")
 
     def _init_schema(self) -> None:
         """Initialize database schema."""

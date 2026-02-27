@@ -54,19 +54,10 @@ class TestLTAHandlerInit:
         assert handler.tsa_config == config
         assert handler._timestamper is None
 
-    def test_init_from_settings(self):
-        """Test initialization from settings when tsa_config is None."""
-        # Need to patch get_settings at the module where it's imported
-        mock_settings = MagicMock()
-        mock_settings.tsa_url = "https://test.tsa.example.com"
-        mock_settings.tsa_username = None
-        mock_settings.tsa_password = None
-
-        with patch(
-            "pdfsigner.core.signer.lta_handler.get_settings",
-            return_value=mock_settings,
-        ):
-            handler = LTAHandler(tsa_config=None)
+    def test_init_requires_config(self):
+        """Test that tsa_config is required (no settings fallback)."""
+        config = TSAConfig(url="https://test.tsa.example.com")
+        handler = LTAHandler(tsa_config=config)
 
         assert handler.tsa_config is not None
         assert handler.tsa_config.url == "https://test.tsa.example.com"
@@ -299,7 +290,9 @@ class TestCreateLTAHandlerFromSettings:
         mock_settings = MagicMock()
         mock_settings.tsa_url = "https://test.tsa.example.com"
         mock_settings.tsa_username = "testuser"
-        mock_settings.tsa_password = "testpass"
+        mock_tsa_password = MagicMock()
+        mock_tsa_password.get_secret_value.return_value = "testpass"
+        mock_settings.tsa_password = mock_tsa_password
 
         with patch(
             "pdfsigner.core.signer.lta_handler.get_settings",

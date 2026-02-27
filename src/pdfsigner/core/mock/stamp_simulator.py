@@ -295,50 +295,52 @@ def add_stamp_to_pdf(
         return
 
     doc = fitz.open(input_path)
-    timestamp = datetime.now(UTC)
+    try:
+        timestamp = datetime.now(UTC)
 
-    # Calculate document hash for QR
-    doc_hash = _calculate_demo_hash(input_path)
+        # Calculate document hash for QR
+        doc_hash = _calculate_demo_hash(input_path)
 
-    # Create stamp image at 150 DPI
-    stamp_image_bytes = _create_demo_stamp_image(
-        document_hash=doc_hash,
-        timestamp=timestamp,
-        qr_enabled=qr_enabled,
-        qr_position="left",  # QR on left side
-    )
+        # Create stamp image at 150 DPI
+        stamp_image_bytes = _create_demo_stamp_image(
+            document_hash=doc_hash,
+            timestamp=timestamp,
+            qr_enabled=qr_enabled,
+            qr_position="left",  # QR on left side
+        )
 
-    # Determine stamp dimensions in PDF points (72 DPI)
-    # Our image is 150 DPI, so we scale down for PDF placement
-    if qr_enabled:
-        # 460x170 px at 150 DPI = ~3.07" x 1.13" = 221 x 82 points
-        stamp_width = 221
-        stamp_height = 82
-    else:
-        # 380x130 px at 150 DPI = ~2.53" x 0.87" = 182 x 63 points
-        stamp_width = 182
-        stamp_height = 63
+        # Determine stamp dimensions in PDF points (72 DPI)
+        # Our image is 150 DPI, so we scale down for PDF placement
+        if qr_enabled:
+            # 460x170 px at 150 DPI = ~3.07" x 1.13" = 221 x 82 points
+            stamp_width = 221
+            stamp_height = 82
+        else:
+            # 380x130 px at 150 DPI = ~2.53" x 0.87" = 182 x 63 points
+            stamp_width = 182
+            stamp_height = 63
 
-    pages_to_stamp = parse_page_spec(page_spec, len(doc))
+        pages_to_stamp = parse_page_spec(page_spec, len(doc))
 
-    for page_num in pages_to_stamp:
-        if page_num < len(doc):
-            page = doc[page_num]
+        for page_num in pages_to_stamp:
+            if page_num < len(doc):
+                page = doc[page_num]
 
-            # Get stamp rectangle based on position preference
-            rect = get_stamp_rect(
-                page.rect.width,
-                page.rect.height,
-                position,
-                stamp_width=stamp_width,
-                stamp_height=stamp_height,
-            )
+                # Get stamp rectangle based on position preference
+                rect = get_stamp_rect(
+                    page.rect.width,
+                    page.rect.height,
+                    position,
+                    stamp_width=stamp_width,
+                    stamp_height=stamp_height,
+                )
 
-            # Insert the stamp image
-            page.insert_image(rect, stream=stamp_image_bytes)
+                # Insert the stamp image
+                page.insert_image(rect, stream=stamp_image_bytes)
 
-    doc.save(output_path)
-    doc.close()
+        doc.save(output_path)
+    finally:
+        doc.close()
 
     qr_info = " with QR" if qr_enabled else ""
     logger.info(f"[DRY-RUN] Added stamp{qr_info} at '{position}' to {len(pages_to_stamp)} page(s)")

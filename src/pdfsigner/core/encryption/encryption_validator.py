@@ -52,9 +52,13 @@ class EncryptionValidator:
         """
         try:
             doc = fitz.open(pdf_path)
-            is_enc = doc.is_encrypted
-            doc.close()
+            try:
+                is_enc = doc.is_encrypted
+            finally:
+                doc.close()
             return is_enc
+        except PDFCorruptedError:
+            raise
         except Exception as e:
             logger.error(f"Cannot check encryption status for {pdf_path}: {e}")
             raise PDFCorruptedError(pdf_path.name) from e
@@ -71,29 +75,30 @@ class EncryptionValidator:
         """
         try:
             doc = fitz.open(pdf_path)
+            try:
+                if not doc.is_encrypted:
+                    return EncryptionInfo(is_encrypted=False)
 
-            if not doc.is_encrypted:
+                permissions = doc.permissions if hasattr(doc, "permissions") else -1
+
+                info = EncryptionInfo(
+                    is_encrypted=True,
+                    encryption_method=EncryptionMethod.PASSWORD,
+                    encryption_strength=self._detect_strength(doc),
+                    has_user_password=doc.needs_pass,
+                    has_owner_password=True,
+                    permissions_value=permissions,
+                    can_print=bool(permissions & fitz.PDF_PERM_PRINT) if permissions > 0 else True,
+                    can_copy=bool(permissions & fitz.PDF_PERM_COPY) if permissions > 0 else True,
+                    can_modify=bool(permissions & fitz.PDF_PERM_MODIFY)
+                    if permissions > 0
+                    else True,
+                    can_annotate=bool(permissions & fitz.PDF_PERM_ANNOTATE)
+                    if permissions > 0
+                    else True,
+                )
+            finally:
                 doc.close()
-                return EncryptionInfo(is_encrypted=False)
-
-            permissions = doc.permissions if hasattr(doc, "permissions") else -1
-
-            info = EncryptionInfo(
-                is_encrypted=True,
-                encryption_method=EncryptionMethod.PASSWORD,
-                encryption_strength=self._detect_strength(doc),
-                has_user_password=doc.needs_pass,
-                has_owner_password=True,
-                permissions_value=permissions,
-                can_print=bool(permissions & fitz.PDF_PERM_PRINT) if permissions > 0 else True,
-                can_copy=bool(permissions & fitz.PDF_PERM_COPY) if permissions > 0 else True,
-                can_modify=bool(permissions & fitz.PDF_PERM_MODIFY) if permissions > 0 else True,
-                can_annotate=bool(permissions & fitz.PDF_PERM_ANNOTATE)
-                if permissions > 0
-                else True,
-            )
-
-            doc.close()
             return info
 
         except PDFCorruptedError:
@@ -141,17 +146,16 @@ class EncryptionValidator:
         """
         try:
             doc = fitz.open(pdf_path)
+            try:
+                if doc.is_encrypted and password:
+                    auth_result = doc.authenticate(password)
+                    if auth_result == 0:
+                        return False
 
-            if doc.is_encrypted and password:
-                auth_result = doc.authenticate(password)
-                if auth_result == 0:
-                    doc.close()
-                    return False
-
-            permissions = doc.permissions if hasattr(doc, "permissions") else -1
-            can_mod = bool(permissions & fitz.PDF_PERM_MODIFY) if permissions > 0 else True
-
-            doc.close()
+                permissions = doc.permissions if hasattr(doc, "permissions") else -1
+                can_mod = bool(permissions & fitz.PDF_PERM_MODIFY) if permissions > 0 else True
+            finally:
+                doc.close()
             return can_mod
 
         except Exception as e:
@@ -209,8 +213,8 @@ class EncryptionValidator:
                     return EncryptionStrength.AES_256
                 elif "1.6" in pdf_version or "1.5" in pdf_version:
                     return EncryptionStrength.AES_128
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug(f"Could not detect encryption strength from PDF metadata: {e}")
 
         # Default to AES-256 for modern encrypted PDFs
         return EncryptionStrength.AES_256

@@ -192,7 +192,7 @@ class TestBatchManager:
 
         assert manager.nss_handler == mock_nss_handler
         assert manager.lta_handler is None
-        assert manager._cancelled is False
+        assert not manager._cancelled.is_set()
         assert manager._signer is None
 
     def test_initialization_with_lta(self, mock_nss_handler, mock_lta_handler):
@@ -207,16 +207,16 @@ class TestBatchManager:
 
         manager.cancel()
 
-        assert manager._cancelled is True
+        assert manager._cancelled.is_set()
 
     def test_reset(self, mock_nss_handler):
         """Test reset after cancellation."""
         manager = BatchManager(mock_nss_handler)
-        manager._cancelled = True
+        manager._cancelled.set()
 
         manager.reset()
 
-        assert manager._cancelled is False
+        assert not manager._cancelled.is_set()
 
     def test_sign_batch_empty_list(self, mock_nss_handler):
         """Test signing empty batch."""

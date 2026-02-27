@@ -7,7 +7,9 @@ Manages the embedding of validation information (OCSP responses and CRLs)
 into signed PDFs to create PAdES-LTV signatures with long-term validation support.
 """
 
+import hashlib
 import logging
+import time
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -57,6 +59,9 @@ class DSSManager:
     en PDFs firmados para permitir la validación a largo plazo.
     """
 
+    # Cache TTL in seconds (5 minutes) - enough for a batch operation
+    _CACHE_TTL = 300
+
     def __init__(
         self,
         ocsp_timeout: int = 10,
@@ -74,6 +79,9 @@ class DSSManager:
         self.ocsp_checker = OCSPChecker(timeout=ocsp_timeout)
         self.crl_checker = CRLChecker(timeout=crl_timeout)
         self.prefer_ocsp = prefer_ocsp
+        # In-memory caches for batch operations: {key: (response_bytes, timestamp)}
+        self._ocsp_cache: dict[str, tuple[bytes, float]] = {}
+        self._crl_cache: dict[str, tuple[bytes, float]] = {}
 
     def collect_validation_info(
         self,
@@ -134,7 +142,10 @@ class DSSManager:
         self, cert: x509.Certificate, issuer_cert: x509.Certificate
     ) -> bytes | None:
         """
-        Obtiene respuesta OCSP en formato DER.
+        Obtiene respuesta OCSP en formato DER, with in-memory caching.
+
+        Uses a TTL cache keyed by (cert_serial_hash, responder_url) to avoid
+        repeated network requests during batch signing operations.
 
         Args:
             cert: Certificado a verificar
@@ -149,6 +160,16 @@ class DSSManager:
             if not responder_url:
                 logger.debug("No se encontró URL de responder OCSP en el certificado")
                 return None
+
+            # Check cache before making network request
+            cache_key = self._ocsp_cache_key(cert, responder_url)
+            cached = self._ocsp_cache.get(cache_key)
+            if cached is not None:
+                response_bytes, cached_at = cached
+                if (time.monotonic() - cached_at) < self._CACHE_TTL:
+                    logger.debug(f"OCSP cache hit for {cache_key[:16]}...")
+                    return response_bytes
+                del self._ocsp_cache[cache_key]
 
             # Construir petición OCSP
             builder = ocsp.OCSPRequestBuilder()
@@ -170,6 +191,7 @@ class DSSManager:
             # Validar respuesta
             ocsp_response = ocsp.load_der_ocsp_response(response.content)
             if ocsp_response.response_status == ocsp.OCSPResponseStatus.SUCCESSFUL:
+                self._ocsp_cache[cache_key] = (response.content, time.monotonic())
                 return response.content
 
             logger.warning(f"Respuesta OCSP no exitosa: {ocsp_response.response_status.name}")
@@ -181,7 +203,10 @@ class DSSManager:
 
     def _get_crl_bytes(self, cert: x509.Certificate) -> bytes | None:
         """
-        Obtiene CRL en formato DER.
+        Obtiene CRL en formato DER, with in-memory caching.
+
+        Uses a TTL cache keyed by CRL URL to avoid repeated downloads
+        during batch signing operations.
 
         Args:
             cert: Certificado del cual obtener la CRL
@@ -199,12 +224,22 @@ class DSSManager:
             # Intentar descargar de cada URL
             for crl_url in crl_urls:
                 try:
+                    # Check cache before downloading
+                    cached = self._crl_cache.get(crl_url)
+                    if cached is not None:
+                        crl_bytes, cached_at = cached
+                        if (time.monotonic() - cached_at) < self._CACHE_TTL:
+                            logger.debug(f"CRL cache hit for {crl_url}")
+                            return crl_bytes
+                        del self._crl_cache[crl_url]
+
                     logger.debug(f"Descargando CRL desde {crl_url}")
                     response = requests.get(crl_url, timeout=self.crl_checker.timeout)
                     response.raise_for_status()
 
                     # Validar que es una CRL válida
                     x509.load_der_x509_crl(response.content)
+                    self._crl_cache[crl_url] = (response.content, time.monotonic())
                     return response.content
 
                 except Exception as e:
@@ -217,6 +252,12 @@ class DSSManager:
         except Exception as e:
             logger.warning(f"Error obteniendo CRL: {e}")
             return None
+
+    @staticmethod
+    def _ocsp_cache_key(cert: x509.Certificate, responder_url: str) -> str:
+        """Generate a cache key for OCSP responses from cert serial + responder URL."""
+        serial = str(cert.serial_number).encode()
+        return hashlib.sha256(serial + responder_url.encode()).hexdigest()
 
     def _get_ocsp_responder_url(self, cert: x509.Certificate) -> str | None:
         """
