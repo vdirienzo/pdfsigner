@@ -78,7 +78,7 @@ async def test_collect_evidence_success(client, auditor_headers):
     }
 
     # Act - Mock evidence collector
-    with patch("pdfsigner.api.routes.evidence.get_evidence_collector") as mock_collector:
+    with patch("pdfsigner.api.services.evidence_service.get_evidence_collector") as mock_collector:
         mock_instance = Mock()
         mock_collection = Mock()
         mock_collection.evidence_items = []
@@ -214,8 +214,8 @@ async def test_generate_soc2_report_success(client, auditor_headers):
 
     # Act - Mock collector and report generator
     with (
-        patch("pdfsigner.api.routes.evidence.get_evidence_collector") as mock_collector,
-        patch("pdfsigner.api.routes.evidence.generate_report") as mock_report_gen,
+        patch("pdfsigner.api.services.evidence_service.get_evidence_collector") as mock_collector,
+        patch("pdfsigner.api.services.evidence_service.generate_report") as mock_report_gen,
     ):
         # Mock evidence collection
         mock_instance = Mock()
@@ -279,8 +279,8 @@ async def test_export_soc2_report_success(client, auditor_headers):
 
     # Act - Mock collector and report generator
     with (
-        patch("pdfsigner.api.routes.evidence.get_evidence_collector") as mock_collector,
-        patch("pdfsigner.api.routes.evidence.generate_report") as mock_report_gen,
+        patch("pdfsigner.api.services.evidence_service.get_evidence_collector") as mock_collector,
+        patch("pdfsigner.api.services.evidence_service.generate_report") as mock_report_gen,
     ):
         # Mock evidence collection
         mock_instance = Mock()

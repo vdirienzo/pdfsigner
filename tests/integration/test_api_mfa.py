@@ -174,7 +174,7 @@ async def test_mfa_enroll_success(client, auth_headers, mfa_manager):
 async def test_mfa_enroll_already_enrolled_fails(client, auth_headers, mfa_manager):
     """Test enrolling when already enrolled returns 400 error."""
     with patch("pdfsigner.core.auth.mfa.mfa_manager.get_mfa_manager", return_value=mfa_manager):
-        with patch("pdfsigner.api.routes.mfa.get_mfa_manager", return_value=mfa_manager):
+        with patch("pdfsigner.api.services.mfa_service.get_mfa_manager", return_value=mfa_manager):
             # First enrollment
             response1 = await client.post("/mfa/enroll", headers=auth_headers, json={})
             assert response1.status_code == status.HTTP_200_OK
@@ -197,7 +197,7 @@ async def test_mfa_enroll_already_enrolled_fails(client, auth_headers, mfa_manag
 async def test_mfa_enroll_unauthorized(client, mfa_manager):
     """Test MFA enrollment without authentication fails."""
     with patch("pdfsigner.core.auth.mfa.mfa_manager.get_mfa_manager", return_value=mfa_manager):
-        with patch("pdfsigner.api.routes.mfa.get_mfa_manager", return_value=mfa_manager):
+        with patch("pdfsigner.api.services.mfa_service.get_mfa_manager", return_value=mfa_manager):
             # Add X-API-Key to bypass CSRF, but no auth token
             response = await client.post(
                 "/mfa/enroll", json={}, headers={"X-API-Key": "test-bypass-csrf"}
@@ -473,7 +473,7 @@ async def test_mfa_status_not_enrolled(client, auth_headers, mfa_manager):
 async def test_mfa_status_enrolled_active(client, auth_headers, mfa_manager):
     """Test MFA status for enrolled user shows enabled and timestamps."""
     with patch("pdfsigner.core.auth.mfa.mfa_manager.get_mfa_manager", return_value=mfa_manager):
-        with patch("pdfsigner.api.routes.mfa.get_mfa_manager", return_value=mfa_manager):
+        with patch("pdfsigner.api.services.mfa_service.get_mfa_manager", return_value=mfa_manager):
             # Enroll and activate
             enroll_response = await client.post("/mfa/enroll", headers=auth_headers, json={})
             data = enroll_response.json()
@@ -510,7 +510,7 @@ async def test_mfa_status_unauthorized(client):
 async def test_mfa_disable_with_correct_password(client, auth_headers, mfa_manager):
     """Test disabling MFA with correct password succeeds."""
     with patch("pdfsigner.core.auth.mfa.mfa_manager.get_mfa_manager", return_value=mfa_manager):
-        with patch("pdfsigner.api.routes.mfa.get_mfa_manager", return_value=mfa_manager):
+        with patch("pdfsigner.api.services.mfa_service.get_mfa_manager", return_value=mfa_manager):
             # Enroll and activate
             enroll_response = await client.post("/mfa/enroll", headers=auth_headers, json={})
             data = enroll_response.json()
@@ -560,7 +560,7 @@ async def test_mfa_disable_without_password_fails(client, auth_headers, mfa_mana
 async def test_mfa_disable_with_wrong_password_fails(client, auth_headers, mfa_manager):
     """Test disabling MFA with incorrect password returns 401."""
     with patch("pdfsigner.core.auth.mfa.mfa_manager.get_mfa_manager", return_value=mfa_manager):
-        with patch("pdfsigner.api.routes.mfa.get_mfa_manager", return_value=mfa_manager):
+        with patch("pdfsigner.api.services.mfa_service.get_mfa_manager", return_value=mfa_manager):
             # Enroll and activate
             enroll_response = await client.post("/mfa/enroll", headers=auth_headers, json={})
             data = enroll_response.json()
@@ -593,7 +593,7 @@ async def test_mfa_disable_with_wrong_password_fails(client, auth_headers, mfa_m
 async def test_mfa_disable_when_not_enabled_fails(client, auth_headers, mfa_manager):
     """Test disabling MFA when not enabled returns 400."""
     with patch("pdfsigner.core.auth.mfa.mfa_manager.get_mfa_manager", return_value=mfa_manager):
-        with patch("pdfsigner.api.routes.mfa.get_mfa_manager", return_value=mfa_manager):
+        with patch("pdfsigner.api.services.mfa_service.get_mfa_manager", return_value=mfa_manager):
             with patch("pdfsigner.core.users.user_repository.UserRepository") as mock_repo_class:
                 mock_repo = mock_repo_class.return_value
                 mock_repo.get_password_hash.return_value = "$argon2id$v=19$m=65536,t=3,p=4$test"

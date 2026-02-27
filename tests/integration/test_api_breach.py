@@ -136,7 +136,7 @@ async def test_report_breach_success(client, admin_headers):
     }
 
     # Act - Mock breach manager
-    with patch("pdfsigner.api.routes.breach.get_breach_manager") as mock_manager:
+    with patch("pdfsigner.api.services.breach_service.get_breach_manager") as mock_manager:
         mock_incident = Mock()
         mock_incident.id = "breach-001"
         mock_incident.breach_type = BreachType.MASS_EXPORT
@@ -197,7 +197,7 @@ async def test_report_breach_invalid_enum_values(client, admin_headers):
     }
 
     # Act - Mock manager to raise ValueError
-    with patch("pdfsigner.api.routes.breach.get_breach_manager") as mock_manager:
+    with patch("pdfsigner.api.services.breach_service.get_breach_manager") as mock_manager:
         mock_manager.return_value.report_breach.side_effect = ValueError("Invalid breach type")
 
         response = await client.post(
@@ -221,7 +221,7 @@ async def test_report_breach_requires_admin_permission(client, user_headers):
     }
 
     # Act - Mock breach manager since permissions are bypassed in non-healthcare mode
-    with patch("pdfsigner.api.routes.breach.get_breach_manager") as mock_manager:
+    with patch("pdfsigner.api.services.breach_service.get_breach_manager") as mock_manager:
         mock_incident = Mock()
         mock_incident.id = "breach-001"
         mock_incident.breach_type = BreachType.FAILED_AUTH
@@ -254,7 +254,7 @@ async def test_report_breach_requires_admin_permission(client, user_headers):
 async def test_list_breaches_success(client, admin_headers):
     """Test listing all breach incidents."""
     # Act - Mock breach manager
-    with patch("pdfsigner.api.routes.breach.get_breach_manager") as mock_manager:
+    with patch("pdfsigner.api.services.breach_service.get_breach_manager") as mock_manager:
         mock_incident1 = Mock()
         mock_incident1.id = "breach-001"
         mock_incident1.breach_type = BreachType.MASS_EXPORT
@@ -304,7 +304,7 @@ async def test_list_breaches_success(client, admin_headers):
 async def test_list_breaches_filter_by_status(client, auditor_headers):
     """Test filtering breaches by status."""
     # Act - Mock breach manager
-    with patch("pdfsigner.api.routes.breach.get_breach_manager") as mock_manager:
+    with patch("pdfsigner.api.services.breach_service.get_breach_manager") as mock_manager:
         mock_incident = Mock()
         mock_incident.id = "breach-001"
         mock_incident.breach_type = BreachType.MASS_EXPORT
@@ -339,7 +339,7 @@ async def test_list_breaches_filter_by_status(client, auditor_headers):
 async def test_list_breaches_filter_by_severity(client, admin_headers):
     """Test filtering breaches by severity level."""
     # Act - Mock breach manager
-    with patch("pdfsigner.api.routes.breach.get_breach_manager") as mock_manager:
+    with patch("pdfsigner.api.services.breach_service.get_breach_manager") as mock_manager:
         mock_incident = Mock()
         mock_incident.id = "breach-001"
         mock_incident.breach_type = BreachType.MASS_EXPORT
@@ -373,7 +373,7 @@ async def test_list_breaches_filter_by_severity(client, admin_headers):
 async def test_list_breaches_pagination(client, admin_headers):
     """Test breach list pagination."""
     # Act - Mock breach manager
-    with patch("pdfsigner.api.routes.breach.get_breach_manager") as mock_manager:
+    with patch("pdfsigner.api.services.breach_service.get_breach_manager") as mock_manager:
         mock_manager.return_value.list_incidents.return_value = []
         mock_manager.return_value.repository.count_incidents.return_value = 50
 
@@ -392,7 +392,7 @@ async def test_list_breaches_pagination(client, admin_headers):
 async def test_list_breaches_requires_auditor_permission(client, user_headers):
     """Test listing breaches requires auditor or admin permission (bypassed in non-healthcare mode)."""
     # Act - Mock breach manager since permissions are bypassed
-    with patch("pdfsigner.api.routes.breach.get_breach_manager") as mock_manager:
+    with patch("pdfsigner.api.services.breach_service.get_breach_manager") as mock_manager:
         mock_manager.return_value.list_incidents.return_value = []
         mock_manager.return_value.repository.count_incidents.return_value = 0
 
@@ -410,7 +410,7 @@ async def test_list_breaches_requires_auditor_permission(client, user_headers):
 async def test_get_breach_success(client, admin_headers):
     """Test getting specific breach incident details."""
     # Act - Mock breach manager
-    with patch("pdfsigner.api.routes.breach.get_breach_manager") as mock_manager:
+    with patch("pdfsigner.api.services.breach_service.get_breach_manager") as mock_manager:
         mock_incident = Mock()
         mock_incident.id = "breach-001"
         mock_incident.breach_type = BreachType.MASS_EXPORT
@@ -449,7 +449,7 @@ async def test_get_breach_success(client, admin_headers):
 async def test_get_breach_not_found(client, admin_headers):
     """Test getting non-existent breach returns 404."""
     # Act - Mock breach manager to return None
-    with patch("pdfsigner.api.routes.breach.get_breach_manager") as mock_manager:
+    with patch("pdfsigner.api.services.breach_service.get_breach_manager") as mock_manager:
         mock_manager.return_value.get_incident.return_value = None
 
         response = await client.get("/api/v1/breach/nonexistent-breach", headers=admin_headers)
@@ -469,7 +469,7 @@ async def test_update_breach_status_success(client, admin_headers):
     status_update = {"status": "investigating", "note": "Investigation started"}
 
     # Act - Mock breach manager
-    with patch("pdfsigner.api.routes.breach.get_breach_manager") as mock_manager:
+    with patch("pdfsigner.api.services.breach_service.get_breach_manager") as mock_manager:
         mock_incident = Mock()
         mock_incident.id = "breach-001"
         mock_incident.breach_type = BreachType.MASS_EXPORT
@@ -516,7 +516,7 @@ async def test_update_breach_status_invalid_transition(client, admin_headers):
     status_update = {"status": "invalid_status"}
 
     # Act - Mock manager to raise error
-    with patch("pdfsigner.api.routes.breach.get_breach_manager") as mock_manager:
+    with patch("pdfsigner.api.services.breach_service.get_breach_manager") as mock_manager:
         from pdfsigner.core.breach.breach_manager import BreachManagerError
 
         mock_manager.return_value.update_breach_status.side_effect = BreachManagerError(
@@ -537,7 +537,7 @@ async def test_update_breach_status_not_found(client, admin_headers):
     status_update = {"status": "investigating"}
 
     # Act - Mock manager to raise not found error
-    with patch("pdfsigner.api.routes.breach.get_breach_manager") as mock_manager:
+    with patch("pdfsigner.api.services.breach_service.get_breach_manager") as mock_manager:
         from pdfsigner.core.breach.breach_manager import BreachManagerError
 
         mock_manager.return_value.update_breach_status.side_effect = BreachManagerError(
@@ -558,7 +558,7 @@ async def test_update_breach_status_requires_admin_permission(client, auditor_he
     status_update = {"status": "investigating"}
 
     # Act - Mock breach manager since permissions are bypassed
-    with patch("pdfsigner.api.routes.breach.get_breach_manager") as mock_manager:
+    with patch("pdfsigner.api.services.breach_service.get_breach_manager") as mock_manager:
         mock_incident = Mock()
         mock_incident.id = "breach-001"
         mock_incident.breach_type = BreachType.MASS_EXPORT
@@ -599,8 +599,10 @@ async def test_send_notifications_success(client, admin_headers):
 
     # Act - Mock breach manager and notification service
     with (
-        patch("pdfsigner.api.routes.breach.get_breach_manager") as mock_manager,
-        patch("pdfsigner.api.routes.breach.NotificationService") as mock_notification_class,
+        patch("pdfsigner.api.services.breach_service.get_breach_manager") as mock_manager,
+        patch(
+            "pdfsigner.api.services.breach_service.NotificationService"
+        ) as mock_notification_class,
     ):
         mock_incident = Mock()
         mock_incident.id = "breach-001"
@@ -643,8 +645,10 @@ async def test_send_notifications_auto_status_update(client, admin_headers):
 
     # Act - Mock all successful
     with (
-        patch("pdfsigner.api.routes.breach.get_breach_manager") as mock_manager,
-        patch("pdfsigner.api.routes.breach.NotificationService") as mock_notification_class,
+        patch("pdfsigner.api.services.breach_service.get_breach_manager") as mock_manager,
+        patch(
+            "pdfsigner.api.services.breach_service.NotificationService"
+        ) as mock_notification_class,
     ):
         mock_incident = Mock()
         mock_incident.id = "breach-001"
@@ -681,8 +685,10 @@ async def test_send_notifications_invalid_channel(client, admin_headers):
 
     # Act - Mock to raise ValueError for invalid channel
     with (
-        patch("pdfsigner.api.routes.breach.get_breach_manager") as mock_manager,
-        patch("pdfsigner.api.routes.breach.NotificationService") as mock_notification_class,
+        patch("pdfsigner.api.services.breach_service.get_breach_manager") as mock_manager,
+        patch(
+            "pdfsigner.api.services.breach_service.NotificationService"
+        ) as mock_notification_class,
     ):
         mock_incident = Mock()
         mock_manager.return_value.get_incident.return_value = mock_incident
@@ -712,7 +718,7 @@ async def test_send_notifications_breach_not_found(client, admin_headers):
     }
 
     # Act - Mock manager to return None
-    with patch("pdfsigner.api.routes.breach.get_breach_manager") as mock_manager:
+    with patch("pdfsigner.api.services.breach_service.get_breach_manager") as mock_manager:
         mock_manager.return_value.get_incident.return_value = None
 
         response = await client.post(
@@ -733,7 +739,7 @@ async def test_send_notifications_breach_not_found(client, admin_headers):
 async def test_breach_72_hour_deadline_compliance(client, admin_headers):
     """Test breach includes detection timestamp for GDPR 72-hour deadline tracking."""
     # Act - Mock breach with detection time
-    with patch("pdfsigner.api.routes.breach.get_breach_manager") as mock_manager:
+    with patch("pdfsigner.api.services.breach_service.get_breach_manager") as mock_manager:
         detected_time = datetime.now(UTC) - timedelta(hours=48)  # 48 hours ago
         mock_incident = Mock()
         mock_incident.id = "breach-001"
@@ -767,7 +773,7 @@ async def test_breach_72_hour_deadline_compliance(client, admin_headers):
 async def test_breach_notification_tracking(client, admin_headers):
     """Test breach tracks notification timestamp for compliance audit."""
     # Act - Mock breach with notification timestamp
-    with patch("pdfsigner.api.routes.breach.get_breach_manager") as mock_manager:
+    with patch("pdfsigner.api.services.breach_service.get_breach_manager") as mock_manager:
         notified_time = datetime.now(UTC) - timedelta(hours=24)
         mock_incident = Mock()
         mock_incident.id = "breach-001"

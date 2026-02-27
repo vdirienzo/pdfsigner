@@ -245,6 +245,32 @@ class ValidationService:
 
         return highest_level
 
+    def validate_eidas(self, pdf_path: Path) -> dict:
+        """Validate PDF with eIDAS qualification detection.
+
+        Generates a structured validation report per ETSI TS 119 102-2
+        including eIDAS qualification level (QES/AdES-QC/AdES/Basic),
+        algorithm strength assessment, and revocation freshness.
+
+        Args:
+            pdf_path: Path to PDF file to validate
+
+        Returns:
+            eIDAS validation report dictionary
+
+        Raises:
+            ValueError: If PDF file doesn't exist
+        """
+        from pdfsigner.core.validator.validation_report import generate_eidas_report
+
+        if not pdf_path.exists():
+            raise ValueError(f"PDF file not found: {pdf_path}")
+
+        logger.info(f"eIDAS validating PDF: {pdf_path.name}")
+
+        validation_result = self.validator.validate(pdf_path)
+        return generate_eidas_report(validation_result, pdf_path)
+
 
 # --- Public Exports ---
 

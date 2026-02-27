@@ -123,7 +123,7 @@ async def test_export_user_data_own_data(client, user_headers):
     user_id = "user-123"
 
     # Act - Mock data exporter
-    with patch("pdfsigner.api.routes.gdpr.get_user_data_exporter") as mock_exporter:
+    with patch("pdfsigner.api.services.gdpr_service.get_user_data_exporter") as mock_exporter:
         mock_instance = Mock()
         mock_export = Mock()
         mock_export.format = "json"
@@ -164,7 +164,7 @@ async def test_export_user_data_admin(client, admin_headers):
     user_id = "user-123"
 
     # Act - Mock data exporter
-    with patch("pdfsigner.api.routes.gdpr.get_user_data_exporter") as mock_exporter:
+    with patch("pdfsigner.api.services.gdpr_service.get_user_data_exporter") as mock_exporter:
         mock_instance = Mock()
         mock_export = Mock()
         mock_export.format = "json"
@@ -189,7 +189,7 @@ async def test_export_user_data_not_found(client, admin_headers):
     user_id = "nonexistent"
 
     # Act - Mock data exporter to return None
-    with patch("pdfsigner.api.routes.gdpr.get_user_data_exporter") as mock_exporter:
+    with patch("pdfsigner.api.services.gdpr_service.get_user_data_exporter") as mock_exporter:
         mock_instance = Mock()
         mock_instance.export_user_data.return_value = None
         mock_exporter.return_value = mock_instance
@@ -209,7 +209,7 @@ async def test_anonymize_user_success(client, admin_headers):
     request_data = {"user_id": "user-123"}
 
     # Act - Mock retention service
-    with patch("pdfsigner.api.routes.gdpr.get_data_retention_service") as mock_service:
+    with patch("pdfsigner.api.services.gdpr_service.get_data_retention_service") as mock_service:
         mock_instance = Mock()
         mock_result = Mock()
         mock_result.success = True
@@ -253,7 +253,7 @@ async def test_anonymize_user_not_found(client, admin_headers):
     request_data = {"user_id": "nonexistent"}
 
     # Act - Mock service to return failure with "not found" message
-    with patch("pdfsigner.api.routes.gdpr.get_data_retention_service") as mock_service:
+    with patch("pdfsigner.api.services.gdpr_service.get_data_retention_service") as mock_service:
         mock_instance = Mock()
         mock_result = Mock()
         mock_result.success = False
@@ -279,7 +279,7 @@ async def test_schedule_user_deletion_own_account(client, user_headers):
     request_data = {"grace_days": 30}
 
     # Act - Mock retention service
-    with patch("pdfsigner.api.routes.gdpr.get_data_retention_service") as mock_service:
+    with patch("pdfsigner.api.services.gdpr_service.get_data_retention_service") as mock_service:
         mock_instance = Mock()
         mock_instance.schedule_deletion.return_value = True
         mock_status = Mock()
@@ -319,7 +319,7 @@ async def test_cancel_user_deletion_success(client, user_headers):
     user_id = "user-123"
 
     # Act - Mock retention service
-    with patch("pdfsigner.api.routes.gdpr.get_data_retention_service") as mock_service:
+    with patch("pdfsigner.api.services.gdpr_service.get_data_retention_service") as mock_service:
         mock_instance = Mock()
         mock_instance.cancel_scheduled_deletion.return_value = True
         mock_service.return_value = mock_instance
@@ -338,7 +338,7 @@ async def test_cancel_user_deletion_not_scheduled(client, user_headers):
     user_id = "user-123"
 
     # Act - Mock service to return False
-    with patch("pdfsigner.api.routes.gdpr.get_data_retention_service") as mock_service:
+    with patch("pdfsigner.api.services.gdpr_service.get_data_retention_service") as mock_service:
         mock_instance = Mock()
         mock_instance.cancel_scheduled_deletion.return_value = False
         mock_service.return_value = mock_instance
@@ -358,7 +358,7 @@ async def test_get_retention_status_own_account(client, user_headers):
     user_id = "user-123"
 
     # Act - Mock retention service
-    with patch("pdfsigner.api.routes.gdpr.get_data_retention_service") as mock_service:
+    with patch("pdfsigner.api.services.gdpr_service.get_data_retention_service") as mock_service:
         mock_instance = Mock()
         mock_status = Mock()
         mock_status.user_id = user_id
@@ -398,7 +398,7 @@ async def test_get_retention_status_forbidden(client, user_headers):
 async def test_purge_expired_data_success(client, admin_headers):
     """Test successful data purge operation."""
     # Act - Mock retention service
-    with patch("pdfsigner.api.routes.gdpr.get_data_retention_service") as mock_service:
+    with patch("pdfsigner.api.services.gdpr_service.get_data_retention_service") as mock_service:
         mock_instance = Mock()
         mock_result = Mock()
         mock_result.success = True
