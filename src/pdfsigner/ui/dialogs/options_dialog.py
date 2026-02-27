@@ -1,11 +1,4 @@
-"""
-options_dialog.py - Signature options dialog
-
-Author: Homero Thompson del Lago del Terror
-
-GTK4 dialog to configure signature options.
-Allows overriding template selection before signing.
-"""
+"""Signature options dialog for configuring stamp, position and metadata."""
 
 import gi
 
@@ -20,12 +13,7 @@ from pdfsigner.i18n import _
 
 
 def _get_template_choices() -> list[tuple[str, str]]:
-    """
-    Get available template choices for dropdown.
-
-    Returns:
-        List of (value, display_name) tuples
-    """
+    """Get available template choices as (value, display_name) tuples."""
     try:
         from pdfsigner.core.signature import list_all_templates
 
@@ -36,7 +24,6 @@ def _get_template_choices() -> list[tuple[str, str]]:
     # Start with "invisible" option (no stamp)
     choices = [("", _("Invisible (metadata only)"))]
 
-    # Add builtin templates with friendly names
     template_labels = {
         "default": _("Default (simple text)"),
         "corporate": _("Corporate"),
@@ -54,12 +41,7 @@ def _get_template_choices() -> list[tuple[str, str]]:
 
 
 class SignatureOptionsDialog(Gtk.Dialog):
-    """
-    Signature options dialog.
-
-    Allows selecting template and position options before signing.
-    Template can be overridden from the default in Settings.
-    """
+    """Dialog to configure signature template, position and metadata before signing."""
 
     def __init__(
         self,
@@ -67,14 +49,7 @@ class SignatureOptionsDialog(Gtk.Dialog):
         total_pages: int = 1,
         default_appearance: SignatureAppearance | None = None,
     ):
-        """
-        Initialize the options dialog.
-
-        Args:
-            parent: Parent window
-            total_pages: Total number of PDF pages
-            default_appearance: Default configuration
-        """
+        """Initialize the options dialog."""
         super().__init__(
             title=_("Signature Options"),
             transient_for=parent,
@@ -84,23 +59,18 @@ class SignatureOptionsDialog(Gtk.Dialog):
         self.total_pages = total_pages
         self.default_appearance = default_appearance or SignatureAppearance()
 
-        # Get default template from settings
         settings = get_settings()
         self.default_template = settings.signature_template or ""
-
-        # Load template choices
         self._template_choices = _get_template_choices()
 
         self.set_default_size(420, -1)
 
-        # Buttons
         cancel_button = self.add_button(_("Cancel"), Gtk.ResponseType.CANCEL)
         set_accessible(cancel_button, _("Cancel"))
         ok_button = self.add_button(_("Sign"), Gtk.ResponseType.OK)
         ok_button.add_css_class("suggested-action")
         set_accessible(ok_button, _("Sign files"))
 
-        # Content
         content = self.get_content_area()
         content.set_spacing(12)
         content.set_margin_top(16)
@@ -108,12 +78,21 @@ class SignatureOptionsDialog(Gtk.Dialog):
         content.set_margin_start(16)
         content.set_margin_end(16)
 
-        # Main grid for all options
         self.options_grid = Gtk.Grid()
         self.options_grid.set_row_spacing(12)
         self.options_grid.set_column_spacing(16)
 
-        # === Template selector ===
+        self._build_template_section()
+        self._build_position_section()
+        content.append(self.options_grid)
+        self._build_metadata_section(content, settings)
+
+        # Connect template change signal AFTER all widgets exist
+        self.template_combo.connect("changed", self._on_template_changed)
+        self._update_position_options_visibility()
+
+    def _build_template_section(self) -> None:
+        """Build the stamp template selector (grid row 0)."""
         template_label = Gtk.Label(label=_("Stamp"))
         template_label.set_xalign(0)
         template_label.add_css_class("dim-label")
@@ -128,16 +107,20 @@ class SignatureOptionsDialog(Gtk.Dialog):
             _("Stamp template"),
             _("Select the visual stamp template"),
         )
-        # Note: connect signal AFTER all widgets are created to avoid premature callback
 
-        # Set default selection
         self.template_combo.set_active_id(self.default_template)
         if self.template_combo.get_active_id() is None:
             self.template_combo.set_active(0)
 
         self.options_grid.attach(self.template_combo, 1, 0, 1, 1)
 
-        # === Page selector ===
+    def _build_position_section(self) -> None:
+        """Build the page and position selectors (grid rows 1-3)."""
+        self._build_page_selector()
+        self._build_position_selector()
+
+    def _build_page_selector(self) -> None:
+        """Build page selection combo and custom entry (grid rows 1-2)."""
         self.page_label = Gtk.Label(label=_("Page"))
         self.page_label.set_xalign(0)
         self.page_label.add_css_class("dim-label")
@@ -163,11 +146,7 @@ class SignatureOptionsDialog(Gtk.Dialog):
         self.custom_page_entry = Gtk.Entry()
         self.custom_page_entry.set_placeholder_text(_("e.g., 1,3,5 or 1-3"))
         self.custom_page_entry.set_hexpand(True)
-        set_accessible(
-            self.custom_page_entry,
-            _("Custom pages"),
-            _("Enter page numbers or ranges"),
-        )
+        set_accessible(self.custom_page_entry, _("Custom pages"), _("Enter page numbers or ranges"))
         self.custom_page_entry.set_visible(False)
         self.options_grid.attach(self.custom_page_entry, 1, 2, 1, 1)
 
@@ -183,7 +162,8 @@ class SignatureOptionsDialog(Gtk.Dialog):
         else:
             self.page_combo.set_active_id("last")
 
-        # === Position selector ===
+    def _build_position_selector(self) -> None:
+        """Build position preference combo (grid row 3)."""
         self.pos_label = Gtk.Label(label=_("Position"))
         self.pos_label.set_xalign(0)
         self.pos_label.add_css_class("dim-label")
@@ -205,69 +185,42 @@ class SignatureOptionsDialog(Gtk.Dialog):
         self.position_combo.set_active_id(self.default_appearance.position_preference.value)
         self.options_grid.attach(self.position_combo, 1, 3, 1, 1)
 
-        content.append(self.options_grid)
-
-        # === Signature Information Section (Collapsible) ===
-        # Create inner grid for the expander content
+    def _build_metadata_section(self, content: Gtk.Box, settings: object) -> None:
+        """Build the collapsible signature metadata section."""
         info_grid = Gtk.Grid()
         info_grid.set_row_spacing(8)
         info_grid.set_column_spacing(12)
         info_grid.set_margin_top(8)
         info_grid.set_margin_start(8)
 
-        # Reason entry
-        reason_label = Gtk.Label(label=_("Reason"))
-        reason_label.set_xalign(0)
-        reason_label.add_css_class("dim-label")
-        info_grid.attach(reason_label, 0, 0, 1, 1)
-
-        self.reason_entry = Gtk.Entry()
-        self.reason_entry.set_placeholder_text(_("e.g., I approve this document"))
-        self.reason_entry.set_hexpand(True)
-        set_accessible(self.reason_entry, _("Signature reason"), _("Enter the reason for signing"))
-        # Load default from settings
-        settings = get_settings()
-        if settings.default_signature_reason:
-            self.reason_entry.set_text(settings.default_signature_reason)
-        info_grid.attach(self.reason_entry, 1, 0, 1, 1)
-
-        # Location entry
-        location_label = Gtk.Label(label=_("Location"))
-        location_label.set_xalign(0)
-        location_label.add_css_class("dim-label")
-        info_grid.attach(location_label, 0, 1, 1, 1)
-
-        self.location_entry = Gtk.Entry()
-        self.location_entry.set_placeholder_text(_("e.g., New York, NY"))
-        self.location_entry.set_hexpand(True)
-        set_accessible(
-            self.location_entry,
+        self.reason_entry = self._add_info_field(
+            info_grid,
+            0,
+            _("Reason"),
+            _("e.g., I approve this document"),
+            _("Signature reason"),
+            _("Enter the reason for signing"),
+            settings.default_signature_reason,
+        )
+        self.location_entry = self._add_info_field(
+            info_grid,
+            1,
+            _("Location"),
+            _("e.g., New York, NY"),
             _("Signature location"),
             _("Enter the location where you are signing"),
+            settings.default_signature_location,
         )
-        if settings.default_signature_location:
-            self.location_entry.set_text(settings.default_signature_location)
-        info_grid.attach(self.location_entry, 1, 1, 1, 1)
-
-        # Contact info entry
-        contact_label = Gtk.Label(label=_("Contact Info"))
-        contact_label.set_xalign(0)
-        contact_label.add_css_class("dim-label")
-        info_grid.attach(contact_label, 0, 2, 1, 1)
-
-        self.contact_entry = Gtk.Entry()
-        self.contact_entry.set_placeholder_text(_("e.g., email@company.com"))
-        self.contact_entry.set_hexpand(True)
-        set_accessible(
-            self.contact_entry,
+        self.contact_entry = self._add_info_field(
+            info_grid,
+            2,
+            _("Contact Info"),
+            _("e.g., email@company.com"),
             _("Contact information"),
             _("Enter your contact information"),
+            settings.default_signature_contact,
         )
-        if settings.default_signature_contact:
-            self.contact_entry.set_text(settings.default_signature_contact)
-        info_grid.attach(self.contact_entry, 1, 2, 1, 1)
 
-        # Create expander (collapsed by default)
         self.info_expander = Gtk.Expander(label=_("Additional Information"))
         self.info_expander.set_expanded(False)
         self.info_expander.set_child(info_grid)
@@ -275,16 +228,34 @@ class SignatureOptionsDialog(Gtk.Dialog):
         self.info_expander.connect("notify::expanded", self._on_expander_toggled)
         content.append(self.info_expander)
 
-        # Connect template change signal AFTER all widgets exist
-        self.template_combo.connect("changed", self._on_template_changed)
+    def _add_info_field(
+        self,
+        grid: Gtk.Grid,
+        row: int,
+        label_text: str,
+        placeholder: str,
+        a11y_label: str,
+        a11y_desc: str,
+        default_value: str = "",
+    ) -> Gtk.Entry:
+        """Add a labeled entry field to the info grid and return the entry widget."""
+        label = Gtk.Label(label=label_text)
+        label.set_xalign(0)
+        label.add_css_class("dim-label")
+        grid.attach(label, 0, row, 1, 1)
 
-        # Update visibility based on initial template
-        self._update_position_options_visibility()
+        entry = Gtk.Entry()
+        entry.set_placeholder_text(placeholder)
+        entry.set_hexpand(True)
+        set_accessible(entry, a11y_label, a11y_desc)
+        if default_value:
+            entry.set_text(default_value)
+        grid.attach(entry, 1, row, 1, 1)
+        return entry
 
     def _on_expander_toggled(self, expander: Gtk.Expander, _pspec: object) -> None:
         """Handle expander toggle to resize dialog appropriately."""
         if not expander.get_expanded():
-            # When collapsing, reset height to let GTK recalculate minimum
             self.set_default_size(420, -1)
             self.queue_resize()
 
@@ -302,7 +273,6 @@ class SignatureOptionsDialog(Gtk.Dialog):
         self.pos_label.set_visible(is_visible)
         self.position_combo.set_visible(is_visible)
 
-        # Also hide custom page if not visible
         if not is_visible:
             self.custom_label.set_visible(False)
             self.custom_page_entry.set_visible(False)
@@ -320,12 +290,7 @@ class SignatureOptionsDialog(Gtk.Dialog):
         return self.template_combo.get_active_id() or ""
 
     def get_signature_metadata(self) -> dict[str, str]:
-        """
-        Get signature metadata fields.
-
-        Returns:
-            Dictionary with reason, location, and contact_info keys
-        """
+        """Get signature metadata (reason, location, contact_info)."""
         return {
             "reason": self.reason_entry.get_text().strip(),
             "location": self.location_entry.get_text().strip(),
@@ -338,7 +303,6 @@ class SignatureOptionsDialog(Gtk.Dialog):
         is_visible = bool(template_id)
 
         if not is_visible:
-            # Invisible signature
             return SignatureAppearance(
                 visible=False,
                 page="last",
@@ -346,7 +310,6 @@ class SignatureOptionsDialog(Gtk.Dialog):
                 height_mm=self.default_appearance.height_mm,
             )
 
-        # Visible signature with template
         page_id = self.page_combo.get_active_id() or "last"
         if page_id == "custom":
             page = self.custom_page_entry.get_text().strip() or "last"
@@ -372,17 +335,7 @@ def ask_signature_options(
     total_pages: int = 1,
     default_appearance: SignatureAppearance | None = None,
 ) -> tuple[SignatureAppearance, str, dict[str, str]] | None:
-    """
-    Convenience function to request signature options.
-
-    Args:
-        parent: Parent window
-        total_pages: Number of pages in PDF
-        default_appearance: Default configuration
-
-    Returns:
-        Tuple of (SignatureAppearance, template_name, metadata_dict) or None if cancelled
-    """
+    """Show options dialog. Returns (appearance, template, metadata) or None if cancelled."""
     dialog = SignatureOptionsDialog(
         parent=parent,
         total_pages=total_pages,
