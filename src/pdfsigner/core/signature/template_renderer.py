@@ -1,8 +1,6 @@
 """
 template_renderer.py - Render signature templates to PNG
 
-Author: Homero Thompson del Lago del Terror
-
 Renders Template objects to PNG images using PIL,
 with variable substitution and 300 DPI for print quality.
 Includes path sanitization to prevent path traversal attacks.
@@ -35,17 +33,7 @@ def _mm_to_px(mm: float) -> int:
 
 
 def _load_font(family: str, size_px: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    """
-    Load a TrueType font with fallback to default.
-
-    Args:
-        family: Font family name (sans-serif, serif, mono)
-        size_px: Font size in pixels
-
-    Returns:
-        PIL font object
-    """
-    # Map generic families to common system fonts
+    """Load a TrueType font with fallback to default."""
     font_map = {
         "sans-serif": ["DejaVuSans.ttf", "FreeSans.ttf", "Arial.ttf", "Liberation Sans"],
         "serif": ["DejaVuSerif.ttf", "FreeSerif.ttf", "Times.ttf", "Liberation Serif"],
@@ -66,23 +54,10 @@ def _load_font(family: str, size_px: int) -> ImageFont.FreeTypeFont | ImageFont.
 
 
 def _parse_color(color: str | None, default: str = "#000000") -> tuple[int, int, int, int]:
-    """
-    Parse hex color string to RGBA tuple.
-
-    Args:
-        color: Hex color string (e.g., "#ff0000" or "#ff0000ff")
-        default: Default color if None provided
-
-    Returns:
-        RGBA tuple (0-255 each)
-    """
+    """Parse hex color string (#rrggbb or #rrggbbaa) to RGBA tuple."""
     if not color:
         color = default
-
-    # Remove # prefix
     color = color.lstrip("#")
-
-    # Parse RGB or RGBA
     if len(color) == 6:
         r, g, b = int(color[0:2], 16), int(color[2:4], 16), int(color[4:6], 16)
         return (r, g, b, 255)
@@ -95,36 +70,15 @@ def _parse_color(color: str | None, default: str = "#000000") -> tuple[int, int,
 
 
 def _substitute_variables(text: str, variables: dict[str, str]) -> str:
-    """
-    Replace {variable} placeholders with values.
-
-    Args:
-        text: Text with {variable} placeholders
-        variables: Dictionary of variable names to values
-
-    Returns:
-        Text with variables substituted
-    """
+    """Replace {variable} placeholders with values, removing unresolved ones."""
     result = text
     for key, value in variables.items():
         result = result.replace(f"{{{key}}}", value)
-
-    # Remove any remaining unresolved variables
-    result = re.sub(r"\{[^}]+\}", "", result)
-    return result
+    return re.sub(r"\{[^}]+\}", "", result)
 
 
 def _sanitize_image_path(image_path: str, templates_dir: Path) -> Path | None:
-    """
-    Sanitize and validate an image path from a template layer.
-
-    Args:
-        image_path: Relative image path from template
-        templates_dir: Base directory for template assets
-
-    Returns:
-        Sanitized absolute path or None if invalid
-    """
+    """Sanitize and validate an image path, returning None if invalid."""
     try:
         return sanitize_path(
             image_path,
@@ -137,6 +91,99 @@ def _sanitize_image_path(image_path: str, templates_dir: Path) -> Path | None:
         return None
 
 
+def _calc_layer_geometry(
+    layer: Layer, width_px: int, height_px: int
+) -> tuple[int, int, int | None, int | None]:
+    """Calculate absolute position and size from percentage-based layer values."""
+    x = int(layer.x / 100 * width_px)
+    y = int(layer.y / 100 * height_px)
+    layer_w = int(layer.width / 100 * width_px) if layer.width else None
+    layer_h = int(layer.height / 100 * height_px) if layer.height else None
+    return x, y, layer_w, layer_h
+
+
+def _render_text_layer(
+    draw: ImageDraw.ImageDraw,
+    layer: Layer,
+    x: int,
+    y: int,
+    layer_w: int | None,
+    variables: dict[str, str],
+) -> None:
+    """Render a text layer with alignment and variable substitution."""
+    text = _substitute_variables(layer.text, variables)
+    if not text:
+        return
+
+    font_size_px = int(layer.font_size * DPI / 72)
+    font = _load_font(layer.font_family, font_size_px)
+
+    color = _parse_color(layer.color, "#000000")
+    color_with_opacity = (*color[:3], int(color[3] * layer.opacity))
+
+    if layer.alignment == "center" and layer_w:
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_width = bbox[2] - bbox[0]
+        x = int(x + (layer_w - text_width) // 2)
+    elif layer.alignment == "right" and layer_w:
+        bbox = draw.textbbox((0, 0), text, font=font)
+        text_width = bbox[2] - bbox[0]
+        x = int(x + layer_w - text_width)
+
+    draw.text((x, y), text, fill=color_with_opacity, font=font)
+
+
+def _render_image_layer(
+    layer: Layer,
+    x: int,
+    y: int,
+    layer_w: int | None,
+    layer_h: int | None,
+    templates_dir: Path,
+    base_image: Image.Image | None,
+) -> Image.Image | None:
+    """Render an image layer onto the base image."""
+    image_path = _sanitize_image_path(layer.image_path, templates_dir)
+    if image_path is None:
+        return base_image
+
+    try:
+        img = Image.open(image_path).convert("RGBA")
+
+        if layer_w and layer_h:
+            img = img.resize((layer_w, layer_h), Image.Resampling.LANCZOS)
+        elif layer_w:
+            ratio = layer_w / img.width
+            img = img.resize((layer_w, int(img.height * ratio)), Image.Resampling.LANCZOS)
+        elif layer_h:
+            ratio = layer_h / img.height
+            img = img.resize((int(img.width * ratio), layer_h), Image.Resampling.LANCZOS)
+
+        if layer.opacity < 1.0:
+            alpha = img.split()[3]
+            alpha = alpha.point(lambda p: int(p * layer.opacity))
+            img.putalpha(alpha)
+
+        if base_image:
+            base_image.paste(img, (x, y), img)
+            return base_image
+    except Exception as e:
+        logger.warning(f"Could not load image {image_path}: {e}")
+
+    return base_image
+
+
+def _render_qr_placeholder(
+    draw: ImageDraw.ImageDraw, x: int, y: int, layer_w: int | None, layer_h: int | None
+) -> None:
+    """Render a QR code placeholder rectangle."""
+    if layer_w and layer_h:
+        qr_size = min(layer_w, layer_h)
+        draw.rectangle([(x, y), (x + qr_size, y + qr_size)], outline="#666666", width=1)
+        small_font = _load_font("mono", int(8 * DPI / 72))
+        draw.text((x + 2, y + 2), "QR", fill="#666666", font=small_font)
+
+
 def _render_layer(
     draw: ImageDraw.ImageDraw,
     layer: Layer,
@@ -146,27 +193,8 @@ def _render_layer(
     templates_dir: Path | None = None,
     base_image: Image.Image | None = None,
 ) -> Image.Image | None:
-    """
-    Render a single layer onto the image.
-
-    Args:
-        draw: PIL ImageDraw object
-        layer: Layer to render
-        width_px: Total stamp width in pixels
-        height_px: Total stamp height in pixels
-        variables: Variables for text substitution
-        templates_dir: Directory containing template assets (images)
-        base_image: Base image for compositing (for image layers)
-
-    Returns:
-        Modified base image if image layer, None otherwise
-    """
-    # Calculate absolute positions
-    x = int(layer.x / 100 * width_px)
-    y = int(layer.y / 100 * height_px)
-
-    layer_w = int(layer.width / 100 * width_px) if layer.width else None
-    layer_h = int(layer.height / 100 * height_px) if layer.height else None
+    """Render a single layer onto the image, returning modified base_image if applicable."""
+    x, y, layer_w, layer_h = _calc_layer_geometry(layer, width_px, height_px)
 
     if layer.type == "background":
         color = _parse_color(layer.color, "#ffffff")
@@ -176,7 +204,6 @@ def _render_layer(
     elif layer.type == "border":
         color = _parse_color(layer.color, "#333333")
         color_with_opacity = (*color[:3], int(color[3] * layer.opacity))
-        # Draw border inside the image bounds
         for i in range(layer.border_width):
             draw.rectangle(
                 [(i, i), (width_px - 1 - i, height_px - 1 - i)],
@@ -184,74 +211,13 @@ def _render_layer(
             )
 
     elif layer.type == "text" and layer.text:
-        text = _substitute_variables(layer.text, variables)
-        if not text:
-            return base_image
-
-        # Scale font size for 300 DPI (font_size is in points at 72 DPI)
-        font_size_px = int(layer.font_size * DPI / 72)
-        font = _load_font(layer.font_family, font_size_px)
-
-        color = _parse_color(layer.color, "#000000")
-        color_with_opacity = (*color[:3], int(color[3] * layer.opacity))
-
-        # Handle text alignment
-        if layer.alignment == "center" and layer_w:
-            bbox = draw.textbbox((0, 0), text, font=font)
-            text_width = bbox[2] - bbox[0]
-            x = int(x + (layer_w - text_width) // 2)
-        elif layer.alignment == "right" and layer_w:
-            bbox = draw.textbbox((0, 0), text, font=font)
-            text_width = bbox[2] - bbox[0]
-            x = int(x + layer_w - text_width)
-
-        draw.text((x, y), text, fill=color_with_opacity, font=font)
+        _render_text_layer(draw, layer, x, y, layer_w, variables)
 
     elif layer.type == "image" and layer.image_path and templates_dir:
-        # Sanitize image path to prevent path traversal attacks
-        image_path = _sanitize_image_path(layer.image_path, templates_dir)
-        if image_path is None:
-            return base_image
-
-        try:
-            img = Image.open(image_path).convert("RGBA")
-
-            # Resize if dimensions specified
-            if layer_w and layer_h:
-                img = img.resize((layer_w, layer_h), Image.Resampling.LANCZOS)
-            elif layer_w:
-                ratio = layer_w / img.width
-                img = img.resize((layer_w, int(img.height * ratio)), Image.Resampling.LANCZOS)
-            elif layer_h:
-                ratio = layer_h / img.height
-                img = img.resize((int(img.width * ratio), layer_h), Image.Resampling.LANCZOS)
-
-            # Apply opacity
-            if layer.opacity < 1.0:
-                alpha = img.split()[3]
-                alpha = alpha.point(lambda p: int(p * layer.opacity))
-                img.putalpha(alpha)
-
-            # Paste onto base image
-            if base_image:
-                base_image.paste(img, (x, y), img)
-                return base_image
-        except Exception as e:
-            logger.warning(f"Could not load image {image_path}: {e}")
+        return _render_image_layer(layer, x, y, layer_w, layer_h, templates_dir, base_image)
 
     elif layer.type == "qr":
-        # QR code generation requires document hash, handled separately
-        # For preview, draw a placeholder
-        if layer_w and layer_h:
-            qr_size = min(layer_w, layer_h)
-            draw.rectangle(
-                [(x, y), (x + qr_size, y + qr_size)],
-                outline="#666666",
-                width=1,
-            )
-            # Draw QR placeholder pattern
-            small_font = _load_font("mono", int(8 * DPI / 72))
-            draw.text((x + 2, y + 2), "QR", fill="#666666", font=small_font)
+        _render_qr_placeholder(draw, x, y, layer_w, layer_h)
 
     return base_image
 
@@ -262,18 +228,7 @@ def render_template(
     templates_dir: Path | None = None,
     qr_image: Image.Image | None = None,
 ) -> Path:
-    """
-    Render a template to a PNG image.
-
-    Args:
-        template: Template to render
-        variables: Variable substitutions (signer_name, date, org)
-        templates_dir: Directory containing template assets
-        qr_image: Pre-generated QR code image (if template has QR layer)
-
-    Returns:
-        Path to temporary PNG file
-    """
+    """Render a template to a PNG image file, returning path to temp file."""
     variables = variables or {}
 
     # Add default variables if not provided
@@ -329,26 +284,60 @@ def render_template(
     return Path(temp_file.name)
 
 
+def _render_preview_qr(
+    draw: ImageDraw.ImageDraw, layer: Layer, width_px: int, height_px: int
+) -> None:
+    """Render a QR checkerboard pattern for preview."""
+    x = int(layer.x / 100 * width_px)
+    y = int(layer.y / 100 * height_px)
+    w = int((layer.width or 20) / 100 * width_px)
+    h = int((layer.height or 20) / 100 * height_px)
+    qr_size = min(w, h)
+
+    draw.rectangle([(x, y), (x + qr_size, y + qr_size)], outline="#666666")
+    cell = qr_size // 5
+    for i in range(5):
+        for j in range(5):
+            if (i + j) % 2 == 0:
+                draw.rectangle(
+                    [
+                        (x + i * cell, y + j * cell),
+                        (x + (i + 1) * cell, y + (j + 1) * cell),
+                    ],
+                    fill="#333333",
+                )
+
+
+def _render_preview_image(
+    layer: Layer, width_px: int, height_px: int, templates_dir: Path, image: Image.Image
+) -> None:
+    """Render an image layer for the preview."""
+    safe_image_path = _sanitize_image_path(layer.image_path, templates_dir)
+    if safe_image_path is None:
+        return
+
+    try:
+        img = Image.open(safe_image_path).convert("RGBA")
+        img_x = int(layer.x / 100 * width_px)
+        img_y = int(layer.y / 100 * height_px)
+        img_w: int | None = int((layer.width or 20) / 100 * width_px) if layer.width else None
+        img_h: int | None = int((layer.height or 20) / 100 * height_px) if layer.height else None
+
+        if img_w and img_h:
+            img = img.resize((img_w, img_h), Image.Resampling.LANCZOS)
+
+        image.paste(img, (img_x, img_y), img)
+    except Exception as e:
+        logger.warning(f"Preview: could not load image {safe_image_path}: {e}")
+
+
 def render_preview(
     template: Template,
     width_px: int = 400,
     height_px: int | None = None,
     templates_dir: Path | None = None,
 ) -> Image.Image:
-    """
-    Render a preview image of the template at specified size.
-
-    Used for UI previews (lower resolution than print).
-
-    Args:
-        template: Template to preview
-        width_px: Preview width in pixels
-        height_px: Preview height (calculated from aspect ratio if None)
-        templates_dir: Directory containing template assets
-
-    Returns:
-        PIL Image object
-    """
+    """Render a low-res preview image of the template for UI display."""
     # Calculate height maintaining aspect ratio
     if height_px is None:
         aspect = template.height_mm / template.width_mm
@@ -392,7 +381,6 @@ def render_preview(
             x = int(layer.x / 100 * width_px)
             y = int(layer.y / 100 * height_px)
 
-            # Scale font size
             font_size_px = max(8, int(layer.font_size * scale * DPI / 72))
             font = _load_font(layer.font_family, font_size_px)
 
@@ -400,49 +388,9 @@ def render_preview(
             draw.text((x, y), text, fill=color[:3], font=font)
 
         elif layer.type == "qr":
-            # Draw QR placeholder in preview
-            x = int(layer.x / 100 * width_px)
-            y = int(layer.y / 100 * height_px)
-            w = int((layer.width or 20) / 100 * width_px)
-            h = int((layer.height or 20) / 100 * height_px)
-            qr_size = min(w, h)
-
-            draw.rectangle([(x, y), (x + qr_size, y + qr_size)], outline="#666666")
-            # Simple QR pattern
-            cell = qr_size // 5
-            for i in range(5):
-                for j in range(5):
-                    if (i + j) % 2 == 0:
-                        draw.rectangle(
-                            [
-                                (x + i * cell, y + j * cell),
-                                (x + (i + 1) * cell, y + (j + 1) * cell),
-                            ],
-                            fill="#333333",
-                        )
+            _render_preview_qr(draw, layer, width_px, height_px)
 
         elif layer.type == "image" and layer.image_path and templates_dir:
-            # Sanitize image path to prevent path traversal attacks
-            safe_image_path = _sanitize_image_path(layer.image_path, templates_dir)
-            if safe_image_path is None:
-                continue
-
-            try:
-                img = Image.open(safe_image_path).convert("RGBA")
-                img_x = int(layer.x / 100 * width_px)
-                img_y = int(layer.y / 100 * height_px)
-                img_w: int | None = (
-                    int((layer.width or 20) / 100 * width_px) if layer.width else None
-                )
-                img_h: int | None = (
-                    int((layer.height or 20) / 100 * height_px) if layer.height else None
-                )
-
-                if img_w and img_h:
-                    img = img.resize((img_w, img_h), Image.Resampling.LANCZOS)
-
-                image.paste(img, (img_x, img_y), img)
-            except Exception as e:
-                logger.warning(f"Preview: could not load image {safe_image_path}: {e}")
+            _render_preview_image(layer, width_px, height_px, templates_dir, image)
 
     return image.convert("RGB")
