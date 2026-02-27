@@ -125,64 +125,58 @@ class ArchiveTimestampManager:
 
         timestamps: list[ArchiveTimestampInfo] = []
 
-        try:
-            with open(pdf_path, "rb") as f:
-                reader = PdfFileReader(f, strict=False)
+        with open(pdf_path, "rb") as f:
+            reader = PdfFileReader(f, strict=False)
 
-                # Check for DSS dictionary (indicates LTV)
-                dss_dict = reader.root.get("/DSS")
-                has_dss = dss_dict is not None
+            # Check for DSS dictionary (indicates LTV)
+            dss_dict = reader.root.get("/DSS")
+            has_dss = dss_dict is not None
 
-                # Iterate through signature fields to find document timestamps
-                if "/AcroForm" not in reader.root:
-                    return timestamps
+            # Iterate through signature fields to find document timestamps
+            if "/AcroForm" not in reader.root:
+                return timestamps
 
-                acro_form = reader.root["/AcroForm"]
-                if "/Fields" not in acro_form:
-                    return timestamps
+            acro_form = reader.root["/AcroForm"]
+            if "/Fields" not in acro_form:
+                return timestamps
 
-                fields = acro_form["/Fields"]
+            fields = acro_form["/Fields"]
 
-                for field_ref in fields:
-                    field = field_ref.get_object()
+            for field_ref in fields:
+                field = field_ref.get_object()
 
-                    # Check if it's a signature field
-                    if field.get("/FT") != "/Sig":
-                        continue
+                # Check if it's a signature field
+                if field.get("/FT") != "/Sig":
+                    continue
 
-                    sig_value = field.get("/V")
-                    if sig_value is None:
-                        continue
+                sig_value = field.get("/V")
+                if sig_value is None:
+                    continue
 
-                    sig_dict = (
-                        sig_value.get_object() if hasattr(sig_value, "get_object") else sig_value
-                    )
+                sig_dict = sig_value.get_object() if hasattr(sig_value, "get_object") else sig_value
 
-                    # Check if it's a document timestamp (not a signature)
-                    subfilter = sig_dict.get("/SubFilter")
-                    if subfilter not in ("/ETSI.RFC3161", "/adbe.x509.rfc3161"):
-                        continue
+                # Check if it's a document timestamp (not a signature)
+                subfilter = sig_dict.get("/SubFilter")
+                if subfilter not in ("/ETSI.RFC3161", "/adbe.x509.rfc3161"):
+                    continue
 
-                    # Extract timestamp info
-                    try:
-                        # Get timestamp token
-                        contents = sig_dict.get("/Contents")
-                        if contents:
-                            ts_info = self._parse_timestamp_token(contents)
-                            ts_info = ArchiveTimestampInfo(
-                                timestamp=ts_info.timestamp,
-                                tsa_url=ts_info.tsa_url,
-                                hash_algorithm=ts_info.hash_algorithm,
-                                covers_dss=has_dss,
-                            )
-                            timestamps.append(ts_info)
+                # Extract timestamp info
+                try:
+                    # Get timestamp token
+                    contents = sig_dict.get("/Contents")
+                    if contents:
+                        ts_info = self._parse_timestamp_token(contents)
+                        ts_info = ArchiveTimestampInfo(
+                            timestamp=ts_info.timestamp,
+                            tsa_url=ts_info.tsa_url,
+                            hash_algorithm=ts_info.hash_algorithm,
+                            covers_dss=has_dss,
+                        )
+                        timestamps.append(ts_info)
 
-                    except Exception as e:
-                        logger.warning(f"Failed to parse timestamp: {e}")
-                        continue
-
-        except Exception as e:
-            logger.error(f"Error reading archive timestamps from {pdf_path}: {e}")
+                except Exception as e:
+                    logger.warning(f"Failed to parse timestamp: {e}")
+                    continue
 
         return timestamps
 

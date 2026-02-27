@@ -8,7 +8,6 @@ into signed PDFs to create PAdES-LTV signatures with long-term validation suppor
 """
 
 import hashlib
-import logging
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -19,6 +18,7 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.serialization import Encoding
 from cryptography.x509 import ocsp
 from cryptography.x509.oid import AuthorityInformationAccessOID, ExtensionOID
+from loguru import logger
 from pyhanko.sign.validation import DocumentSecurityStore
 from pyhanko_certvalidator import ValidationContext
 
@@ -27,8 +27,6 @@ from pdfsigner.core.certificate.revocation_checker import (
     OCSPChecker,
     RevocationStatus,
 )
-
-logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -109,7 +107,11 @@ class DSSManager:
                 cert_der = cert.public_bytes(Encoding.DER)
                 validation_info.certificates.append(cert_der)
             except Exception as e:
-                logger.warning(f"Error serializando certificado: {e}")
+                cert_subject = getattr(cert, "subject", "unknown")
+                logger.warning(
+                    f"Failed to serialize certificate (subject={cert_subject}): {e}. "
+                    "Skipping this certificate in DSS embedding."
+                )
 
         # Obtener información de revocación para cada certificado
         for i, cert in enumerate(cert_chain[:-1]):  # Excluir root
@@ -282,7 +284,11 @@ class DSSManager:
         except x509.ExtensionNotFound:
             logger.debug("No se encontró extensión Authority Information Access")
         except Exception as e:
-            logger.error(f"Error extrayendo URL OCSP: {e}")
+            cert_subject = getattr(cert, "subject", "unknown")
+            logger.warning(
+                f"Failed to extract OCSP URL from certificate (subject={cert_subject}): {e}. "
+                "Will fall back to CRL for revocation check."
+            )
 
         return None
 
@@ -312,7 +318,11 @@ class DSSManager:
         except x509.ExtensionNotFound:
             logger.debug("No se encontró extensión CRL Distribution Points")
         except Exception as e:
-            logger.error(f"Error extrayendo URLs de CRL: {e}")
+            cert_subject = getattr(cert, "subject", "unknown")
+            logger.warning(
+                f"Failed to extract CRL URLs from certificate (subject={cert_subject}): {e}. "
+                "Revocation check may be incomplete for this certificate."
+            )
 
         return urls
 

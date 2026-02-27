@@ -495,6 +495,24 @@ class TestArchiveTimestampManager:
         """Test manager stores timeout value."""
         assert manager.timeout == 5
 
+    @patch("pdfsigner.core.signer.archive_ts_manager.PdfFileReader")
+    def test_get_archive_timestamps_propagates_reader_errors(
+        self, mock_reader, manager, mock_pdf_path
+    ):
+        """Test get_archive_timestamps propagates PDF reader errors to caller."""
+        mock_reader.side_effect = RuntimeError("Corrupted PDF structure")
+
+        with patch("builtins.open", create=True):
+            with pytest.raises(RuntimeError, match="Corrupted PDF structure"):
+                manager.get_archive_timestamps(mock_pdf_path)
+
+    @patch("pdfsigner.core.signer.archive_ts_manager.PdfFileReader")
+    def test_get_archive_timestamps_propagates_io_errors(self, mock_reader, manager, mock_pdf_path):
+        """Test get_archive_timestamps propagates I/O errors to caller."""
+        with patch("builtins.open", side_effect=PermissionError("Permission denied")):
+            with pytest.raises(PermissionError, match="Permission denied"):
+                manager.get_archive_timestamps(mock_pdf_path)
+
     def test_add_archive_timestamp_logs_tsa_attempts(self, manager, mock_pdf_path):
         """Test add_archive_timestamp logs TSA attempt."""
         with patch("pdfsigner.core.signer.archive_ts_manager.logger") as mock_logger:

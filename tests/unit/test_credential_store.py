@@ -103,15 +103,14 @@ def test_store_password_for_file_keyring_failure_returns_false(
     assert result is False
 
 
-def test_store_password_for_file_exception_returns_false(
+def test_store_password_for_file_exception_propagates(
     credential_store, mock_credential_manager, temp_pdf_path
 ):
-    """Test store returns False on exception."""
+    """Test store propagates exceptions to caller for visibility."""
     mock_credential_manager.store_password.side_effect = RuntimeError("Keyring error")
 
-    result = credential_store.store_password_for_file(temp_pdf_path, "password")
-
-    assert result is False
+    with pytest.raises(RuntimeError, match="Keyring error"):
+        credential_store.store_password_for_file(temp_pdf_path, "password")
 
 
 @pytest.mark.parametrize(
@@ -497,6 +496,48 @@ def test_integration_owner_and_user_separate(
     assert len(set(keys)) == 2  # Two different keys
     assert any("_user" in k for k in keys)
     assert any("_owner" in k for k in keys)
+
+
+# ============================================================================
+# Error Propagation Tests
+# ============================================================================
+
+
+def test_store_password_propagates_os_error(
+    credential_store, mock_credential_manager, temp_pdf_path
+):
+    """Test store_password_for_file propagates OSError from keyring."""
+    mock_credential_manager.store_password.side_effect = OSError("Keyring backend unavailable")
+
+    with pytest.raises(OSError, match="Keyring backend unavailable"):
+        credential_store.store_password_for_file(temp_pdf_path, "password")
+
+
+def test_get_password_swallows_exception_returns_none(
+    credential_store, mock_credential_manager, temp_pdf_path
+):
+    """Test get_password_for_file returns None on exception (fallback to asking user)."""
+    mock_credential_manager.get_password.side_effect = OSError("Keyring backend unavailable")
+
+    result = credential_store.get_password_for_file(temp_pdf_path)
+
+    assert result is None
+
+
+def test_delete_password_swallows_exception_returns_false(
+    credential_store, mock_credential_manager, temp_pdf_path
+):
+    """Test delete_password_for_file returns False on exception (best effort)."""
+    mock_credential_manager.delete_password.side_effect = OSError("Keyring backend unavailable")
+
+    result = credential_store.delete_password_for_file(temp_pdf_path)
+
+    assert result is False
+
+
+# ============================================================================
+# Lazy Loading Tests
+# ============================================================================
 
 
 def test_lazy_loading_credential_manager(temp_pdf_path):

@@ -49,17 +49,13 @@ class EncryptionCredentialStore:
         Returns:
             True if stored successfully
         """
-        try:
-            key = self._generate_key_for_file(pdf_path, is_owner)
-            success = self.credential_manager.store_password(key, password)
+        key = self._generate_key_for_file(pdf_path, is_owner)
+        success = self.credential_manager.store_password(key, password)
 
-            if success:
-                logger.debug(f"Stored encryption password for {pdf_path.name} (owner={is_owner})")
+        if success:
+            logger.debug(f"Stored encryption password for {pdf_path.name} (owner={is_owner})")
 
-            return success
-        except Exception as e:
-            logger.error(f"Failed to store password for {pdf_path.name}: {e}")
-            return False
+        return success
 
     def get_password_for_file(
         self,
@@ -85,7 +81,7 @@ class EncryptionCredentialStore:
 
             return password
         except Exception as e:
-            logger.error(f"Failed to get password for {pdf_path.name}: {e}")
+            logger.warning(f"Failed to get password for {pdf_path.name}: {e}")
             return None
 
     def delete_password_for_file(
@@ -112,7 +108,7 @@ class EncryptionCredentialStore:
 
             return success
         except Exception as e:
-            logger.error(f"Failed to delete password for {pdf_path.name}: {e}")
+            logger.warning(f"Failed to delete password for {pdf_path.name}: {e}")
             return False
 
     def get_any_password_for_file(self, pdf_path: Path) -> str | None:

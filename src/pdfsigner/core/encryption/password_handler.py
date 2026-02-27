@@ -95,7 +95,7 @@ class PasswordEncryptionHandler:
                 f"(strength={config.strength.value}, permissions={permissions})"
             )
 
-            # Log audit event
+            # Audit failure is critical but encryption must complete
             try:
                 log_encryption_event(
                     document_path=str(input_path),
@@ -108,7 +108,7 @@ class PasswordEncryptionHandler:
                     },
                 )
             except Exception as e:
-                logger.warning(f"Audit logging failed for encryption operation: {e}")
+                logger.critical(f"Audit logging failed for encryption operation: {e}")
 
             return EncryptionResult(
                 success=True,
@@ -133,7 +133,8 @@ class PasswordEncryptionHandler:
                     error=str(e),
                 )
             except Exception as audit_err:
-                logger.warning(f"Audit logging failed for encryption operation: {audit_err}")
+                # Audit failure is critical but encryption must complete
+                logger.critical(f"Audit logging failed for encryption operation: {audit_err}")
 
             logger.exception(f"Password encryption failed for {input_path}: {e}")
             raise PDFEncryptionError(str(e)) from e
@@ -187,7 +188,7 @@ class PasswordEncryptionHandler:
 
             logger.success(f"PDF decrypted successfully: {input_path.name} → {output_path.name}")
 
-            # Log audit event
+            # Audit failure is critical but decryption must complete
             try:
                 log_encryption_event(
                     document_path=str(input_path),
@@ -199,7 +200,7 @@ class PasswordEncryptionHandler:
                     },
                 )
             except Exception as e:
-                logger.warning(f"Audit logging failed for encryption operation: {e}")
+                logger.critical(f"Audit logging failed for decryption operation: {e}")
 
             return EncryptionResult(
                 success=True,
@@ -222,7 +223,8 @@ class PasswordEncryptionHandler:
                     error=str(e),
                 )
             except Exception as audit_err:
-                logger.warning(f"Audit logging failed for encryption operation: {audit_err}")
+                # Audit failure is critical but decryption must complete
+                logger.critical(f"Audit logging failed for decryption operation: {audit_err}")
 
             logger.exception(f"Decryption failed for {input_path}: {e}")
             raise PDFEncryptionError(str(e)) from e
